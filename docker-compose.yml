@@ -23,7 +23,7 @@ services:
     restart: unless-stopped
 
   minio:
-    image: minio/minio
+    image: pgsty/silo:RELEASE.2026-09-16T00-00-00Z
     ports:
       - "9000:9000"
       - "9001:9001"
@@ -34,7 +34,7 @@ services:
       - minio_data:/data
     command: server /data --console-address ":9001"
     healthcheck:
-      test: ["CMD", "mc", "ready", "local"]
+      test: ["CMD", "/usr/bin/silo", "healthcheck", "ready"]
       interval: 10s
       timeout: 5s
       retries: 5
