@@ -14,8 +14,19 @@ Sistema de atendimento domiciliar com backend Django e frontend React.
 git clone <url-do-repositorio>
 cd sistema-home-care
 
+# Crie o arquivo de ambiente (obrigatório — sem ele o `up` falha)
+# Windows: copy .env.docker.example .env.docker
+cp .env.docker.example .env.docker
+# Edite o SECRET_KEY com uma chave forte
+
 # Suba todos os serviços
 docker compose up -d
+
+# Rode as migrações (primeira vez)
+docker compose exec backend python manage.py migrate
+
+# Crie o bucket `home-care-media` no console MinIO (http://localhost:9001),
+# login minioadmin/minioadmin, antes de enviar arquivos pelo backend
 
 # Acesse
 # Frontend:  http://localhost:5173

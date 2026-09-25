@@ -1,0 +1,2 @@
+# Variáveis de ambiente com secrets (nunca committar)
+.env.docker
