@@ -7,6 +7,7 @@ sistema-home-care/
 ├── backend/                    # Django REST API
 │   ├── sistema_home_care/      # Django project root (manage.py here)
 │   │   ├── sistema_home_care/  # Settings, urls, wsgi
+│   │   ├── accounts/           # Auth: login CPF+senha, JWT em cookie HttpOnly, grupos/permissions
 │   │   └── db.sqlite3
 │   ├── Dockerfile
 │   ├── requirements.txt
@@ -62,8 +63,8 @@ docker compose logs -f frontend   # Watch frontend logs
 
 ## Tech Stack
 
-- **Backend**: Django 5.2, DRF 3.18, SQLite, django-cors-headers, python-dotenv, django-storages, boto3
-- **Frontend**: React 19, Vite 8, TypeScript 6, Tailwind CSS 4 (via @tailwindcss/vite + @tailwindcss/vite plugin), oxlint
+- **Backend**: Django 5.2, DRF 3.18, djangorestframework-simplejwt 5.5 (+token_blacklist), SQLite, django-cors-headers, python-dotenv, django-storages, boto3
+- **Frontend**: React 19, Vite 8, TypeScript 6, react-router-dom, Tailwind CSS 4 (via @tailwindcss/vite + @tailwindcss/vite plugin), oxlint
 - **Storage**: MinIO S3-compatible via `pgsty/silo` image (minio/minio foi removida do Docker Hub)
 
 ## Docker
@@ -100,6 +101,16 @@ MinIO credentials: `minioadmin` / `minioadmin`
 - Não antecipar regras de escala, agendamento, visita, atendimento, evolução, reavaliação — registrar como pendência.
 - Não criar uma task por campo; agrupar por modelagem/backend/regras/frontend/validação/autorização.
 - Entidades planejadas: `Patient`, `PatientAddress` (1:1), `HealthCondition` (cadastrável), `PatientAssessment` → `CareNeed` + recursos associados.
+
+## Auth (implementado)
+
+- Login com **CPF + senha** (`POST /api/auth/login/`); modelo customizado `accounts.User` com `USERNAME_FIELD="cpf"` (só dígitos, máscara aceita e normalizada); erro sempre genérico "CPF ou senha inválidos"
+- JWT SimpleJWT em **cookies HttpOnly** `access_token` (15min) + `refresh_token` (7d, rotacionado com blacklist); nenhum token no body ou `localStorage`
+- Endpoints: `/api/auth/refresh/`, `/api/auth/logout/`, `/api/auth/me/` — frontend usa `fetch` com `credentials: "include"` (`src/lib/api.ts`, com silent refresh)
+- Autorização por **Groups** `GERENTE`/`MEDICO`/`ENFERMEIRO` (criados por migration); helpers em `accounts/permissions.py` (`IsGerente`, `IsMedico`, `IsEnfermeiro`, `IsClinicalStaff`)
+- Auth global default: `CookieJWTAuthentication` + `IsAuthenticated` (endpoints públicos declaram `AllowAny`); fallback para header `Authorization` mantido p/ testes/admin
+- Criar usuário: `createsuperuser` pede CPF (só dígitos, `createsuperuser --cpf` ou prompt) + atribuir grupo no admin (`accounts.User` registrado com campo CPF); `AUTH_COOKIE_SECURE` via env (ligar em prod)
+- Frontend: `AuthProvider` hidrata via `/me` no boot, `RequireAuth` guarda rotas, `pages/Login.tsx` com máscara de CPF
 
 ## Key Details
 
