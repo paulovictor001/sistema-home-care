@@ -17,7 +17,11 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import include, path
 
+from accounts.views import MedicoListView
+
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/auth/', include('accounts.urls')),
+    path('api/medicos/', MedicoListView.as_view(), name='medicos-list'),
+    path('api/', include('patients.urls')),
 ]

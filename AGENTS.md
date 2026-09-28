@@ -112,6 +112,18 @@ MinIO credentials: `minioadmin` / `minioadmin`
 - Criar usuário: `createsuperuser` pede CPF (só dígitos, `createsuperuser --cpf` ou prompt) + atribuir grupo no admin (`accounts.User` registrado com campo CPF); `AUTH_COOKIE_SECURE` via env (ligar em prod)
 - Frontend: `AuthProvider` hidrata via `/me` no boot, `RequireAuth` guarda rotas, `pages/Login.tsx` com máscara de CPF
 
+## Patients (implementado: model + serializers + API)
+
+- App `patients`: `Patient` (`patients`, ordering por nome), `PatientAddress` (1:1, `CASCADE`), `HealthCondition` (mínima: só id+timestamps, RN-CAD-PAC-005 pendente)
+- CPF: só dígitos (`max_length=11`, `unique+db_index`), máscara aceita e normalizada no `clean()`/`save()` e no serializer antes do `UniqueValidator`; algoritmo oficial reusado de `accounts.validators`
+- `status`: choices ACTIVE/INACTIVE, default ACTIVE, **read-only** nos serializers (só via actions)
+- `responsible_doctor`: FK `accounts.User` `PROTECT` nullable; serializer exige grupo **MEDICO** e obrigatoriedade no create (TA-5/TASK-CAD-PAC-004)
+- `responsible_team`: **JSONField provisório** (`null/blank`, default `dict`, sem validação) até o módulo de profissionais definir a Equipe (TA-7/TASK-CAD-PAC-005, decisão intencional desta fase)
+- Endpoints (`api/pacientes/`, router DRF): `POST` cria (só gerente, endereço aninhado obrigatório); `GET` lista/detalhe (gerente+médico+enfermeiro); `PUT/PATCH` edita (clínica; só gerente toca médico/equipe, resto 403); `POST <id>/inativar/` e `<id>/reativar/` (só gerente, idempotentes, funcionam fora do filtro de ativos)
+- Listagem: default só ativos; `?nome=` (icontains), `?cpf=` (aceita máscara), `?status=ativo|inativo|todos`, `?regiao=` (via `address__region`); paginação fixa **20/página**; `status` inválido → 400
+- Create acumula todos os erros de obrigatórios (`responsible_doctor`, `health_condition`, `address`) numa resposta 400 única
+- Jira concluídos: TA-5, TA-7, TA-10, TA-12, TA-13, TA-14, TA-15, TA-16, TA-17, TA-18, TA-20, TA-34 (TASK-CAD-PAC-004/005/008–016/031); testes `patients` (35) verdes via `backend/venv`
+
 ## Key Details
 
 - Frontend dev server (port 5173) is whitelisted in CORS_ALLOWED_ORIGINS

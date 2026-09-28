@@ -66,3 +66,55 @@ class AuthCookieFlowTests(TestCase):
         self.assertEqual(logout.status_code, 200)
         me_after = self.client.get("/api/auth/me/")
         self.assertEqual(me_after.status_code, 401)
+
+
+class MedicoListTests(TestCase):
+    """GET /api/medicos/ — suporte ao select de medico responsavel."""
+
+    def _client_as(self, user):
+        client = APIClient()
+        client.force_authenticate(user)
+        return client
+
+    def test_gerente_lists_only_active_medicos_ordered(self):
+        medico_b, _ = make_cpf_user(
+            cpf="12345678909", password="Senha123!", group=GroupNames.MEDICO
+        )
+        medico_b.first_name = "Bruno"
+        medico_b.save()
+        medico_a, _ = make_cpf_user(
+            cpf="11144477735", password="Senha123!", group=GroupNames.MEDICO
+        )
+        medico_a.first_name = "Ana"
+        medico_a.save()
+        inativo, _ = make_cpf_user(
+            cpf="98765432100", password="Senha123!", group=GroupNames.MEDICO
+        )
+        inativo.is_active = False
+        inativo.save()
+        gerente, _ = make_cpf_user(
+            cpf="52998224725", password="Senha123!", group=GroupNames.GERENTE
+        )
+
+        response = self._client_as(gerente).get("/api/medicos/")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            [item["id"] for item in response.json()],
+            [medico_a.id, medico_b.id],
+        )
+        self.assertEqual(
+            set(response.json()[0].keys()),
+            {"id", "first_name", "last_name", "cpf"},
+        )
+
+    def test_non_manager_gets_403(self):
+        medico, _ = make_cpf_user(
+            cpf="11144477735", password="Senha123!", group=GroupNames.MEDICO
+        )
+        response = self._client_as(medico).get("/api/medicos/")
+        self.assertEqual(response.status_code, 403)
+
+    def test_anonymous_gets_401(self):
+        response = APIClient().get("/api/medicos/")
+        self.assertEqual(response.status_code, 401)
