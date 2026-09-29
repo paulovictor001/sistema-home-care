@@ -107,10 +107,19 @@ MinIO credentials: `minioadmin` / `minioadmin`
 - Login com **CPF + senha** (`POST /api/auth/login/`); modelo customizado `accounts.User` com `USERNAME_FIELD="cpf"` (só dígitos, máscara aceita e normalizada); erro sempre genérico "CPF ou senha inválidos"
 - JWT SimpleJWT em **cookies HttpOnly** `access_token` (15min) + `refresh_token` (7d, rotacionado com blacklist); nenhum token no body ou `localStorage`
 - Endpoints: `/api/auth/refresh/`, `/api/auth/logout/`, `/api/auth/me/` — frontend usa `fetch` com `credentials: "include"` (`src/lib/api.ts`, com silent refresh)
-- Autorização por **Groups** `GERENTE`/`MEDICO`/`ENFERMEIRO` (criados por migration); helpers em `accounts/permissions.py` (`IsGerente`, `IsMedico`, `IsEnfermeiro`, `IsClinicalStaff`)
+- Autorização por **Groups** `GERENTE`/`MEDICO`/`ENFERMEIRO` (criados por migration, mantidos como espelho legado) + **permissões granulares** por categoria (`GranularPermission`, checadas via `RequirePermission("<feature>.<action>")` em `accounts/permissions.py`); seed inicial equivale ao comportamento via Groups
 - Auth global default: `CookieJWTAuthentication` + `IsAuthenticated` (endpoints públicos declaram `AllowAny`); fallback para header `Authorization` mantido p/ testes/admin
-- Criar usuário: `createsuperuser` pede CPF (só dígitos, `createsuperuser --cpf` ou prompt) + atribuir grupo no admin (`accounts.User` registrado com campo CPF); `AUTH_COOKIE_SECURE` via env (ligar em prod)
-- Frontend: `AuthProvider` hidrata via `/me` no boot, `RequireAuth` guarda rotas, `pages/Login.tsx` com máscara de CPF
+- Criar usuário: `createsuperuser` pede CPF (só dígitos) + e-mail (`REQUIRED_FIELDS`), assume categoria/grupo GERENTE e cria stub de profissional; `AUTH_COOKIE_SECURE` via env (ligar em prod)
+- Frontend: `AuthProvider` hidrata via `/me` no boot (`SessionUser` com `category` + `permissions`), `RequireAuth` guarda rotas, `pages/Login.tsx` com máscara de CPF
+
+## Users (implementado: model + services + API + telas)
+
+- Apps `accounts` + `professionals` (stub): `Profession` (nome único; `save()` cria `Category` espelho sem permissões), `Category` (nome único + M2M `permissions`), `GranularPermission` (`feature`+`action`→`codename` único), `Professional` (`user` 1:1 nullable `CASCADE`, `full_name`, `profession` `PROTECT`, `is_active`), `User` (`email` único obrigatório, `category` FK `PROTECT` obrigatória), `UserAuditLog` (`user`/`actor` `SET_NULL` p/ sobreviver ao DELETE físico)
+- `accounts/services.py` (transacional): `create_managed_user` (profissional inline ou `professional_id` livre; categoria deve espelhar a profissão), `set_user_status` (sincroniza usuário↔profissional), `change_professional_profession` (atualiza categoria do usuário p/ a nova profissão), `transfer_profession_professionals`, `sync_legacy_groups` (espelha categoria nos Groups até endpoints clínicos migrarem)
+- Endpoints (`api/usuarios|/categorias|/profissoes|/permissoes/`, router em `accounts/urls_users.py`; `GET /api/profissionais-livres/`): CRUD usuário + `inativar/reativar` idempotentes + DELETE físico em cascata — tudo só gerente (`IsGerente` + granular); listagem default ativos, filtros `nome/cpf/status/categoria`, paginação 20; categorias: `PUT <id>/permissoes/`; profissões: inativar/excluir bloqueados com vinculados (400) + `POST <id>/transferir/`; profissional e categoria imutáveis no update (400); erros de obrigatórios acumulados numa 400 única
+- Recuperação de senha **adiada** (sem SMTP; `email` único já reservado p/ isso); campos específicos do profissional ficam p/ o módulo oficial
+- Testes `accounts/tests_users.py` (30) + `accounts`/`patients` atualizados (helpers com categoria/e-mail); total 80 verdes via `backend/venv`
+- Frontend (só gerente): `lib/users.ts`, `pages/UsersList|UserForm|UserDetail|Categories|Professions`, rotas `/usuarios/*`, `/categorias`, `/profissoes`, seção Administração no `AppLayout` (badge mostra categoria)
 
 ## Patients (implementado: model + serializers + API)
 

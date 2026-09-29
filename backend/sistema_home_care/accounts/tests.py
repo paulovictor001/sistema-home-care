@@ -3,13 +3,26 @@ from django.contrib.auth.models import Group
 from django.test import TestCase
 from rest_framework.test import APIClient
 
+from accounts.models import Category
 from accounts.permissions import GroupNames
 
 User = get_user_model()
 
+GROUP_TO_CATEGORY = {
+    GroupNames.GERENTE: "Gerente",
+    GroupNames.MEDICO: "Médico",
+    GroupNames.ENFERMEIRO: "Enfermeiro",
+}
+
 
 def make_cpf_user(cpf="52998224725", password="Senha123!", group=GroupNames.GERENTE):
-    user = User.objects.create_user(cpf=cpf, password=password)
+    category = Category.objects.get(name=GROUP_TO_CATEGORY[group])
+    user = User.objects.create_user(
+        cpf=cpf,
+        password=password,
+        email=f"user-{cpf}@teste.local",
+        category=category,
+    )
     user.groups.add(Group.objects.get(name=group))
     return user, password
 

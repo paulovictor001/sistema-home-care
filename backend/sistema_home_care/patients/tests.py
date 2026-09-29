@@ -35,6 +35,23 @@ CPF_B = "11144477735"
 CPF_C = "12345678909"
 
 
+def make_staff_user(cpf, group_name=None, email=None):
+    """Usuario com categoria coerente ao grupo (seed da 0004)."""
+    from accounts.models import Category
+
+    mapping = {"GERENTE": "Gerente", "MEDICO": "Médico", "ENFERMEIRO": "Enfermeiro"}
+    category_name = mapping.get(group_name, "Apoio")
+    user = User.objects.create_user(
+        cpf=cpf,
+        password="Senha123!",
+        email=email or f"user-{cpf}@teste.local",
+        category=Category.objects.get(name=category_name),
+    )
+    if group_name is not None:
+        user.groups.add(Group.objects.get(name=group_name))
+    return user
+
+
 def make_patient(cpf=CPF_A, **overrides):
     data = {
         "full_name": "Maria da Silva",
@@ -118,7 +135,7 @@ class PatientModelTests(TestCase):
             patient.full_clean()
 
     def test_associate_doctor_and_health_condition(self):
-        doctor = User.objects.create_user(cpf=CPF_C, password="Senha123!")
+        doctor = make_staff_user(CPF_C, "MEDICO")
         condition = HealthCondition.objects.create()
         patient = make_patient(
             cpf=CPF_B, responsible_doctor=doctor, health_condition=condition
@@ -181,20 +198,14 @@ PACIENTE_CPF = "11122233396"
 
 def make_api_users():
     """Cria um usuario por perfil e devolve dict perfil -> user."""
-    gerente, _ = Group.objects.get_or_create(name="GERENTE")
-    medico, _ = Group.objects.get_or_create(name="MEDICO")
-    enfermeiro, _ = Group.objects.get_or_create(name="ENFERMEIRO")
     users = {}
     for cpf, group in (
-        (GERENTE_CPF, gerente),
-        (MEDICO_CPF, medico),
-        (ENFERMEIRO_CPF, enfermeiro),
+        (GERENTE_CPF, "GERENTE"),
+        (MEDICO_CPF, "MEDICO"),
+        (ENFERMEIRO_CPF, "ENFERMEIRO"),
         (SEM_GRUPO_CPF, None),
     ):
-        user = User.objects.create_user(cpf=cpf, password="Senha123!")
-        if group is not None:
-            user.groups.add(group)
-        users[cpf] = user
+        users[cpf] = make_staff_user(cpf, group)
     return users
 
 
@@ -457,8 +468,7 @@ class PatientDetailUpdateAPITests(TestCase):
         self.assertEqual(response.status_code, 403)
 
     def test_gerente_can_change_doctor(self):
-        other = User.objects.create_user(cpf="39053344705", password="x")
-        other.groups.add(Group.objects.get(name="MEDICO"))
+        other = make_staff_user("39053344705", "MEDICO")
         client = make_api_client(self.users[GERENTE_CPF])
         response = client.patch(
             self.url, {"responsible_doctor": other.pk}, format="json"
@@ -548,8 +558,7 @@ class PatientAuditLogTests(TestCase):
 
     def test_doctor_change_logs_dedicated_action(self):
         patient = self._create_patient()
-        other = User.objects.create_user(cpf="39053344705", password="x")
-        other.groups.add(Group.objects.get(name="MEDICO"))
+        other = make_staff_user("39053344705", "MEDICO")
         response = self.gerente.patch(
             f"/api/pacientes/{patient.pk}/",
             {"responsible_doctor": other.pk},

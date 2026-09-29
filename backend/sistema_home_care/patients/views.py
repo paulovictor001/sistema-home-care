@@ -22,7 +22,12 @@ from rest_framework.exceptions import ValidationError as DRFValidationError
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 
-from accounts.permissions import IsEnfermeiro, IsGerente, IsMedico
+from accounts.permissions import (
+    IsEnfermeiro,
+    IsGerente,
+    IsMedico,
+    RequirePermission,
+)
 from accounts.validators import normalize_cpf
 
 from .models import Patient, PatientAuditAction, PatientStatus
@@ -54,11 +59,30 @@ class PatientViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action == "create":
-            permission_classes = [IsGerente]
-        elif self.action in ("inativar", "reativar"):
-            permission_classes = [IsGerente]
+            permission_classes = [
+                IsGerente,
+                RequirePermission("pacientes.create"),
+            ]
+        elif self.action == "inativar":
+            permission_classes = [
+                IsGerente,
+                RequirePermission("pacientes.inactivate"),
+            ]
+        elif self.action == "reativar":
+            permission_classes = [
+                IsGerente,
+                RequirePermission("pacientes.reactivate"),
+            ]
+        elif self.action in ("update", "partial_update"):
+            permission_classes = [
+                IsCareTeam,
+                RequirePermission("pacientes.update_clinical"),
+            ]
         else:
-            permission_classes = [IsCareTeam]
+            permission_classes = [
+                IsCareTeam,
+                RequirePermission("pacientes.view"),
+            ]
         return [permission() for permission in permission_classes]
 
     def filter_queryset(self, queryset):

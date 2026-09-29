@@ -7,7 +7,7 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .permissions import GroupNames, IsGerente
+from .permissions import GroupNames, IsGerente, RequirePermission
 from .serializers import LoginSerializer
 
 
@@ -48,6 +48,15 @@ def _clear_auth_cookies(response: Response) -> None:
 
 
 def _user_payload(user) -> dict:
+    category = getattr(user, "category", None)
+    if category is not None:
+        permissions = list(
+            category.permissions.values_list("codename", flat=True)
+        )
+        category_payload = {"id": category.pk, "name": category.name}
+    else:
+        permissions = []
+        category_payload = None
     return {
         "id": user.id,
         "cpf": user.cpf,
@@ -55,6 +64,8 @@ def _user_payload(user) -> dict:
         "first_name": user.first_name,
         "last_name": user.last_name,
         "groups": list(user.groups.values_list("name", flat=True)),
+        "category": category_payload,
+        "permissions": permissions,
     }
 
 
@@ -145,7 +156,7 @@ class MedicoListView(APIView):
     proprio.
     """
 
-    permission_classes = [IsGerente]
+    permission_classes = [IsGerente, RequirePermission("medicos.view")]
 
     def get(self, request):
         medicos = (

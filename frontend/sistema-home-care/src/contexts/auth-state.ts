@@ -1,5 +1,10 @@
 import { createContext } from "react";
 
+export interface SessionUserCategory {
+  id: number;
+  name: string;
+}
+
 export interface SessionUser {
   id: number;
   cpf: string;
@@ -7,6 +12,8 @@ export interface SessionUser {
   first_name: string;
   last_name: string;
   groups: string[];
+  category: SessionUserCategory | null;
+  permissions: string[];
 }
 
 export interface AuthContextValue {

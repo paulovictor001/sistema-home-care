@@ -1,0 +1,100 @@
+# Tasks — Processo de Necessidades Identificadas
+
+## 1. Modelagem de dados
+- [ ] Criar entidade/tabela de tipos de necessidade.
+- [ ] Definir campos do tipo: `id`, `name`, `description`, `status`, `created_at`, `updated_at`.
+- [ ] Criar entidade/tabela de necessidades.
+- [ ] Definir vínculo com avaliação (`assessment_id`).
+- [ ] Definir vínculo com tipo (`need_type_id`).
+- [ ] Definir `description`, `priority`, `status`, `created_at`, `updated_at`.
+- [ ] Garantir relação de uma avaliação para múltiplas necessidades.
+- [ ] Definir prioridades: Baixa, Média, Alta e Urgente.
+- [ ] Definir status inicial `Identificada`.
+
+## 2. Tipos de necessidade
+- [ ] Cadastrar Enfermagem.
+- [ ] Cadastrar Fisioterapia.
+- [ ] Cadastrar Médico.
+- [ ] Cadastrar Nutrição.
+- [ ] Cadastrar Terapia Ocupacional.
+- [ ] Cadastrar Fonoaudiologia.
+- [ ] Cadastrar Psicologia.
+- [ ] Cadastrar Outro.
+- [ ] Implementar criação e edição de tipos.
+- [ ] Implementar ativação e inativação de tipos.
+- [ ] Impedir seleção de tipos inativos em novas necessidades.
+- [ ] Preservar vínculos históricos com tipos inativados.
+- [ ] Restringir administração de tipos a Gerente, Médico e Enfermeiro.
+
+## 3. Backend — Necessidades
+- [ ] Implementar criação vinculada a avaliação.
+- [ ] Validar avaliação existente.
+- [ ] Validar tipo obrigatório e ativo.
+- [ ] Validar descrição obrigatória.
+- [ ] Validar prioridade obrigatória e válida.
+- [ ] Definir automaticamente status `Identificada`.
+- [ ] Implementar consulta.
+- [ ] Implementar edição.
+- [ ] Implementar exclusão.
+- [ ] Implementar inativação.
+- [ ] Preservar histórico na inativação.
+- [ ] Implementar autorização por perfil.
+
+## 4. Frontend — Necessidades
+- [ ] Criar seção de necessidades associada à avaliação.
+- [ ] Exibir necessidades existentes.
+- [ ] Criar formulário com Tipo, Descrição, Prioridade e Status.
+- [ ] Disponibilizar somente tipos ativos para novos cadastros.
+- [ ] Disponibilizar prioridades definidas.
+- [ ] Exibir status inicial `Identificada`.
+- [ ] Implementar edição conforme perfil.
+- [ ] Implementar exclusão conforme perfil.
+- [ ] Implementar inativação conforme perfil.
+- [ ] Exibir informações históricas necessárias.
+
+## 5. Administração dos tipos
+- [ ] Criar tela/área de manutenção dos tipos.
+- [ ] Permitir criação e edição.
+- [ ] Permitir ativação e inativação.
+- [ ] Indicar estado ativo/inativo.
+- [ ] Restringir a Gerente, Médico e Enfermeiro.
+
+## 6. Autorização
+- [ ] Autorizar Médico e Enfermeiro a criar.
+- [ ] Autorizar Médico e Enfermeiro a visualizar.
+- [ ] Autorizar Médico e Enfermeiro a editar.
+- [ ] Autorizar Médico e Enfermeiro a excluir.
+- [ ] Autorizar Gerente, Médico e Enfermeiro a inativar.
+- [ ] Autorizar Gerente, Médico e Enfermeiro a administrar tipos.
+- [ ] Não assumir permissões não definidas.
+
+## 7. Testes
+- [ ] Testar criação vinculada a avaliação.
+- [ ] Testar múltiplas necessidades na mesma avaliação.
+- [ ] Testar campos obrigatórios.
+- [ ] Testar prioridades válidas.
+- [ ] Testar status inicial `Identificada`.
+- [ ] Testar edição.
+- [ ] Testar exclusão.
+- [ ] Testar inativação e preservação do histórico.
+- [ ] Testar CRUD dos tipos.
+- [ ] Testar ativação/inativação de tipos.
+- [ ] Testar que tipo inativo não aparece em novos cadastros.
+- [ ] Testar preservação de vínculos históricos.
+- [ ] Testar permissões por perfil.
+
+## 8. Fora do escopo
+Não implementar neste processo:
+- [ ] Novos status além de `Identificada`.
+- [ ] Transições de status.
+- [ ] Regras do Plano de Cuidados.
+- [ ] Frequência de atendimento.
+- [ ] Escala.
+- [ ] Agendamento.
+- [ ] Visita.
+- [ ] Atendimento.
+- [ ] Evolução.
+- [ ] Regras de estoque, farmácia ou logística da execução do cuidado.
+
+## 9. Organização
+As tasks devem permanecer agrupadas por funcionalidade/processo, evitando uma task isolada para cada campo. A implementação deve seguir modelagem, backend/regras, frontend, autorização e testes.

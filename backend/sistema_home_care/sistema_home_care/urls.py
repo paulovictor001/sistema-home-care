@@ -23,5 +23,6 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/auth/', include('accounts.urls')),
     path('api/medicos/', MedicoListView.as_view(), name='medicos-list'),
+    path('api/', include('accounts.urls_users')),
     path('api/', include('patients.urls')),
 ]
