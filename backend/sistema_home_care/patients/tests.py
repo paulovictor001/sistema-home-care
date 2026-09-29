@@ -12,12 +12,15 @@ TASK-CAD-PAC-033 a 036.
 
 from datetime import date
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError
 from django.test import TestCase
 from rest_framework.test import APIClient
+
+from accounts.models import GranularPermission
 
 from .models import (
     HealthCondition,
@@ -254,8 +257,24 @@ class PatientCreateAPITests(TestCase):
         overrides.setdefault("condition_pk", self.condition.pk)
         return make_payload(**overrides)
 
+    def _login_client(self, cpf):
+        client = make_api_client()
+        response = client.post(
+            "/api/auth/login/",
+            {"cpf": cpf, "password": "Senha123!"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.cookies[settings.AUTH_COOKIE_ACCESS]["httponly"])
+        return client
+
+    def _assert_no_patient_created(self):
+        self.assertFalse(Patient.objects.exists())
+        self.assertFalse(PatientAddress.objects.exists())
+        self.assertFalse(PatientAuditLog.objects.exists())
+
     def test_gerente_creates_patient_with_nested_address(self):
-        client = make_api_client(self.users[GERENTE_CPF])
+        client = self._login_client(GERENTE_CPF)
         response = client.post(
             "/api/pacientes/", self._payload(), format="json"
         )
@@ -269,17 +288,51 @@ class PatientCreateAPITests(TestCase):
 
     def test_non_gerente_cannot_create(self):
         for cpf in (MEDICO_CPF, ENFERMEIRO_CPF, SEM_GRUPO_CPF):
-            client = make_api_client(self.users[cpf])
-            response = client.post(
-                "/api/pacientes/", self._payload(), format="json"
-            )
-            self.assertEqual(response.status_code, 403, f"perfil {cpf}")
+            with self.subTest(cpf=cpf):
+                client = self._login_client(cpf)
+                response = client.post(
+                    "/api/pacientes/", self._payload(), format="json"
+                )
+                self.assertEqual(response.status_code, 403)
+                self._assert_no_patient_created()
 
     def test_unauthenticated_cannot_create(self):
         response = make_api_client().post(
             "/api/pacientes/", self._payload(), format="json"
         )
-        self.assertIn(response.status_code, (401, 403))
+        self.assertEqual(response.status_code, 401)
+        self._assert_no_patient_created()
+
+    def test_invalid_jwt_cookie_cannot_create(self):
+        client = make_api_client()
+        client.cookies[settings.AUTH_COOKIE_ACCESS] = "invalid-token"
+        response = client.post(
+            "/api/pacientes/", self._payload(), format="json"
+        )
+        self.assertEqual(response.status_code, 401)
+        self._assert_no_patient_created()
+
+    def test_gerente_without_create_permission_cannot_create(self):
+        client = self._login_client(GERENTE_CPF)
+        permission = GranularPermission.objects.get(codename="pacientes.create")
+        self.users[GERENTE_CPF].category.permissions.remove(permission)
+        response = client.post(
+            "/api/pacientes/", self._payload(), format="json"
+        )
+        self.assertEqual(response.status_code, 403)
+        self._assert_no_patient_created()
+
+    def test_create_permission_does_not_replace_gerente_profile(self):
+        permission = GranularPermission.objects.get(codename="pacientes.create")
+        for cpf in (MEDICO_CPF, ENFERMEIRO_CPF, SEM_GRUPO_CPF):
+            with self.subTest(cpf=cpf):
+                self.users[cpf].category.permissions.add(permission)
+                client = self._login_client(cpf)
+                response = client.post(
+                    "/api/pacientes/", self._payload(), format="json"
+                )
+                self.assertEqual(response.status_code, 403)
+                self._assert_no_patient_created()
 
     def test_create_requires_doctor_health_condition_and_address(self):
         client = make_api_client(self.users[GERENTE_CPF])
