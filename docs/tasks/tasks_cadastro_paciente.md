@@ -262,6 +262,28 @@ Implementar paginação com tamanho padrão de:
 
 Permitir cadastro somente para usuários com perfil de gerente.
 
+### Implementação — TA-19
+
+O `POST /api/pacientes/` é protegido no backend por
+`PatientViewSet.get_permissions()`, com `IsGerente` e
+`RequirePermission("pacientes.create")`. Os dois controles existentes são
+obrigatórios: o grupo `GERENTE` representa o perfil legado, sincronizado
+pelos serviços de usuários com a categoria; a permissão granular é
+consultada na categoria. A exceção existente de superusuário na checagem
+granular permanece, sem dispensar o grupo `GERENTE`.
+
+A autenticação permanece em `CookieJWTAuthentication`, com validação do
+JWT pelo SimpleJWT e cookies HttpOnly. Sem autenticação ou com JWT inválido,
+a API retorna `401`; usuário autenticado sem perfil de gerente ou gerente
+comum sem `pacientes.create` recebe `403`; gerente autorizado com dados
+válidos recebe `201`.
+
+Cobertura em `patients/tests.py`, na classe `PatientCreateAPITests`,
+reutilizando os helpers existentes e o login real com cookies. Os testes
+também verificam que recusas não criam paciente, endereço ou auditoria e
+que conceder `pacientes.create` a outro perfil não permite cadastrar.
+Regressão: `python manage.py test patients accounts --noinput`.
+
 ------------------------------------------------------------------------
 
 ## TASK-CAD-PAC-018 --- Implementar autorização de visualização
