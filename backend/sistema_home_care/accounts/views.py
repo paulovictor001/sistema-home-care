@@ -1,4 +1,5 @@
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
@@ -6,6 +7,7 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from .permissions import GroupNames, IsGerente, RequirePermission
 from .serializers import LoginSerializer
 
 
@@ -46,6 +48,15 @@ def _clear_auth_cookies(response: Response) -> None:
 
 
 def _user_payload(user) -> dict:
+    category = getattr(user, "category", None)
+    if category is not None:
+        permissions = list(
+            category.permissions.values_list("codename", flat=True)
+        )
+        category_payload = {"id": category.pk, "name": category.name}
+    else:
+        permissions = []
+        category_payload = None
     return {
         "id": user.id,
         "cpf": user.cpf,
@@ -53,6 +64,8 @@ def _user_payload(user) -> dict:
         "first_name": user.first_name,
         "last_name": user.last_name,
         "groups": list(user.groups.values_list("name", flat=True)),
+        "category": category_payload,
+        "permissions": permissions,
     }
 
 
@@ -132,3 +145,26 @@ class MeView(APIView):
 
     def get(self, request):
         return Response({"user": _user_payload(request.user)})
+
+
+class MedicoListView(APIView):
+    """Lista usuarios ativos do grupo MEDICO (somente gerente).
+
+    Suporte ao formulario de cadastro/edicao do paciente (select de
+    medico responsavel). Escopo minimo intencional: sem paginacao nem
+    busca; endpoint generico de profissionais fica para o modulo
+    proprio.
+    """
+
+    permission_classes = [IsGerente, RequirePermission("medicos.view")]
+
+    def get(self, request):
+        medicos = (
+            get_user_model()
+            .objects.filter(
+                groups__name=GroupNames.MEDICO, is_active=True
+            )
+            .order_by("first_name", "last_name", "cpf")
+            .values("id", "first_name", "last_name", "cpf")
+        )
+        return Response(list(medicos))
