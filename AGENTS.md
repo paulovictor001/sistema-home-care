@@ -122,7 +122,8 @@ MinIO credentials: `minioadmin` / `minioadmin`
 - Endpoints (`api/pacientes/`, router DRF): `POST` cria (só gerente, endereço aninhado obrigatório); `GET` lista/detalhe (gerente+médico+enfermeiro); `PUT/PATCH` edita (clínica; só gerente toca médico/equipe, resto 403); `POST <id>/inativar/` e `<id>/reativar/` (só gerente, idempotentes, funcionam fora do filtro de ativos)
 - Listagem: default só ativos; `?nome=` (icontains), `?cpf=` (aceita máscara), `?status=ativo|inativo|todos`, `?regiao=` (via `address__region`); paginação fixa **20/página**; `status` inválido → 400
 - Create acumula todos os erros de obrigatórios (`responsible_doctor`, `health_condition`, `address`) numa resposta 400 única
-- Jira concluídos: TA-5, TA-7, TA-10, TA-12, TA-13, TA-14, TA-15, TA-16, TA-17, TA-18, TA-20, TA-34 (TASK-CAD-PAC-004/005/008–016/031); testes `patients` (35) verdes via `backend/venv`
+- Jira concluídos: TA-5, TA-7, TA-10, TA-12, TA-13, TA-14, TA-15, TA-16, TA-17, TA-18, TA-20, TA-21, TA-22, TA-23, TA-24, TA-26, TA-34, TA-35, TA-36, TA-37, TA-38, TA-39 (TASK-CAD-PAC-004/005/008–022/031–036); testes `patients`+`accounts` (50) verdes via `backend/venv`
+- Auditoria mínima (TA-37/TASK-CAD-PAC-032): `PatientAuditLog` (patient, actor, action CREATE/UPDATE/INACTIVATE/REACTIVATE/DOCTOR_TEAM_CHANGE, changes JSON) via `patients/audit.py` chamado nas views; admin read-only; auditoria completa (retenção, formato, UI) pendente
 
 ## Key Details
 
