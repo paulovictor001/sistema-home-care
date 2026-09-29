@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import HealthCondition, Patient, PatientAddress
+from .models import HealthCondition, Patient, PatientAddress, PatientAuditLog
 
 
 @admin.register(Patient)
@@ -20,3 +20,21 @@ class PatientAddressAdmin(admin.ModelAdmin):
 @admin.register(HealthCondition)
 class HealthConditionAdmin(admin.ModelAdmin):
     list_display = ("id", "created_at", "updated_at")
+
+
+@admin.register(PatientAuditLog)
+class PatientAuditLogAdmin(admin.ModelAdmin):
+    """Trilha minima de auditoria (TA-37): somente leitura no admin."""
+
+    list_display = ("patient", "action", "actor", "created_at")
+    list_filter = ("action",)
+    search_fields = ("patient__full_name", "patient__cpf")
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False

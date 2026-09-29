@@ -25,8 +25,9 @@ from rest_framework.response import Response
 from accounts.permissions import IsEnfermeiro, IsGerente, IsMedico
 from accounts.validators import normalize_cpf
 
-from .models import Patient, PatientStatus
+from .models import Patient, PatientAuditAction, PatientStatus
 from .serializers import PatientSerializer
+from .audit import log_patient_event
 
 # Gerente + equipe clinica (leitura e edicao clinica).
 IsCareTeam = IsGerente | IsMedico | IsEnfermeiro
@@ -94,23 +95,62 @@ class PatientViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         try:
-            serializer.save()
+            patient = serializer.save()
         except DjangoValidationError as exc:
             raise DRFValidationError(exc.message_dict)
+        log_patient_event(
+            patient=patient,
+            actor=self.request.user,
+            action=PatientAuditAction.CREATE,
+            changes={"id": patient.pk},
+        )
 
     def perform_update(self, serializer):
+        before = self.get_object()
+        before_doctor = before.responsible_doctor_id
+        before_team = before.responsible_team
         try:
-            serializer.save()
+            patient = serializer.save()
         except DjangoValidationError as exc:
             raise DRFValidationError(exc.message_dict)
+        if (
+            patient.responsible_doctor_id != before_doctor
+            or patient.responsible_team != before_team
+        ):
+            action = PatientAuditAction.DOCTOR_TEAM_CHANGE
+            changes = {
+                "responsible_doctor": [before_doctor, patient.responsible_doctor_id],
+                "responsible_team": [before_team, patient.responsible_team],
+            }
+        else:
+            action = PatientAuditAction.UPDATE
+            changes = {"id": patient.pk}
+        log_patient_event(
+            patient=patient,
+            actor=self.request.user,
+            action=action,
+            changes=changes,
+        )
 
     def _set_status(self, request, pk, new_status: str):
         # Busca fora do filtro default de ativos: inativar um inativo e
         # reativar um inativo precisam encontrar o objeto (idempotentes).
         patient = get_object_or_404(self.get_queryset(), pk=pk)
         self.check_object_permissions(request, patient)
+        old_status = patient.status
         patient.status = new_status
         patient.save(update_fields=["status", "updated_at"])
+        action = (
+            PatientAuditAction.INACTIVATE
+            if new_status == PatientStatus.INACTIVE
+            else PatientAuditAction.REACTIVATE
+        )
+        log_patient_event(
+            patient=patient,
+            actor=request.user,
+            action=action,
+            changes={"status": [old_status, new_status]},
+        )
         serializer = self.get_serializer(patient)
         return Response(serializer.data, status=status.HTTP_200_OK)
 

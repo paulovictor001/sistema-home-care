@@ -19,7 +19,14 @@ from django.db import IntegrityError
 from django.test import TestCase
 from rest_framework.test import APIClient
 
-from .models import HealthCondition, Patient, PatientAddress, PatientStatus
+from .models import (
+    HealthCondition,
+    Patient,
+    PatientAddress,
+    PatientAuditAction,
+    PatientAuditLog,
+    PatientStatus,
+)
 
 User = get_user_model()
 
@@ -398,6 +405,13 @@ class PatientDetailUpdateAPITests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("address", response.data)
 
+    def test_care_team_can_list_and_view_detail(self):
+        # TA-21: gerente/medico/enfermeiro visualizam; sem grupo 403.
+        for cpf in (GERENTE_CPF, MEDICO_CPF, ENFERMEIRO_CPF):
+            client = make_api_client(self.users[cpf])
+            self.assertEqual(client.get("/api/pacientes/").status_code, 200)
+            self.assertEqual(client.get(self.url).status_code, 200)
+
     def test_medico_can_edit_clinical_fields(self):
         client = make_api_client(self.users[MEDICO_CPF])
         response = client.patch(
@@ -408,6 +422,29 @@ class PatientDetailUpdateAPITests(TestCase):
 
     def test_medico_cannot_change_doctor_or_team(self):
         client = make_api_client(self.users[MEDICO_CPF])
+        response = client.patch(
+            self.url,
+            {"responsible_doctor": self.users[MEDICO_CPF].pk},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 403)
+        response = client.patch(
+            self.url, {"responsible_team": {"nome": "Outra"}}, format="json"
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_enfermeiro_can_edit_clinical_fields(self):
+        # TA-22: enfermeiro edita campo clinico.
+        client = make_api_client(self.users[ENFERMEIRO_CPF])
+        response = client.patch(
+            self.url, {"phone": "92999997777"}, format="json"
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["phone"], "92999997777")
+
+    def test_enfermeiro_cannot_change_doctor_or_team(self):
+        # TA-23: enfermeiro tambem recebe 403 em medico/equipe.
+        client = make_api_client(self.users[ENFERMEIRO_CPF])
         response = client.patch(
             self.url,
             {"responsible_doctor": self.users[MEDICO_CPF].pk},
@@ -473,4 +510,82 @@ class PatientStatusActionsAPITests(TestCase):
         )
         self.assertEqual(
             client.post("/api/pacientes/99999/reativar/").status_code, 404
+        )
+
+
+class PatientAuditLogTests(TestCase):
+    """TA-37: log minimo de auditoria (quem/quando/o que mudou)."""
+
+    def setUp(self):
+        self.users = make_api_users()
+        self.condition = HealthCondition.objects.create()
+        self.gerente = make_api_client(self.users[GERENTE_CPF])
+
+    def _create_patient(self):
+        payload = make_payload(
+            doctor_pk=self.users[MEDICO_CPF].pk, condition_pk=self.condition.pk
+        )
+        response = self.gerente.post("/api/pacientes/", payload, format="json")
+        self.assertEqual(response.status_code, 201)
+        return Patient.objects.get(pk=response.data["id"])
+
+    def test_create_logs_actor_and_action(self):
+        patient = self._create_patient()
+        log = PatientAuditLog.objects.get(patient=patient)
+        self.assertEqual(log.action, PatientAuditAction.CREATE)
+        self.assertEqual(log.actor_id, self.users[GERENTE_CPF].pk)
+
+    def test_clinical_update_logs_update(self):
+        patient = self._create_patient()
+        client = make_api_client(self.users[MEDICO_CPF])
+        response = client.patch(
+            f"/api/pacientes/{patient.pk}/", {"phone": "92999998888"}, format="json"
+        )
+        self.assertEqual(response.status_code, 200)
+        log = PatientAuditLog.objects.filter(patient=patient).latest("created_at")
+        self.assertEqual(log.action, PatientAuditAction.UPDATE)
+        self.assertEqual(log.actor.cpf, MEDICO_CPF)
+
+    def test_doctor_change_logs_dedicated_action(self):
+        patient = self._create_patient()
+        other = User.objects.create_user(cpf="39053344705", password="x")
+        other.groups.add(Group.objects.get(name="MEDICO"))
+        response = self.gerente.patch(
+            f"/api/pacientes/{patient.pk}/",
+            {"responsible_doctor": other.pk},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 200)
+        log = PatientAuditLog.objects.filter(patient=patient).latest("created_at")
+        self.assertEqual(log.action, PatientAuditAction.DOCTOR_TEAM_CHANGE)
+        self.assertEqual(log.changes["responsible_doctor"][1], other.pk)
+
+    def test_inactivate_and_reactivate_log_status_change(self):
+        patient = self._create_patient()
+        self.assertEqual(
+            self.gerente.post(f"/api/pacientes/{patient.pk}/inativar/").status_code,
+            200,
+        )
+        log = PatientAuditLog.objects.filter(patient=patient).latest("created_at")
+        self.assertEqual(log.action, PatientAuditAction.INACTIVATE)
+        self.assertEqual(log.changes["status"], ["ACTIVE", "INACTIVE"])
+        self.assertEqual(
+            self.gerente.post(f"/api/pacientes/{patient.pk}/reativar/").status_code,
+            200,
+        )
+        log = PatientAuditLog.objects.filter(patient=patient).latest("created_at")
+        self.assertEqual(log.action, PatientAuditAction.REACTIVATE)
+
+    def test_denied_request_does_not_log(self):
+        patient = self._create_patient()
+        count = PatientAuditLog.objects.filter(patient=patient).count()
+        client = make_api_client(self.users[MEDICO_CPF])
+        response = client.patch(
+            f"/api/pacientes/{patient.pk}/",
+            {"responsible_doctor": self.users[MEDICO_CPF].pk},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(
+            PatientAuditLog.objects.filter(patient=patient).count(), count
         )

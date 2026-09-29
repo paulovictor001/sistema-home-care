@@ -29,6 +29,48 @@ class PatientStatus(models.TextChoices):
     INACTIVE = "INACTIVE", "Inativo"
 
 
+class PatientAuditAction(models.TextChoices):
+    """Acoes auditadas do cadastro (TA-37, log minimo).
+
+    Auditoria completa (retencao, formato, UI) permanece pendente; este
+    log registra apenas quem/quando/o que mudou nas operacoes relevantes:
+    criacao, edicao, inativacao/reativacao e troca de medico/equipe.
+    """
+
+    CREATE = "CREATE", "Criação"
+    UPDATE = "UPDATE", "Edição"
+    INACTIVATE = "INACTIVATE", "Inativação"
+    REACTIVATE = "REACTIVATE", "Reativação"
+    DOCTOR_TEAM_CHANGE = "DOCTOR_TEAM_CHANGE", "Troca de médico/equipe"
+
+
+class PatientAuditLog(models.Model):
+    """Trilha minima de auditoria do paciente (TA-37)."""
+
+    patient = models.ForeignKey(
+        "patients.Patient",
+        on_delete=models.CASCADE,
+        related_name="audit_logs",
+    )
+    actor = models.ForeignKey(
+        "accounts.User",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="patient_audit_logs",
+    )
+    action = models.CharField(max_length=20, choices=PatientAuditAction.choices)
+    changes = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "patient_audit_logs"
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"PatientAuditLog #{self.pk} {self.action}"
+
+
 class HealthCondition(models.Model):
     """Doenca/estado de saude (entidade cadastravel).
 
