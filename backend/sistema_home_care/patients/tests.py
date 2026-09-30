@@ -24,6 +24,9 @@ from accounts.models import GranularPermission
 
 from .models import (
     HealthCondition,
+    INITIAL_NEED_TYPES,
+    NeedType,
+    NeedTypeStatus,
     Patient,
     PatientAddress,
     PatientAuditAction,
@@ -335,7 +338,7 @@ class PatientCreateAPITests(TestCase):
                 self._assert_no_patient_created()
 
     def test_create_requires_doctor_health_condition_and_address(self):
-        client = make_api_client(self.users[GERENTE_CPF])
+        client = self._login_client(GERENTE_CPF)
         payload = make_payload(condition_pk=self.condition.pk)  # sem medico
         response = client.post("/api/pacientes/", payload, format="json")
         self.assertEqual(response.status_code, 400)
@@ -351,14 +354,14 @@ class PatientCreateAPITests(TestCase):
         self.assertIn("address", response.data)
 
     def test_create_rejects_non_medico_doctor(self):
-        client = make_api_client(self.users[GERENTE_CPF])
+        client = self._login_client(GERENTE_CPF)
         payload = self._payload(doctor_pk=self.users[ENFERMEIRO_CPF].pk)
         response = client.post("/api/pacientes/", payload, format="json")
         self.assertEqual(response.status_code, 400)
         self.assertIn("responsible_doctor", response.data)
 
     def test_create_rejects_duplicate_cpf_even_masked(self):
-        client = make_api_client(self.users[GERENTE_CPF])
+        client = self._login_client(GERENTE_CPF)
         response = client.post(
             "/api/pacientes/", self._payload(), format="json"
         )
@@ -369,7 +372,7 @@ class PatientCreateAPITests(TestCase):
         self.assertIn("cpf", response.data)
 
     def test_create_rejects_invalid_cpf(self):
-        client = make_api_client(self.users[GERENTE_CPF])
+        client = self._login_client(GERENTE_CPF)
         payload = self._payload(cpf="12345678900")
         response = client.post("/api/pacientes/", payload, format="json")
         self.assertEqual(response.status_code, 400)
@@ -651,3 +654,62 @@ class PatientAuditLogTests(TestCase):
         self.assertEqual(
             PatientAuditLog.objects.filter(patient=patient).count(), count
         )
+
+
+class NeedTypeModelTests(TestCase):
+    """TA-73 / RF-NEC-004/013-015: tipos de necessidade."""
+
+    def test_defaults_active(self):
+        need_type = NeedType.objects.create(name="Tipo Teste Default")
+        self.assertEqual(need_type.status, NeedTypeStatus.ACTIVE)
+        self.assertIsNotNone(need_type.created_at)
+
+    def test_name_is_stripped_and_unique(self):
+        need_type = NeedType.objects.create(name="  Tipo Teste Único  ")
+        self.assertEqual(need_type.name, "Tipo Teste Único")
+        with self.assertRaises(IntegrityError):
+            NeedType.objects.create(name="Tipo Teste Único")
+
+    def test_name_blank_is_rejected(self):
+        need_type = NeedType(name="   ")
+        with self.assertRaises(ValidationError):
+            need_type.full_clean()
+
+    def test_invalid_status_is_rejected(self):
+        need_type = NeedType(name="Tipo Teste Status", status="INVALIDO")
+        with self.assertRaises(ValidationError):
+            need_type.full_clean()
+
+    def test_inactivate_preserves_record(self):
+        need_type = NeedType.objects.create(name="Tipo Teste Inativação")
+        need_type.status = NeedTypeStatus.INACTIVE
+        need_type.full_clean()
+        need_type.save()
+        need_type.refresh_from_db()
+        self.assertEqual(need_type.status, NeedTypeStatus.INACTIVE)
+        # Registro preservado (não deletado) para vínculos históricos.
+        self.assertTrue(NeedType.objects.filter(pk=need_type.pk).exists())
+
+    def test_seed_initial_types(self):
+        self.assertEqual(
+            INITIAL_NEED_TYPES,
+            [
+                "Enfermagem",
+                "Fisioterapia",
+                "Médico",
+                "Nutrição",
+                "Terapia Ocupacional",
+                "Fonoaudiologia",
+                "Psicologia",
+                "Outro",
+            ],
+        )
+
+    def test_migration_seeds_initial_types(self):
+        # A migration 0005 popula os 8 tipos iniciais via RunPython.
+        seeded = set(
+            NeedType.objects.filter(name__in=INITIAL_NEED_TYPES).values_list(
+                "name", flat=True
+            )
+        )
+        self.assertEqual(seeded, set(INITIAL_NEED_TYPES))
