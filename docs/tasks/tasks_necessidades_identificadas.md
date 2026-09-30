@@ -1,8 +1,8 @@
 # Tasks — Processo de Necessidades Identificadas
 
 ## 1. Modelagem de dados
-- [ ] Criar entidade/tabela de tipos de necessidade.
-- [ ] Definir campos do tipo: `id`, `name`, `description`, `status`, `created_at`, `updated_at`.
+- [x] Criar entidade/tabela de tipos de necessidade.
+- [x] Definir campos do tipo: `id`, `name`, `description`, `status`, `created_at`, `updated_at`.
 - [ ] Criar entidade/tabela de necessidades.
 - [ ] Definir vínculo com avaliação (`assessment_id`).
 - [ ] Definir vínculo com tipo (`need_type_id`).
@@ -12,19 +12,27 @@
 - [ ] Definir status inicial `Identificada`.
 
 ## 2. Tipos de necessidade
-- [ ] Cadastrar Enfermagem.
-- [ ] Cadastrar Fisioterapia.
-- [ ] Cadastrar Médico.
-- [ ] Cadastrar Nutrição.
-- [ ] Cadastrar Terapia Ocupacional.
-- [ ] Cadastrar Fonoaudiologia.
-- [ ] Cadastrar Psicologia.
-- [ ] Cadastrar Outro.
+- [x] Cadastrar Enfermagem.
+- [x] Cadastrar Fisioterapia.
+- [x] Cadastrar Médico.
+- [x] Cadastrar Nutrição.
+- [x] Cadastrar Terapia Ocupacional.
+- [x] Cadastrar Fonoaudiologia.
+- [x] Cadastrar Psicologia.
+- [x] Cadastrar Outro.
 - [ ] Implementar criação e edição de tipos.
-- [ ] Implementar ativação e inativação de tipos.
+- [x] Implementar ativação e inativação de tipos.
 - [ ] Impedir seleção de tipos inativos em novas necessidades.
-- [ ] Preservar vínculos históricos com tipos inativados.
+- [ ] Preservar vínculos históricos com tipos inativados (model preserva o registro; FK `PROTECT` virá com `CareNeed`).
 - [ ] Restringir administração de tipos a Gerente, Médico e Enfermeiro.
+
+> Implementação — TA-73 (model): `patients.NeedType` (`need_types`,
+> ordering por nome) com `NeedTypeStatus` ACTIVE/INACTIVE (default ACTIVE),
+> `name` único com strip em `clean()`/`save()`, seed idempotente dos 8 tipos
+> via `0005_alter_needtype_status` (RunPython), admin `NeedTypeAdmin` e
+> testes `NeedTypeModelTests` (7). Histórico preservado: inativação mantém o
+> registro (base para FK `PROTECT` no futuro `CareNeed`). Pendente: API
+> (serializers/views/permissões) e restrição de tipos inativos na criação.
 
 ## 3. Backend — Necessidades
 - [ ] Implementar criação vinculada a avaliação.
@@ -78,9 +86,9 @@
 - [ ] Testar exclusão.
 - [ ] Testar inativação e preservação do histórico.
 - [ ] Testar CRUD dos tipos.
-- [ ] Testar ativação/inativação de tipos.
+- [x] Testar ativação/inativação de tipos.
 - [ ] Testar que tipo inativo não aparece em novos cadastros.
-- [ ] Testar preservação de vínculos históricos.
+- [ ] Testar preservação de vínculos históricos (depende do futuro `CareNeed`).
 - [ ] Testar permissões por perfil.
 
 ## 8. Fora do escopo
