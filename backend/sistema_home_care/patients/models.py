@@ -189,3 +189,19 @@ class PatientAddress(models.Model):
 
     def __str__(self):
         return f"{self.street}, {self.number} - {self.city}"
+
+class NeedType(models.Model):
+    """Tipo de necessidade identificada."""
+
+    name = models.CharField(max_length=100, unique=True)
+    description = models.CharField(max_length=255, blank=True)
+    status = models.CharField(max_length=20)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "need_types"
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
