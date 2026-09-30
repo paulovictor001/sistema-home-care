@@ -81,6 +81,26 @@ Definir o status inicial de uma nova necessidade como:
 
 - Identificada.
 
+### Implementação — TA-40/42/43/44/45/46 (modelagem)
+
+Novo app `assessments` (`patient_assessments`, `care_needs`,
+`resources`, `assessment_resources` + `NeedType` existente em
+`patients`):
+- `PatientAssessment` (TA-40): FK `patient` PROTECT (histórico
+  RN-AVL-006), `professional` FK PROTECT nullable (obrigatoriedade no
+  endpoint, TASK-AVL-BE-002), `assessment_type` default "Avaliação
+  inicial" (TA-43), `request_origin` livre com `TODO(TA-41)` — domínio
+  configurado por outro responsável para não conflitar no merge; sem
+  campo status (RN-AVL-010).
+- `CareNeed` (TA-42): FK `assessment` CASCADE + `need_type` FK PROTECT
+  p/ `NeedType` (histórico preservado), `description`/`priority`
+  obrigatórias, `status` default `Identificada` (TA-46).
+- `Resource` stub mínimo + `AssessmentResource` (TA-44):
+  `resource` FK PROTECT + `quantity` ≥ 1 + `observation`.
+- `NeedPriority` Baixa/Média/Alta/Urgente (TA-45).
+- Cobertura `assessments/tests.py` (18 testes). Regressão:
+  `python manage.py test assessments patients accounts --noinput`.
+
 ## 2. Backend
 
 ### TASK-AVL-BE-001 — Criar avaliação
