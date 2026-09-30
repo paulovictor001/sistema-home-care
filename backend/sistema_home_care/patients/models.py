@@ -190,18 +190,56 @@ class PatientAddress(models.Model):
     def __str__(self):
         return f"{self.street}, {self.number} - {self.city}"
 
+class NeedTypeStatus(models.TextChoices):
+    ACTIVE = "ACTIVE", "Ativo"
+    INACTIVE = "INACTIVE", "Inativo"
+
+
+INITIAL_NEED_TYPES = [
+    "Enfermagem",
+    "Fisioterapia",
+    "Médico",
+    "Nutrição",
+    "Terapia Ocupacional",
+    "Fonoaudiologia",
+    "Psicologia",
+    "Outro",
+]
+
+
 class NeedType(models.Model):
-    """Tipo de necessidade identificada."""
+    """Tipo de necessidade identificada (TA-73, RF-NEC-004/013-015).
+
+    Entidade própria administrável por Gerente/Médico/Enfermeiro.
+    Tipos inativos não podem ser usados em novas necessidades, mas
+    vínculos históricos são preservados (FK PROTECT no CareNeed).
+    """
 
     name = models.CharField(max_length=100, unique=True)
     description = models.CharField(max_length=255, blank=True)
-    status = models.CharField(max_length=20)
+    status = models.CharField(
+        max_length=10,
+        choices=NeedTypeStatus.choices,
+        default=NeedTypeStatus.ACTIVE,
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = "need_types"
         ordering = ["name"]
+
+    def clean(self):
+        super().clean()
+        self.name = (self.name or "").strip()
+        self.description = (self.description or "").strip()
+        if not self.name:
+            raise ValidationError({"name": "Nome é obrigatório."})
+
+    def save(self, *args, **kwargs):
+        self.name = (self.name or "").strip()
+        self.description = (self.description or "").strip()
+        return super().save(*args, **kwargs)
 
     def __str__(self):
         return self.name

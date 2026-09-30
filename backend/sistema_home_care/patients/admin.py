@@ -1,6 +1,12 @@
 from django.contrib import admin
 
-from .models import HealthCondition, Patient, PatientAddress, PatientAuditLog
+from .models import (
+    HealthCondition,
+    NeedType,
+    Patient,
+    PatientAddress,
+    PatientAuditLog,
+)
 
 
 @admin.register(Patient)
@@ -20,6 +26,15 @@ class PatientAddressAdmin(admin.ModelAdmin):
 @admin.register(HealthCondition)
 class HealthConditionAdmin(admin.ModelAdmin):
     list_display = ("id", "created_at", "updated_at")
+
+
+@admin.register(NeedType)
+class NeedTypeAdmin(admin.ModelAdmin):
+    """Tipos de necessidade (TA-73): criação/edição e ativa/inativa."""
+
+    list_display = ("name", "status", "updated_at")
+    search_fields = ("name",)
+    list_filter = ("status",)
 
 
 @admin.register(PatientAuditLog)
