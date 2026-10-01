@@ -21,6 +21,8 @@ function sectionLabel(text: string) {
 }
 
 const PAGE_TITLES: { prefix: string; title: string; crumb: string }[] = [
+  { prefix: "/avaliacoes/", title: "Detalhe da Avaliação", crumb: "Painel / Pacientes / Avaliações / Detalhe" },
+  { prefix: "/avaliacoes", title: "Avaliações", crumb: "Painel / Pacientes / Avaliações" },
   { prefix: "/pacientes/novo", title: "Novo Paciente", crumb: "Painel / Pacientes / Novo" },
   { prefix: "/pacientes/", title: "Detalhe do Paciente", crumb: "Painel / Pacientes / Detalhe" },
   { prefix: "/pacientes", title: "Pacientes", crumb: "Painel / Pacientes" },
@@ -47,8 +49,13 @@ export function AppLayout() {
     .join("");
 
   const current =
-    PAGE_TITLES.find((p) => location.pathname.startsWith(p.prefix)) ??
-    PAGE_TITLES[PAGE_TITLES.length - 1];
+    location.pathname.includes("/avaliacoes")
+      ? {
+          title: "Avaliações",
+          crumb: "Painel / Pacientes / Avaliações",
+        }
+      : (PAGE_TITLES.find((p) => location.pathname.startsWith(p.prefix)) ??
+        PAGE_TITLES[PAGE_TITLES.length - 1]);
 
   function closeMenu() {
     setMenuOpen(false);

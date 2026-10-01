@@ -9,9 +9,6 @@ Pendencias registradas (nao implementar por inferencia):
 - Obrigatoriedade dos campos (RN-AVL-003): validada no endpoint
   (TASK-AVL-BE-002); aqui os campos seguem permissivos como em Patient
   (nullable/blank), exceto os com default.
-- `request_origin`: CharField livre; dominio padronizado
-  (Familia/Medico/Hospital/Clinica/Outro, RN-AVL-004) configurado em
-  TA-41 (TASK-AVL-MOD-005, outro responsavel).
 - Estrutura detalhada de `Resource`: pendente (RN-AVL-016/017 cobrem so
   o vinculo); stub minimo como HealthCondition, sem inventar atributos
   de estoque/farmacia/logistica.
@@ -42,6 +39,21 @@ class NeedStatus(models.TextChoices):
     """Status da necessidade (TA-46/TASK-AVL-MOD-007, RN-AVL-014)."""
 
     IDENTIFIED = "IDENTIFIED", "Identificada"
+
+
+class RequestOrigin(models.TextChoices):
+    """Origem da solicitacao (TA-41/TASK-AVL-MOD-005, RN-AVL-004).
+
+    Valores armazenados sao os proprios rotulos (sem codigo separado),
+    preservando os registros criados quando o campo era livre e o
+    contrato com o frontend (`REQUEST_ORIGINS`).
+    """
+
+    FAMILIA = "Família", "Família"
+    MEDICO = "Médico", "Médico"
+    HOSPITAL = "Hospital", "Hospital"
+    CLINICA = "Clínica", "Clínica"
+    OUTRO = "Outro", "Outro"
 
 
 class Resource(models.Model):
@@ -104,10 +116,11 @@ class PatientAssessment(models.Model):
     )
     assessment_date = models.DateField(null=True, blank=True)
     assessment_time = models.TimeField(null=True, blank=True)
-    # TODO(TA-41/TASK-AVL-MOD-005): dominio padronizado
-    # (Familia/Medico/Hospital/Clinica/Outro) configurado por outro
-    # responsavel; manter livre aqui para nao conflitar no merge.
-    request_origin = models.CharField(max_length=50, blank=True)
+    # Origem padronizada (TA-41/TASK-AVL-MOD-005, RN-AVL-004).
+    # Opcional: nao consta entre os obrigatorios (RN-AVL-003).
+    request_origin = models.CharField(
+        max_length=50, choices=RequestOrigin.choices, blank=True
+    )
     administrative_observations = models.TextField(blank=True)
     request_reason = models.TextField(blank=True)
     chief_complaint = models.TextField(blank=True)

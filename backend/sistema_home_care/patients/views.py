@@ -17,6 +17,7 @@ para nao-gerentes e aplicado no serializer (403).
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.shortcuts import get_object_or_404
 from rest_framework import status, viewsets
+from rest_framework.views import APIView
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError as DRFValidationError
 from rest_framework.pagination import PageNumberPagination
@@ -30,8 +31,8 @@ from accounts.permissions import (
 )
 from accounts.validators import normalize_cpf
 
-from .models import Patient, PatientAuditAction, PatientStatus
-from .serializers import PatientSerializer
+from .models import NeedType, NeedTypeStatus, Patient, PatientAuditAction, PatientStatus
+from .serializers import NeedTypeCatalogSerializer, PatientSerializer
 from .audit import log_patient_event
 
 # Gerente + equipe clinica (leitura e edicao clinica).
@@ -187,3 +188,60 @@ class PatientViewSet(viewsets.ModelViewSet):
     def reativar(self, request, pk=None):
         """Reativa o paciente (TASK-CAD-PAC-013, so gerente)."""
         return self._set_status(request, pk, PatientStatus.ACTIVE)
+
+
+class NeedTypeCatalogViewSet(viewsets.ReadOnlyModelViewSet):
+    """Catálogo de tipos de necessidade p/ a avaliação (TA-61/FE-004).
+
+    GET /api/tipos-necessidade/ — gerente+médico+enfermeiro com
+    `avaliacoes.view` (gating defensivo enquanto TA-55/56/58/59 pendentes).
+    Default só ativos (`?status=todos|inativo`); sem paginação (lista curta).
+    """
+
+    serializer_class = NeedTypeCatalogSerializer
+    pagination_class = None
+    http_method_names = ["get", "head", "options"]
+    permission_classes = [IsCareTeam, RequirePermission("avaliacoes.view")]
+
+    def get_queryset(self):
+        queryset = NeedType.objects.order_by("name")
+        status_param = (self.request.query_params.get("status") or "ativo").lower()
+        if status_param == "ativo":
+            queryset = queryset.filter(status=NeedTypeStatus.ACTIVE)
+        elif status_param == "inativo":
+            queryset = queryset.filter(status=NeedTypeStatus.INACTIVE)
+        elif status_param == "todos":
+            pass
+        else:
+            from rest_framework.exceptions import ValidationError as DRFValidationError
+
+            raise DRFValidationError(
+                {"status": "Use 'ativo', 'inativo' ou 'todos'."}
+            )
+        return queryset
+
+class NeedTypeStatusView(APIView):
+    """Altera o status de um tipo de necessidade de forma idempotente (TA-78)."""
+
+    target_status = None
+
+    def post(self, request, pk):
+        need_type = get_object_or_404(NeedType, pk=pk)
+        need_type.status = self.target_status
+        need_type.save(update_fields=["status", "updated_at"])
+        return Response(
+            NeedTypeCatalogSerializer(need_type).data,
+            status=status.HTTP_200_OK,
+        )
+
+
+class NeedTypeInactivateView(NeedTypeStatusView):
+    """Inativa um tipo de necessidade."""
+
+    target_status = NeedTypeStatus.INACTIVE
+
+
+class NeedTypeReactivateView(NeedTypeStatusView):
+    """Reativa um tipo de necessidade."""
+
+    target_status = NeedTypeStatus.ACTIVE

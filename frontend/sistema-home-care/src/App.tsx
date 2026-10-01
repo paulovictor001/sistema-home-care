@@ -2,6 +2,9 @@ import { Outlet, Route, Routes } from "react-router-dom";
 import { AppLayout } from "./components/AppLayout";
 import { RequireAuth } from "./components/RequireAuth";
 import { RequireGerente } from "./components/RequireGerente";
+import { AssessmentDetail } from "./pages/AssessmentDetail";
+import { AssessmentForm } from "./pages/AssessmentForm";
+import { AssessmentsHistory } from "./pages/AssessmentsHistory";
 import { Categories } from "./pages/Categories";
 import { NeedTypes } from "./pages/NeedTypes";
 import { Home } from "./pages/Home";
@@ -47,6 +50,19 @@ function App() {
         <Route
           path="/pacientes/:id/editar"
           element={<PatientForm mode="edit" />}
+        />
+        <Route
+          path="/pacientes/:patientId/avaliacoes"
+          element={<AssessmentsHistory />}
+        />
+        <Route
+          path="/pacientes/:patientId/avaliacoes/nova"
+          element={<AssessmentForm mode="create" />}
+        />
+        <Route path="/avaliacoes/:id" element={<AssessmentDetail />} />
+        <Route
+          path="/avaliacoes/:id/editar"
+          element={<AssessmentForm mode="edit" />}
         />
         <Route element={<GerenteOnly />}>
           <Route path="/usuarios" element={<UsersList />} />
