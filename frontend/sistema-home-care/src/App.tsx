@@ -6,6 +6,7 @@ import { AssessmentDetail } from "./pages/AssessmentDetail";
 import { AssessmentForm } from "./pages/AssessmentForm";
 import { AssessmentsHistory } from "./pages/AssessmentsHistory";
 import { Categories } from "./pages/Categories";
+import { NeedTypes } from "./pages/NeedTypes";
 import { Home } from "./pages/Home";
 import { Login } from "./pages/Login";
 import { PatientDetail } from "./pages/PatientDetail";
@@ -40,10 +41,16 @@ function App() {
         <Route path="/" element={<Home />} />
         <Route path="/pacientes" element={<PatientsList />} />
         <Route element={<GerenteOnly />}>
-          <Route path="/pacientes/novo" element={<PatientForm mode="create" />} />
+          <Route
+            path="/pacientes/novo"
+            element={<PatientForm mode="create" />}
+          />
         </Route>
         <Route path="/pacientes/:id" element={<PatientDetail />} />
-        <Route path="/pacientes/:id/editar" element={<PatientForm mode="edit" />} />
+        <Route
+          path="/pacientes/:id/editar"
+          element={<PatientForm mode="edit" />}
+        />
         <Route
           path="/pacientes/:patientId/avaliacoes"
           element={<AssessmentsHistory />}
@@ -61,7 +68,11 @@ function App() {
           <Route path="/usuarios" element={<UsersList />} />
           <Route path="/usuarios/novo" element={<UserForm mode="create" />} />
           <Route path="/usuarios/:id" element={<UserDetail />} />
-          <Route path="/usuarios/:id/editar" element={<UserForm mode="edit" />} />
+          <Route path="/tipos" element={<NeedTypes />} />
+          <Route
+            path="/usuarios/:id/editar"
+            element={<UserForm mode="edit" />}
+          />
           <Route path="/categorias" element={<Categories />} />
           <Route path="/profissoes" element={<Professions />} />
         </Route>
