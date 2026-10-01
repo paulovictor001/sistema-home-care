@@ -2,6 +2,9 @@ import { Outlet, Route, Routes } from "react-router-dom";
 import { AppLayout } from "./components/AppLayout";
 import { RequireAuth } from "./components/RequireAuth";
 import { RequireGerente } from "./components/RequireGerente";
+import { AssessmentDetail } from "./pages/AssessmentDetail";
+import { AssessmentForm } from "./pages/AssessmentForm";
+import { AssessmentsHistory } from "./pages/AssessmentsHistory";
 import { Categories } from "./pages/Categories";
 import { Home } from "./pages/Home";
 import { Login } from "./pages/Login";
@@ -41,6 +44,19 @@ function App() {
         </Route>
         <Route path="/pacientes/:id" element={<PatientDetail />} />
         <Route path="/pacientes/:id/editar" element={<PatientForm mode="edit" />} />
+        <Route
+          path="/pacientes/:patientId/avaliacoes"
+          element={<AssessmentsHistory />}
+        />
+        <Route
+          path="/pacientes/:patientId/avaliacoes/nova"
+          element={<AssessmentForm mode="create" />}
+        />
+        <Route path="/avaliacoes/:id" element={<AssessmentDetail />} />
+        <Route
+          path="/avaliacoes/:id/editar"
+          element={<AssessmentForm mode="edit" />}
+        />
         <Route element={<GerenteOnly />}>
           <Route path="/usuarios" element={<UsersList />} />
           <Route path="/usuarios/novo" element={<UserForm mode="create" />} />

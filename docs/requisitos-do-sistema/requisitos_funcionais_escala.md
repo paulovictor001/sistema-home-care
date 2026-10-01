@@ -1,0 +1,26 @@
+# Requisitos Funcionais — Escala
+
+- **RF-ESC-01:** Criar escala conforme permissão.
+- **RF-ESC-02:** Editar escala conforme permissão.
+- **RF-ESC-03:** Visualizar escala conforme permissão.
+- **RF-ESC-04:** Excluir escala conforme permissão.
+- **RF-ESC-05:** Vincular paciente e Plano de Cuidados.
+- **RF-ESC-06:** Adicionar/remover necessidades do Plano a qualquer momento.
+- **RF-ESC-07:** Selecionar um ou mais profissionais por necessidade, sem limite.
+- **RF-ESC-08:** Validar profissional ativo e profissão compatível.
+- **RF-ESC-09:** Adicionar, remover e substituir profissionais a qualquer momento.
+- **RF-ESC-10:** Preservar histórico de substituições.
+- **RF-ESC-11:** Definir frequência por necessidade.
+- **RF-ESC-12:** Permitir aumentar/diminuir frequência e registrar motivo opcional.
+- **RF-ESC-13:** Exigir data de início e fim e validar contra o Plano.
+- **RF-ESC-14:** Suportar Rascunho, Ativa, Suspensa e Encerrada.
+- **RF-ESC-15:** Permitir qualquer transição de status para usuários autorizados.
+- **RF-ESC-16:** Registrar observação geral opcional.
+- **RF-ESC-17:** Registrar observação opcional por necessidade.
+- **RF-ESC-18:** Considerar disponibilidade e região do profissional.
+- **RF-ESC-19:** Manter datas/horários das visitas sob responsabilidade do Agendamento.
+- **RF-ESC-20:** Não atualizar automaticamente a escala quando o Plano mudar.
+- **RF-ESC-21:** Impedir necessidade que deixou o Plano de permanecer na escala.
+- **RF-ESC-22:** Manter escala encerrada para consulta e impedir novos agendamentos.
+- **RF-ESC-23:** Validar condições mínimas antes da ativação.
+- **RF-ESC-24:** Registrar usuário/data nas alterações relevantes.

@@ -2,8 +2,8 @@
 
 Cobre TASK-AVL-MOD-001 (PatientAssessment, TA-40), 002 (CareNeed,
 TA-42), 003 (AssessmentResource + Resource, TA-44), 004 (tipo
-restrito, TA-43), 006 (prioridade, TA-45) e 007 (status inicial,
-TA-46).
+restrito, TA-43), 005 (origem padronizada, TA-41), 006 (prioridade,
+TA-45) e 007 (status inicial, TA-46).
 """
 
 from datetime import date
@@ -24,6 +24,7 @@ from .models import (
     NeedPriority,
     NeedStatus,
     PatientAssessment,
+    RequestOrigin,
     Resource,
 )
 
@@ -107,10 +108,25 @@ class PatientAssessmentModelTests(TestCase):
         with self.assertRaises(ProtectedError):
             assessment.patient.delete()
 
-    def test_request_origin_free_until_ta41(self):
-        assessment = make_assessment(request_origin="Família")
+    def test_request_origin_domain_accepted(self):
+        patient = make_patient()
+        for origin in RequestOrigin.values:
+            with self.subTest(origin=origin):
+                assessment = make_assessment(
+                    patient=patient, request_origin=origin
+                )
+                assessment.full_clean()
+                self.assertEqual(assessment.request_origin, origin)
+
+    def test_request_origin_blank_allowed(self):
+        assessment = make_assessment(request_origin="")
         assessment.full_clean()
-        self.assertEqual(assessment.request_origin, "Família")
+        self.assertEqual(assessment.request_origin, "")
+
+    def test_request_origin_invalid_rejected(self):
+        assessment = make_assessment(request_origin="Vizinho")
+        with self.assertRaises(ValidationError):
+            assessment.full_clean()
 
     def test_assessment_has_no_status(self):
         self.assertFalse(hasattr(make_assessment(), "status"))

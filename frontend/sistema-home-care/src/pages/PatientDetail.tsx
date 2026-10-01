@@ -2,6 +2,10 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useAuth } from "../contexts/useAuth";
 import { ApiError } from "../lib/api";
+import {
+  canCreateAssessment,
+  canViewAssessments,
+} from "../lib/assessments";
 import { formatCpf } from "../lib/cpf";
 import {
   getPatient,
@@ -177,6 +181,28 @@ export function PatientDetail() {
           <p className="text-sm text-gray-600">Sem endereço cadastrado.</p>
         )}
       </section>
+
+      {canViewAssessments(user) && (
+        <section className="mb-4 rounded-lg bg-white p-4 shadow">
+          <h2 className="mb-3 text-sm font-semibold">Avaliação inicial</h2>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              to={`/pacientes/${patient.id}/avaliacoes`}
+              className="rounded border border-gray-300 px-3 py-1.5 text-sm"
+            >
+              Ver histórico
+            </Link>
+            {canCreateAssessment(user) && (
+              <Link
+                to={`/pacientes/${patient.id}/avaliacoes/nova`}
+                className="rounded bg-blue-600 px-3 py-1.5 text-sm font-medium text-white"
+              >
+                Nova avaliação
+              </Link>
+            )}
+          </div>
+        </section>
+      )}
 
       {manager && (
         <section className="rounded-lg bg-white p-4 shadow">

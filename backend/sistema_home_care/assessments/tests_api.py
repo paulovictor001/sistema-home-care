@@ -176,6 +176,24 @@ class AssessmentCreateAPITests(TestCase):
         response = client.post("/api/avaliacoes/", payload, format="json")
         self.assertEqual(response.status_code, 400)
 
+    def test_create_accepts_request_origin_domain(self):
+        client = auth_client(self.users[MEDICO_CPF])
+        for origin in ("Família", "Médico", "Hospital", "Clínica", "Outro"):
+            with self.subTest(origin=origin):
+                PatientAssessment.objects.all().delete()
+                payload = self._payload(request_origin=origin)
+                response = client.post(
+                    "/api/avaliacoes/", payload, format="json"
+                )
+                self.assertEqual(response.status_code, 201)
+
+    def test_create_rejects_unknown_request_origin(self):
+        client = auth_client(self.users[MEDICO_CPF])
+        payload = self._payload(request_origin="Vizinho")
+        response = client.post("/api/avaliacoes/", payload, format="json")
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("request_origin", response.data)
+
     def test_clinical_without_create_permission_cannot_create(self):
         client = auth_client(self.users[MEDICO_CPF])
         permission = GranularPermission.objects.get(
@@ -469,3 +487,81 @@ class AssessmentResourceAPITests(TestCase):
             format="json",
         )
         self.assertEqual(response.status_code, 403)
+
+
+class CatalogAPITests(TestCase):
+    """Catálogos read-only p/ os selects do frontend (TA-61/63)."""
+
+    def setUp(self):
+        self.users = make_api_users()
+        Resource.objects.get_or_create(name="Oxímetro")
+
+    def test_care_team_can_list_need_types_and_resources(self):
+        for cpf in (GERENTE_CPF, MEDICO_CPF, ENFERMEIRO_CPF):
+            with self.subTest(cpf=cpf):
+                client = auth_client(self.users[cpf])
+                need_types = client.get("/api/tipos-necessidade/")
+                self.assertEqual(need_types.status_code, 200)
+                self.assertTrue(
+                    any(
+                        item["name"] == "Enfermagem"
+                        for item in need_types.data
+                    )
+                )
+                resources = client.get("/api/recursos/")
+                self.assertEqual(resources.status_code, 200)
+                self.assertTrue(
+                    any(
+                        item["name"] == "Oxímetro"
+                        for item in resources.data
+                    )
+                )
+
+    def test_need_types_default_only_active(self):
+        inactive = NeedType.objects.get(name="Enfermagem")
+        inactive.status = "INACTIVE"
+        inactive.save()
+        client = auth_client(self.users[MEDICO_CPF])
+        default = client.get("/api/tipos-necessidade/")
+        self.assertEqual(default.status_code, 200)
+        self.assertFalse(
+            any(item["name"] == "Enfermagem" for item in default.data)
+        )
+        all_types = client.get("/api/tipos-necessidade/?status=todos")
+        self.assertEqual(all_types.status_code, 200)
+        self.assertTrue(
+            any(item["name"] == "Enfermagem" for item in all_types.data)
+        )
+
+    def test_sem_grupo_cannot_list_catalogs(self):
+        client = auth_client(self.users[SEM_GRUPO_CPF])
+        self.assertEqual(
+            client.get("/api/tipos-necessidade/").status_code, 403
+        )
+        self.assertEqual(client.get("/api/recursos/").status_code, 403)
+
+
+class ClinicoListAPITests(TestCase):
+    """Select de profissional responsável (gap de UX do frontend)."""
+
+    def setUp(self):
+        self.users = make_api_users()
+
+    def test_care_team_can_list_clinicos(self):
+        for cpf in (GERENTE_CPF, MEDICO_CPF, ENFERMEIRO_CPF):
+            with self.subTest(cpf=cpf):
+                client = auth_client(self.users[cpf])
+                response = client.get("/api/clinicos/")
+                self.assertEqual(response.status_code, 200)
+                cpfs = [item["cpf"] for item in response.data]
+                self.assertIn(MEDICO_CPF, cpfs)
+                self.assertIn(ENFERMEIRO_CPF, cpfs)
+                self.assertNotIn(GERENTE_CPF, cpfs)
+                self.assertNotIn(SEM_GRUPO_CPF, cpfs)
+
+    def test_sem_grupo_cannot_list_clinicos(self):
+        client = auth_client(self.users[SEM_GRUPO_CPF])
+        self.assertEqual(client.get("/api/clinicos/").status_code, 403)
+
+    def test_unauthenticated_cannot_list_clinicos(self):
+        self.assertEqual(APIClient().get("/api/clinicos/").status_code, 401)

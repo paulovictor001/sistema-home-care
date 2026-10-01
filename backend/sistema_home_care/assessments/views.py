@@ -29,11 +29,12 @@ from accounts.permissions import (
     RequirePermission,
 )
 
-from .models import PatientAssessment
+from .models import PatientAssessment, Resource
 from .serializers import (
     AssessmentResourceSerializer,
     CareNeedSerializer,
     PatientAssessmentSerializer,
+    ResourceCatalogSerializer,
 )
 
 # Gerente + equipe clínica (leitura e troca de responsável).
@@ -151,3 +152,19 @@ class AssessmentViewSet(viewsets.ModelViewSet):
             AssessmentResourceSerializer(link).data,
             status=status.HTTP_201_CREATED,
         )
+
+
+class ResourceCatalogViewSet(viewsets.ReadOnlyModelViewSet):
+    """Catálogo de recursos p/ a avaliação (TA-63/TASK-AVL-FE-006).
+
+    GET /api/recursos/ — gerente+médico+enfermeiro com `avaliacoes.view`.
+    Sem paginação (lista curta); ordenado por nome.
+    """
+
+    serializer_class = ResourceCatalogSerializer
+    pagination_class = None
+    http_method_names = ["get", "head", "options"]
+    permission_classes = [IsCareTeam, RequirePermission("avaliacoes.view")]
+
+    def get_queryset(self):
+        return Resource.objects.order_by("name")

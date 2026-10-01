@@ -25,6 +25,7 @@ from .models import (
     AssessmentType,
     CareNeed,
     PatientAssessment,
+    Resource,
 )
 
 User = get_user_model()
@@ -229,3 +230,16 @@ class AssessmentResourceSerializer(serializers.ModelSerializer):
         )
         read_only_fields = ("id", "created_at", "updated_at")
         extra_kwargs = {"quantity": {"min_value": 1}}
+
+
+class ResourceCatalogSerializer(serializers.ModelSerializer):
+    """Catálogo read-only p/ o select da avaliação (TA-63/TASK-AVL-FE-006).
+
+    Somente leitura: cadastro detalhado pendente (stub mínimo como
+    HealthCondition); criação/edição pelo admin (ResourceAdmin).
+    """
+
+    class Meta:
+        model = Resource
+        fields = ("id", "name")
+        read_only_fields = fields

@@ -7,7 +7,13 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .permissions import GroupNames, IsGerente, RequirePermission
+from .permissions import (
+    GroupNames,
+    IsEnfermeiro,
+    IsGerente,
+    IsMedico,
+    RequirePermission,
+)
 from .serializers import LoginSerializer
 
 
@@ -168,3 +174,34 @@ class MedicoListView(APIView):
             .values("id", "first_name", "last_name", "cpf")
         )
         return Response(list(medicos))
+
+
+class ClinicoListView(APIView):
+    """Lista usuarios ativos da equipe clinica (MEDICO + ENFERMEIRO).
+
+    Suporte ao select de profissional responsavel da Avaliacao Inicial:
+    `GET /api/medicos/` e somente-gerente, entao a equipe clinica nao
+    tinha de onde escolher o responsavel (gap de UX do frontend).
+    Escopo minimo intencional: sem paginacao nem busca; endpoint
+    generico de profissionais fica para o modulo proprio.
+    """
+
+    permission_classes = [
+        IsGerente | IsMedico | IsEnfermeiro,
+        RequirePermission("avaliacoes.view"),
+    ]
+
+    def get(self, request):
+        clinicos = (
+            get_user_model()
+            .objects.filter(
+                groups__name__in=(
+                    GroupNames.MEDICO,
+                    GroupNames.ENFERMEIRO,
+                ),
+                is_active=True,
+            )
+            .order_by("first_name", "last_name", "cpf")
+            .values("id", "first_name", "last_name", "cpf")
+        )
+        return Response(list(clinicos))
