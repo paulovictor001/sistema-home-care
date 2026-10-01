@@ -22,9 +22,11 @@
 - [x] Cadastrar Outro.
 - [ ] Implementar criação e edição de tipos.
 - [x] Implementar ativação e inativação de tipos.
-- [ ] Impedir seleção de tipos inativos em novas necessidades.
-- [ ] Preservar vínculos históricos com tipos inativados (model preserva o registro; FK `PROTECT` virá com `CareNeed`).
+- [x] Impedir seleção de tipos inativos em novas necessidades.
+- [x] Preservar vínculos históricos com tipos inativados.
 - [ ] Restringir administração de tipos a Gerente, Médico e Enfermeiro.
+
+> Implementação — TA-78/79: API de status para `NeedType` em `POST /api/tipos-necessidade/<id>/inativar/` e `/reativar/`, ambas idempotentes e preservando o registro. Criação de `CareNeed` em `POST /api/avaliacoes/<assessment_id>/necessidades/`, com validação de avaliação existente, tipo ativo, descrição, prioridade e status forçado para `Identificada`. Autorização por perfil permanece nas tasks TA-82/87/88.
 
 > Implementação — TA-73 (model): `patients.NeedType` (`need_types`,
 > ordering por nome) com `NeedTypeStatus` ACTIVE/INACTIVE (default ACTIVE),
@@ -35,12 +37,12 @@
 > (serializers/views/permissões) e restrição de tipos inativos na criação.
 
 ## 3. Backend — Necessidades
-- [ ] Implementar criação vinculada a avaliação.
-- [ ] Validar avaliação existente.
-- [ ] Validar tipo obrigatório e ativo.
-- [ ] Validar descrição obrigatória.
-- [ ] Validar prioridade obrigatória e válida.
-- [ ] Definir automaticamente status `Identificada`.
+- [x] Implementar criação vinculada a avaliação.
+- [x] Validar avaliação existente.
+- [x] Validar tipo obrigatório e ativo.
+- [x] Validar descrição obrigatória.
+- [x] Validar prioridade obrigatória e válida.
+- [x] Definir automaticamente status `Identificada`.
 - [ ] Implementar consulta.
 - [ ] Implementar edição.
 - [ ] Implementar exclusão.
@@ -77,18 +79,18 @@
 - [ ] Não assumir permissões não definidas.
 
 ## 7. Testes
-- [ ] Testar criação vinculada a avaliação.
-- [ ] Testar múltiplas necessidades na mesma avaliação.
-- [ ] Testar campos obrigatórios.
-- [ ] Testar prioridades válidas.
-- [ ] Testar status inicial `Identificada`.
+- [x] Testar criação vinculada a avaliação.
+- [x] Testar múltiplas necessidades na mesma avaliação.
+- [x] Testar campos obrigatórios.
+- [x] Testar prioridades válidas.
+- [x] Testar status inicial `Identificada`.
 - [ ] Testar edição.
 - [ ] Testar exclusão.
 - [ ] Testar inativação e preservação do histórico.
 - [ ] Testar CRUD dos tipos.
 - [x] Testar ativação/inativação de tipos.
-- [ ] Testar que tipo inativo não aparece em novos cadastros.
-- [ ] Testar preservação de vínculos históricos (depende do futuro `CareNeed`).
+- [x] Testar que tipo inativo não pode ser usado em novos cadastros.
+- [x] Testar preservação de vínculos históricos.
 - [ ] Testar permissões por perfil.
 
 ## 8. Fora do escopo
