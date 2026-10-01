@@ -28,13 +28,7 @@
 
 > Implementação — TA-78: endpoints `POST /api/tipos-necessidade/<id>/inativar/` e `/reativar/`, idempotentes e preservando o registro. A API de criação de `CareNeed` já existente no `upstream/main` mantém a validação de tipo ativo e o vínculo histórico por FK `PROTECT`. Autorização específica da administração dos tipos permanece na TA-88.
 
-> Implementação — TA-73 (model): `patients.NeedType` (`need_types`,
-> ordering por nome) com `NeedTypeStatus` ACTIVE/INACTIVE (default ACTIVE),
-> `name` único com strip em `clean()`/`save()`, seed idempotente dos 8 tipos
-> via `0005_alter_needtype_status` (RunPython), admin `NeedTypeAdmin` e
-> testes `NeedTypeModelTests` (7). Histórico preservado: inativação mantém o
-> registro (base para FK `PROTECT` no futuro `CareNeed`). Pendente: API
-> (serializers/views/permissões) e restrição de tipos inativos na criação.
+> Implementação — TA-73 (model): `patients.NeedType` (`need_types`, ordering por nome) com `NeedTypeStatus` ACTIVE/INACTIVE (default ACTIVE), `name` único com strip em `clean()`/`save()`, seed idempotente dos 8 tipos via `0005_alter_needtype_status` (RunPython), admin `NeedTypeAdmin` e testes `NeedTypeModelTests` (7). Histórico preservado: inativação mantém o registro; o vínculo histórico por FK `PROTECT` em `CareNeed` já está implementado na `upstream/main`. Pendente: autorização específica da administração dos tipos.
 
 ## 3. Backend — Necessidades
 - [ ] Implementar criação vinculada a avaliação.
