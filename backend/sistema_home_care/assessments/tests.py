@@ -14,8 +14,9 @@ from django.core.exceptions import ValidationError
 from django.db import IntegrityError
 from django.db.models import ProtectedError
 from django.test import TestCase
+from rest_framework.test import APIClient
 
-from patients.models import NeedType, Patient
+from patients.models import NeedType, NeedTypeStatus, Patient
 
 from .models import (
     AssessmentResource,
@@ -219,3 +220,140 @@ class AssessmentResourceModelTests(TestCase):
         self.assertFalse(
             AssessmentResource.objects.filter(assessment_id=assessment_pk).exists()
         )
+
+
+class CareNeedCreateAPITests(TestCase):
+    """TA-79: criacao de necessidade vinculada a avaliacao."""
+
+    def setUp(self):
+        self.user = make_staff_user(MEDICO_CPF, "MEDICO")
+        self.client = APIClient()
+        self.client.force_authenticate(self.user)
+        self.patient = make_patient()
+        self.assessment = make_assessment(
+            patient=self.patient,
+            professional=self.user,
+        )
+        self.need_type = make_need_type()
+        self.url = f"/api/avaliacoes/{self.assessment.pk}/necessidades/"
+
+    def _payload(self, **overrides):
+        payload = {
+            "need_type": self.need_type.pk,
+            "description": "Acompanhamento de enfermagem diário",
+            "priority": NeedPriority.HIGH,
+        }
+        payload.update(overrides)
+        return payload
+
+    def test_creates_need_linked_to_existing_assessment(self):
+        response = self.client.post(self.url, self._payload(), format="json")
+
+        self.assertEqual(response.status_code, 201)
+        need = CareNeed.objects.get()
+        self.assertEqual(need.assessment_id, self.assessment.pk)
+        self.assertEqual(need.need_type_id, self.need_type.pk)
+        self.assertEqual(need.description, "Acompanhamento de enfermagem diário")
+        self.assertEqual(need.priority, NeedPriority.HIGH)
+        self.assertEqual(need.status, NeedStatus.IDENTIFIED)
+        self.assertEqual(response.data["assessment"], self.assessment.pk)
+        self.assertEqual(response.data["status"], NeedStatus.IDENTIFIED)
+
+    def test_multiple_needs_can_use_same_assessment(self):
+        first = self.client.post(
+            self.url,
+            self._payload(description="Curativo diário"),
+            format="json",
+        )
+        second = self.client.post(
+            self.url,
+            self._payload(
+                description="Fisioterapia motora",
+                priority=NeedPriority.MEDIUM,
+                need_type=NeedType.objects.get(name="Fisioterapia").pk,
+            ),
+            format="json",
+        )
+
+        self.assertEqual(first.status_code, 201)
+        self.assertEqual(second.status_code, 201)
+        self.assertEqual(self.assessment.care_needs.count(), 2)
+
+    def test_unknown_assessment_returns_404(self):
+        response = self.client.post(
+            "/api/avaliacoes/99999/necessidades/",
+            self._payload(),
+            format="json",
+        )
+        self.assertEqual(response.status_code, 404)
+        self.assertFalse(CareNeed.objects.exists())
+
+    def test_inactive_need_type_is_rejected(self):
+        self.need_type.status = NeedTypeStatus.INACTIVE
+        self.need_type.save()
+
+        response = self.client.post(self.url, self._payload(), format="json")
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("need_type", response.data)
+        self.assertFalse(CareNeed.objects.exists())
+
+    def test_description_is_required_and_trimmed(self):
+        response = self.client.post(
+            self.url,
+            self._payload(description="   "),
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("description", response.data)
+
+        response = self.client.post(
+            self.url,
+            self._payload(description="  Curativo diário  "),
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(CareNeed.objects.get().description, "Curativo diário")
+
+    def test_priority_is_required_and_limited_to_choices(self):
+        response = self.client.post(
+            self.url,
+            self._payload(priority=""),
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("priority", response.data)
+
+        response = self.client.post(
+            self.url,
+            self._payload(priority="INVALID"),
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("priority", response.data)
+
+    def test_status_is_always_identified(self):
+        response = self.client.post(
+            self.url,
+            self._payload(status="INACTIVE"),
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["status"], NeedStatus.IDENTIFIED)
+        self.assertEqual(CareNeed.objects.get().status, NeedStatus.IDENTIFIED)
+
+    def test_historical_link_survives_need_type_inactivation(self):
+        response = self.client.post(self.url, self._payload(), format="json")
+        self.assertEqual(response.status_code, 201)
+        need = CareNeed.objects.get()
+
+        status_response = self.client.post(
+            f"/api/tipos-necessidade/{self.need_type.pk}/inativar/"
+        )
+        self.assertEqual(status_response.status_code, 200)
+
+        need.refresh_from_db()
+        need.need_type.refresh_from_db()
+        self.assertEqual(need.need_type_id, self.need_type.pk)
+        self.assertEqual(need.need_type.status, NeedTypeStatus.INACTIVE)
+        self.assertTrue(CareNeed.objects.filter(pk=need.pk).exists())
