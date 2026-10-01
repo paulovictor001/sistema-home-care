@@ -23,8 +23,10 @@
 - [ ] Implementar criação e edição de tipos.
 - [x] Implementar ativação e inativação de tipos.
 - [ ] Impedir seleção de tipos inativos em novas necessidades.
-- [ ] Preservar vínculos históricos com tipos inativados (model preserva o registro; FK `PROTECT` virá com `CareNeed`).
+- [x] Preservar vínculos históricos com tipos inativados (FK `PROTECT` em `CareNeed`).
 - [ ] Restringir administração de tipos a Gerente, Médico e Enfermeiro.
+
+> Implementação — TA-78: endpoints `POST /api/tipos-necessidade/<id>/inativar/` e `/reativar/`, idempotentes e preservando o registro. A API de criação de `CareNeed` já existente no `upstream/main` mantém a validação de tipo ativo e o vínculo histórico por FK `PROTECT`. Autorização específica da administração dos tipos permanece na TA-88.
 
 > Implementação — TA-73 (model): `patients.NeedType` (`need_types`,
 > ordering por nome) com `NeedTypeStatus` ACTIVE/INACTIVE (default ACTIVE),
