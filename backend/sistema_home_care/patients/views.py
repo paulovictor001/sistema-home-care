@@ -17,6 +17,7 @@ para nao-gerentes e aplicado no serializer (403).
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.shortcuts import get_object_or_404
 from rest_framework import status, viewsets
+from rest_framework.views import APIView
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError as DRFValidationError
 from rest_framework.pagination import PageNumberPagination
@@ -218,3 +219,29 @@ class NeedTypeCatalogViewSet(viewsets.ReadOnlyModelViewSet):
                 {"status": "Use 'ativo', 'inativo' ou 'todos'."}
             )
         return queryset
+
+class NeedTypeStatusView(APIView):
+    """Altera o status de um tipo de necessidade de forma idempotente (TA-78)."""
+
+    target_status = None
+
+    def post(self, request, pk):
+        need_type = get_object_or_404(NeedType, pk=pk)
+        need_type.status = self.target_status
+        need_type.save(update_fields=["status", "updated_at"])
+        return Response(
+            NeedTypeCatalogSerializer(need_type).data,
+            status=status.HTTP_200_OK,
+        )
+
+
+class NeedTypeInactivateView(NeedTypeStatusView):
+    """Inativa um tipo de necessidade."""
+
+    target_status = NeedTypeStatus.INACTIVE
+
+
+class NeedTypeReactivateView(NeedTypeStatusView):
+    """Reativa um tipo de necessidade."""
+
+    target_status = NeedTypeStatus.ACTIVE
