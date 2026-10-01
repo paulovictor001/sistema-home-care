@@ -20,7 +20,7 @@ from rest_framework.exceptions import PermissionDenied
 from accounts.permissions import GroupNames
 from accounts.validators import normalize_cpf
 
-from .models import HealthCondition, Patient, PatientAddress
+from .models import HealthCondition, NeedType, Patient, PatientAddress
 
 User = get_user_model()
 
@@ -122,3 +122,19 @@ class PatientSerializer(serializers.ModelSerializer):
                 patient=instance, defaults=address_data
             )
         return instance
+
+
+class NeedTypeStatusSerializer(serializers.ModelSerializer):
+    """Representacao dos dados de um tipo para as acoes de status."""
+
+    class Meta:
+        model = NeedType
+        fields = (
+            "id",
+            "name",
+            "description",
+            "status",
+            "created_at",
+            "updated_at",
+        )
+        read_only_fields = fields
