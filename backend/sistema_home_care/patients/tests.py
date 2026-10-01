@@ -713,3 +713,54 @@ class NeedTypeModelTests(TestCase):
             )
         )
         self.assertEqual(seeded, set(INITIAL_NEED_TYPES))
+
+
+class NeedTypeStatusAPITests(TestCase):
+    """TA-78: ativacao e inativacao de tipos de necessidade."""
+
+    def setUp(self):
+        self.user = make_staff_user("39053344705", "MEDICO")
+        self.client = make_api_client(self.user)
+        self.need_type = NeedType.objects.get(name="Enfermagem")
+        self.inativar_url = f"/api/tipos-necessidade/{self.need_type.pk}/inativar/"
+        self.reativar_url = f"/api/tipos-necessidade/{self.need_type.pk}/reativar/"
+
+    def test_inactivate_is_idempotent_and_preserves_record(self):
+        response = self.client.post(self.inativar_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["status"], NeedTypeStatus.INACTIVE)
+
+        response = self.client.post(self.inativar_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["status"], NeedTypeStatus.INACTIVE)
+
+        self.need_type.refresh_from_db()
+        self.assertEqual(self.need_type.status, NeedTypeStatus.INACTIVE)
+        self.assertTrue(NeedType.objects.filter(pk=self.need_type.pk).exists())
+
+    def test_reactivate_is_idempotent(self):
+        self.need_type.status = NeedTypeStatus.INACTIVE
+        self.need_type.save()
+
+        response = self.client.post(self.reativar_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["status"], NeedTypeStatus.ACTIVE)
+
+        response = self.client.post(self.reativar_url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["status"], NeedTypeStatus.ACTIVE)
+
+    def test_unknown_type_returns_404(self):
+        self.assertEqual(
+            self.client.post("/api/tipos-necessidade/99999/inativar/").status_code,
+            404,
+        )
+        self.assertEqual(
+            self.client.post("/api/tipos-necessidade/99999/reativar/").status_code,
+            404,
+        )
+
+    def test_unauthenticated_cannot_change_status(self):
+        client = APIClient()
+        self.assertEqual(client.post(self.inativar_url).status_code, 401)
+        self.assertEqual(client.post(self.reativar_url).status_code, 401)
