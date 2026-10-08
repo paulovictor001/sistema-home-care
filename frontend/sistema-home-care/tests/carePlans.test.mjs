@@ -31,3 +31,17 @@ test('draft creation retains multiple selected needs and optional end date', asy
   assert.equal(request.options.method, 'POST');
   assert.deepEqual(request.options.json, payload);
 });
+
+test('status buttons follow both profile and the current state', () => {
+  assert.deepEqual(plans.allowedStatusActions(user('MEDICO'), 'DRAFT'), ['ativar']);
+  assert.deepEqual(plans.allowedStatusActions(user('ENFERMEIRO'), 'DRAFT'), []);
+  for (const group of ['MEDICO', 'ENFERMEIRO']) {
+    assert.deepEqual(plans.allowedStatusActions(user(group), 'ACTIVE'), ['encerrar']);
+    assert.deepEqual(plans.allowedStatusActions(user(group), 'CLOSED'), ['reativar']);
+  }
+  for (const status of ['DRAFT', 'ACTIVE', 'CLOSED']) {
+    assert.deepEqual(plans.allowedStatusActions(user('GERENTE'), status), []);
+    assert.deepEqual(plans.allowedStatusActions(user('APOIO'), status), []);
+    assert.deepEqual(plans.allowedStatusActions(user('MEDICO', []), status), []);
+  }
+});
