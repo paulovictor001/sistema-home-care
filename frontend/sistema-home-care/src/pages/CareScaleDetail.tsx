@@ -5,6 +5,7 @@ import {canScale, getScale, updateScale, scaleStatusLabels, type CareScale} from
 import {frequencyLabels} from '../lib/carePlans';
 import {scalePlans, addScaleNeed, type ScalePlanOption} from '../lib/careScales';
 import {ScaleNeedManagement} from '../components/ScaleNeedManagement';
+import {scaleSubstitutions, scaleAudit, type ScaleSubstitution, type ScaleAudit} from '../lib/careScales';
 
 export function CareScaleDetail() {
   const {id} = useParams(); const {user} = useAuth();
@@ -12,6 +13,7 @@ export function CareScaleDetail() {
   const [error, setError] = useState(''); const [editing, setEditing] = useState(false); const [busy, setBusy] = useState(false);
   const [start, setStart] = useState(''); const [end, setEnd] = useState(''); const [observation, setObservation] = useState('');
   const [available, setAvailable] = useState<ScalePlanOption['needs'] | null>(null); const [selectedNeed, setSelectedNeed] = useState('');
+  const [substitutions, setSubstitutions] = useState<ScaleSubstitution[] | null>(null); const [events, setEvents] = useState<ScaleAudit[] | null>(null);
   useEffect(() => {
     let cancelled = false; setScale(null); setLoading(true); setError(''); setEditing(false);
     getScale(Number(id)).then(value => {if (!cancelled) setScale(value);}).catch(err => {if (!cancelled) setError(err instanceof Error ? err.message : 'Falha ao carregar escala.');}).finally(() => {if (!cancelled) setLoading(false);});
@@ -31,6 +33,12 @@ export function CareScaleDetail() {
     event.preventDefault(); if (!scale || !selectedNeed) return; setBusy(true); setError('');
     try {setScale(await addScaleNeed(scale.id, Number(selectedNeed))); setAvailable(null);}
     catch (err) {setError(err instanceof Error ? err.message : 'Falha ao incluir necessidade.');} finally {setBusy(false);}
+  }
+  function changed(value: CareScale) {setScale(value); setSubstitutions(null); setEvents(null);}
+  async function history() {
+    if (!scale) return; setBusy(true); setError('');
+    try {const [substitutionList, auditList] = await Promise.all([scaleSubstitutions(scale.id), scaleAudit(scale.id)]); setSubstitutions(substitutionList); setEvents(auditList);}
+    catch (err) {setError(err instanceof Error ? err.message : 'Falha ao carregar histórico.');} finally {setBusy(false);}
   }
   if (loading) return <p>Carregando…</p>;
   if (!scale) return <p role="alert" className="text-red-700">{error || 'Escala não encontrada.'}</p>;
@@ -55,11 +63,17 @@ export function CareScaleDetail() {
         <h3 className="font-medium">{item.need_type} · {item.description}{item.removed_at ? ' · Removida da escala' : ''}</h3>
         <p>Frequência na escala: {item.frequency_quantity && item.frequency_period ? `${item.frequency_quantity} por ${frequencyLabels[item.frequency_period].toLowerCase()}` : 'Não configurada'}</p>
         <p>Referência do plano: {item.planned_quantity && item.planned_period ? `${item.planned_quantity} por ${frequencyLabels[item.planned_period].toLowerCase()}` : 'Não configurada'}</p>
+        <p className="whitespace-pre-wrap">Observação: {item.observation || 'Não informada'}</p>
+        <p className="whitespace-pre-wrap">Motivo da frequência: {item.frequency_reason || 'Não informado'}</p>
         <h4 className="font-medium">Profissionais vinculados</h4>
         {!item.assignments.filter(assignment => !assignment.removed_at).length && <p>Nenhum profissional vigente.</p>}
         <ul>{item.assignments.map(assignment => <li key={assignment.id}>{assignment.full_name} · {assignment.profession_name}{assignment.removed_at ? ' · Vínculo encerrado' : ''}</li>)}</ul>
-        {!item.removed_at && canScale(user, 'update') && <ScaleNeedManagement key={`${scale.id}-${item.id}`} scale={scale} item={item} onChange={setScale} />}
+        {!item.removed_at && canScale(user, 'update') && <ScaleNeedManagement key={`${scale.id}-${item.id}`} scale={scale} item={item} onChange={changed} />}
       </article>)}
+    </section>
+    <section className="space-y-3 rounded bg-white p-4 shadow"><h2 className="font-semibold">Histórico da escala</h2><button className="rounded border p-2" disabled={busy} onClick={() => void history()}>Consultar histórico</button>
+      {substitutions && <><h3 className="font-medium">Substituições de profissionais</h3>{!substitutions.length ? <p>Nenhuma substituição registrada.</p> : <ul className="space-y-2">{substitutions.map(value => <li key={value.id}>{value.previous_name} → {value.new_name} · Necessidade #{value.item || 'Histórica'} · {value.actor_name} · {new Date(value.created_at).toLocaleString('pt-BR')}</li>)}</ul>}</>}
+      {events && <><h3 className="font-medium">Auditoria</h3>{!events.length ? <p>Nenhuma alteração registrada.</p> : <ul className="space-y-2">{events.map(value => <li key={value.id}>{value.action} · {value.actor_name} · {new Date(value.created_at).toLocaleString('pt-BR')}</li>)}</ul>}</>}
     </section>
   </div>;
 }
