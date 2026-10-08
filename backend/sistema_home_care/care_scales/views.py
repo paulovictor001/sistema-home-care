@@ -10,6 +10,7 @@ from .serializers import ScaleSerializer, ScaleWriteSerializer, AddNeedSerialize
 from .serializers import NeedConfigurationSerializer
 from .serializers import StatusSerializer
 from .serializers import PlanningInfoSerializer
+from .serializers import AuditSerializer, SubstitutionSerializer
 from . import planning
 from django.shortcuts import get_object_or_404
 
@@ -24,7 +25,7 @@ class CareScaleViewSet(viewsets.ModelViewSet):
     pagination_class = ScalePagination
 
     def get_queryset(self):
-        if self.action in ('list', 'retrieve'):
+        if self.action in ('list', 'retrieve', 'history', 'substitutions'):
             queryset = visible_scales(self.request.user)
         else:
             queryset = CareScale.objects.filter(deleted_at__isnull=True)
@@ -126,3 +127,11 @@ class CareScaleViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         info = planning.update_planning(actor=request.user, professional_id=professional_id, data=serializer.validated_data)
         return Response(PlanningInfoSerializer(info).data)
+
+    @action(detail=True, methods=['get'], url_path='historico')
+    def history(self, request, pk=None):
+        return Response(AuditSerializer(self.get_object().audit_events.all(), many=True).data)
+
+    @action(detail=True, methods=['get'], url_path='substituicoes')
+    def substitutions(self, request, pk=None):
+        return Response(SubstitutionSerializer(self.get_object().substitutions.all(), many=True).data)

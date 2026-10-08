@@ -1,4 +1,5 @@
 from django.db import transaction
+from .audit import audited
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 from .models import CareScale, ScaleNeed, ScaleAssignment, ScaleSubstitution, ScaleStatus
@@ -30,6 +31,7 @@ def validate_period(start_date, end_date, plan):
 
 
 @transaction.atomic
+@audited('CREATE')
 def create_scale(*, actor, **data):
     require_scale_permission(actor, 'create')
     data['care_plan'] = validate_relationship(data.get('patient'), data.get('care_plan'))
@@ -43,6 +45,7 @@ def locked_scale(scale):
 
 
 @transaction.atomic
+@audited('UPDATE')
 def update_scale(*, actor, scale, data):
     require_scale_permission(actor, 'update', scale)
     scale = locked_scale(scale)
@@ -61,6 +64,7 @@ def update_scale(*, actor, scale, data):
 
 
 @transaction.atomic
+@audited('DELETE')
 def delete_scale(*, actor, scale):
     require_scale_permission(actor, 'delete', scale)
     scale = locked_scale(scale)
@@ -70,6 +74,7 @@ def delete_scale(*, actor, scale):
 
 
 @transaction.atomic
+@audited('ADD_NEED')
 def add_need(*, actor, scale, plan_need):
     require_scale_permission(actor, 'update', scale)
     scale = locked_scale(scale)
@@ -88,6 +93,7 @@ def add_need(*, actor, scale, plan_need):
 
 
 @transaction.atomic
+@audited('REMOVE_NEED')
 def remove_need(*, actor, scale, item_id):
     require_scale_permission(actor, 'update', scale)
     scale = locked_scale(scale)
@@ -117,6 +123,7 @@ def assign(item, professional):
 
 
 @transaction.atomic
+@audited('ADD_PROFESSIONAL')
 def add_professional(*, actor, scale, item_id, professional):
     require_scale_permission(actor, 'update', scale)
     scale = locked_scale(scale)
@@ -127,6 +134,7 @@ def add_professional(*, actor, scale, item_id, professional):
 
 
 @transaction.atomic
+@audited('REMOVE_PROFESSIONAL')
 def remove_professional(*, actor, scale, item_id, assignment_id):
     require_scale_permission(actor, 'update', scale)
     scale = locked_scale(scale)
@@ -140,6 +148,7 @@ def remove_professional(*, actor, scale, item_id, assignment_id):
 
 
 @transaction.atomic
+@audited('SUBSTITUTE')
 def substitute_professional(*, actor, scale, item_id, assignment_id, professional):
     require_scale_permission(actor, 'update', scale)
     scale = locked_scale(scale)
@@ -161,6 +170,7 @@ def substitute_professional(*, actor, scale, item_id, assignment_id, professiona
 
 
 @transaction.atomic
+@audited('ADD_PROFESSIONALS')
 def add_professionals(*, actor, scale, item_id, professionals):
     require_scale_permission(actor, 'update', scale)
     scale = locked_scale(scale)
@@ -174,6 +184,7 @@ def add_professionals(*, actor, scale, item_id, professionals):
 
 
 @transaction.atomic
+@audited('CONFIGURE_NEED')
 def configure_need(*, actor, scale, item_id, data):
     require_scale_permission(actor, 'update', scale)
     scale = locked_scale(scale)
@@ -196,6 +207,7 @@ def configure_need(*, actor, scale, item_id, data):
 
 
 @transaction.atomic
+@audited('STATUS')
 def change_status(*, actor, scale, status):
     require_scale_permission(actor, 'change_status', scale)
     scale = locked_scale(scale)
