@@ -1,11 +1,11 @@
 import type { SessionUser } from '../contexts/auth-state';
-import { apiJson } from './api';
+import { api, apiJson, ApiError } from './api';
 import type { FrequencyPeriod } from './carePlans';
 export type ScaleStatus = 'DRAFT' | 'ACTIVE' | 'SUSPENDED' | 'CLOSED';
 export type ScaleAction = 'create' | 'update' | 'view' | 'delete' | 'change_status';
 export const scaleStatusLabels: Record<ScaleStatus, string> = { DRAFT: 'Rascunho', ACTIVE: 'Ativa', SUSPENDED: 'Suspensa', CLOSED: 'Encerrada' };
 export function canScale(user: SessionUser | null, action: ScaleAction): boolean {
-  return !!user && (user.groups.includes('GERENTE') || user.permissions.includes(`escalas.${action}`));
+  return ['create', 'update', 'view', 'delete', 'change_status'].includes(action) && !!user && (user.groups.includes('GERENTE') || user.permissions.includes(`escalas.${action}`));
 }
 export interface ScaleAssignment { id: number; professional: number; full_name: string; profession_name: string; removed_at: string | null }
 export interface ScaleNeed { id: number; plan_need: number; description: string; need_type: string; required_profession: number | null; planned_quantity: number | null; planned_period: FrequencyPeriod | null; frequency_quantity: number | null; frequency_period: FrequencyPeriod | null; frequency_reason: string; observation: string; removed_at: string | null; assignments: ScaleAssignment[] }
@@ -18,7 +18,8 @@ export const getScale = (id: number) => apiJson<CareScale>(`${base}${id}/`);
 export const scalePlans = () => apiJson<ScalePlanOption[]>(`${base}planos/`);
 export const createScale = (data: ScaleInput) => apiJson<CareScale>(base, {method: 'POST', json: data});
 export const updateScale = (id: number, data: Partial<ScaleInput>) => apiJson<CareScale>(`${base}${id}/`, {method: 'PATCH', json: data});
-export const deleteScale = (id: number) => apiJson<void>(`${base}${id}/`, {method: 'DELETE'});
+export const deleteScale = async (id: number) => {const response = await api(`${base}${id}/`, {method: 'DELETE'}); if (!response.ok) throw new ApiError(response.status, 'Não foi possível excluir a escala.');};
+export const scaleAccess = () => apiJson<Record<ScaleAction, boolean>>(`${base}acesso/`);
 export const changeScaleStatus = (id: number, status: ScaleStatus) => apiJson<CareScale>(`${base}${id}/status/`, {method: 'POST', json: {status}});
 export interface ScaleProfessional {id: number; full_name: string; profession_name: string; regions: string[]; availability_notes: string; patient_region: string; region_match: boolean | null}
 export const addScaleNeed = (id: number, plan_need: number) => apiJson<CareScale>(`${base}${id}/necessidades/`, {method: 'POST', json: {plan_need}});

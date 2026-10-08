@@ -5,7 +5,7 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.decorators import action
 from . import services
 from .models import CareScale
-from .permissions import ScalePermission, visible_scales
+from .permissions import ScalePermission, visible_scales, has_scale_permission
 from .serializers import ScaleSerializer, ScaleWriteSerializer, AddNeedSerializer, ProfessionalSerializer, ProfessionalsSerializer
 from .serializers import NeedConfigurationSerializer
 from .serializers import StatusSerializer
@@ -144,3 +144,8 @@ class CareScaleViewSet(viewsets.ModelViewSet):
             'needs': list(plan.need_links.filter(removed_at__isnull=True).values(
                 'id', 'care_need__description', 'frequency_quantity', 'frequency_period'))}
             for plan in CarePlan.objects.select_related('patient').order_by('-pk')])
+
+    @action(detail=False, methods=['get'], url_path='acesso')
+    def access(self, request):
+        return Response({'view': visible_scales(request.user).exists() or has_scale_permission(request.user, 'view'),
+            **{name: has_scale_permission(request.user, name) for name in ('create', 'update', 'delete', 'change_status')}})
