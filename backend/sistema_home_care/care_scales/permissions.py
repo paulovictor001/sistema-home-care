@@ -44,6 +44,8 @@ class ScalePermission(BasePermission):
     action_map.update({'history': 'view', 'substitutions': 'view'})
 
     def has_permission(self, request, view):
+        if view.action == 'plan_options':
+            return has_scale_permission(request.user, 'create') or has_scale_permission(request.user, 'update')
         action = self.action_map.get(view.action)
         if action == 'view':
             return has_scale_permission(request.user, action) or visible_scales(request.user).exists()

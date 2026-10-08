@@ -13,6 +13,7 @@ from .serializers import PlanningInfoSerializer
 from .serializers import AuditSerializer, SubstitutionSerializer
 from . import planning
 from django.shortcuts import get_object_or_404
+from care_plans.models import CarePlan
 
 
 class ScalePagination(PageNumberPagination):
@@ -135,3 +136,11 @@ class CareScaleViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['get'], url_path='substituicoes')
     def substitutions(self, request, pk=None):
         return Response(SubstitutionSerializer(self.get_object().substitutions.all(), many=True).data)
+
+    @action(detail=False, methods=['get'], url_path='planos')
+    def plan_options(self, request):
+        return Response([{'id': plan.pk, 'patient': plan.patient_id, 'patient_name': plan.patient.full_name,
+            'start_date': plan.start_date, 'end_date': plan.end_date,
+            'needs': list(plan.need_links.filter(removed_at__isnull=True).values(
+                'id', 'care_need__description', 'frequency_quantity', 'frequency_period'))}
+            for plan in CarePlan.objects.select_related('patient').order_by('-pk')])

@@ -26,3 +26,14 @@ class ScaleAPITests(ScaleFixture):
         self.scale.refresh_from_db()
         self.assertEqual(self.scale.observation, '')
         self.assertEqual(auth_client(self.manager).get('/api/escalas/?patient=abc').status_code, 400)
+
+    def test_plan_catalog_requires_create_or_update_not_just_view(self):
+        from accounts.models import GranularPermission
+        user = self.users[SEM_GRUPO_CPF]
+        user.category.permissions.add(GranularPermission.objects.get(codename='escalas.view'))
+        client = auth_client(user)
+        self.assertEqual(client.get('/api/escalas/planos/').status_code, 403)
+        user.category.permissions.add(GranularPermission.objects.get(codename='escalas.create'))
+        response = client.get('/api/escalas/planos/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data[0]['patient'], self.patient.pk)
