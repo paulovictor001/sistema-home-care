@@ -4,7 +4,7 @@ from django.db import transaction
 from django.utils import timezone
 from assessments.models import CareNeed
 from patients.models import Patient
-from .models import CarePlan, CarePlanNeed, CarePlanHistory, CarePlanStatus
+from .models import CarePlan, CarePlanNeed, CarePlanHistory, CarePlanStatus, CarePlanNeedResource
 
 
 def require_role(actor, *roles):
@@ -93,6 +93,11 @@ def change_status(*, actor, plan, target):
     return plan
 
 
+def close_plan(*, actor, plan):
+    """Encerramento preserva datas informadas, vínculos e situação clínica."""
+    return change_status(actor=actor, plan=plan, target=CarePlanStatus.CLOSED)
+
+
 @transaction.atomic
 def remove_need(*, actor, link, reason):
     require_role(actor, 'MEDICO')
@@ -111,6 +116,56 @@ def remove_need(*, actor, link, reason):
     plan.updated_by = actor
     plan.save(update_fields=['updated_by', 'updated_at'])
     record(plan, actor, f'Remoção de necessidade: {reason}', before)
+    return link
+
+
+@transaction.atomic
+def update_plan(*, actor, plan, data):
+    require_role(actor, 'MEDICO')
+    if set(data) - {'start_date', 'end_date', 'objective'}:
+        raise ValidationError('Campos não editáveis nesta operação.')
+    plan = lock_plan(plan)
+    before = snapshot(plan)
+    for field, value in data.items():
+        setattr(plan, field, value)
+    plan.updated_by = actor
+    plan.full_clean()
+    plan.save()
+    record(plan, actor, 'Edição do plano', before)
+    return plan
+
+
+@transaction.atomic
+def configure_need(*, actor, link, data):
+    require_role(actor, 'MEDICO')
+    from .serializers import NeedConfigurationSerializer
+    # Revalida dentro da transação também para chamadas diretas do serviço.
+    payload = dict(data)
+    for field in ('required_professional',):
+        if hasattr(payload.get(field), 'pk'):
+            payload[field] = payload[field].pk
+    if 'resources' in payload:
+        payload['resources'] = [{**item, 'resource': getattr(item['resource'], 'pk', item['resource'])}
+                                for item in payload['resources']]
+    serializer = NeedConfigurationSerializer(data=payload)
+    serializer.is_valid(raise_exception=True)
+    data = dict(serializer.validated_data)
+    plan = lock_plan(link.care_plan)
+    link = CarePlanNeed.objects.select_for_update().get(pk=link.pk, care_plan=plan)
+    if link.removed_at:
+        raise ValidationError({'need': 'Não é possível configurar um vínculo removido.'})
+    before = snapshot(plan)
+    resources = data.pop('resources', None)
+    for field, value in data.items():
+        setattr(link, field, value)
+    link.save()
+    if resources is not None:
+        link.resources.all().delete()
+        for item in resources:
+            CarePlanNeedResource.objects.create(plan_need=link, **item)
+    plan.updated_by = actor
+    plan.save(update_fields=['updated_by', 'updated_at'])
+    record(plan, actor, 'Configuração da necessidade', before)
     return link
 
 

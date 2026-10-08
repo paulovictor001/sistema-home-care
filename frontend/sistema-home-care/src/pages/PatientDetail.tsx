@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useAuth } from "../contexts/useAuth";
 import { ApiError } from "../lib/api";
+import { canPlan } from '../lib/carePlans';
 import {
   canCreateAssessment,
   canViewAssessments,
@@ -203,6 +204,8 @@ export function PatientDetail() {
           </div>
         </section>
       )}
+
+      {canPlan(user, 'view') && <section className="mb-4 rounded-lg bg-white p-4 shadow"><h2 className="mb-3 text-sm font-semibold">Plano de cuidados</h2><Link className="rounded border px-3 py-2 text-sm" to={`/pacientes/${patient.id}/planos-cuidados`}>Ver planos de cuidados</Link></section>}
 
       {manager && (
         <section className="rounded-lg bg-white p-4 shadow">
