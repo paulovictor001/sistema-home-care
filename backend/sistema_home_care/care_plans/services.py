@@ -3,7 +3,7 @@ from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
 from assessments.models import CareNeed
 from patients.models import Patient
-from .models import CarePlan, CarePlanNeed, CarePlanHistory
+from .models import CarePlan, CarePlanNeed, CarePlanHistory, CarePlanStatus
 
 
 def require_role(actor, *roles):
@@ -17,8 +17,15 @@ def snapshot(plan):
         'start_date': plan.start_date.isoformat(),
         'end_date': plan.end_date.isoformat() if plan.end_date else None,
         'objective': plan.objective,
-        'needs': list(plan.need_links.order_by('pk').values('id', 'care_need_id',
-            'required_professional_id', 'frequency_quantity', 'frequency_period')),
+        'needs': [{
+            'id': link.pk, 'care_need_id': link.care_need_id,
+            'description': link.care_need.description, 'priority': link.care_need.priority,
+            'required_professional_id': link.required_professional_id,
+            'frequency_quantity': link.frequency_quantity, 'frequency_period': link.frequency_period,
+            'removed_at': link.removed_at.isoformat() if link.removed_at else None,
+            'removal_reason': link.removal_reason, 'removed_by': link.removed_by_id,
+            'resources': list(link.resources.values('id', 'resource_id', 'quantity', 'observation')),
+        } for link in plan.need_links.select_related('care_need').order_by('pk')],
     }
 
 
@@ -54,6 +61,35 @@ def attach_need(*, actor, plan, need):
     plan.save(update_fields=['updated_by', 'updated_at'])
     record(plan, actor, 'Inclusão de necessidade', before)
     return link
+
+
+@transaction.atomic
+def change_status(*, actor, plan, target):
+    plan = lock_plan(plan)
+    transitions = {
+        (CarePlanStatus.DRAFT, CarePlanStatus.ACTIVE): ('MEDICO',),
+        (CarePlanStatus.ACTIVE, CarePlanStatus.CLOSED): ('MEDICO', 'ENFERMEIRO'),
+        (CarePlanStatus.CLOSED, CarePlanStatus.ACTIVE): ('MEDICO', 'ENFERMEIRO'),
+    }
+    roles = transitions.get((plan.status, target))
+    if roles is None:
+        raise ValidationError({'status': 'Transição de status inválida.'})
+    require_role(actor, *roles)
+    if target == CarePlanStatus.ACTIVE:
+        links = list(plan.need_links.filter(removed_at__isnull=True).select_related('care_need__assessment'))
+        if not links:
+            raise ValidationError({'needs': 'O plano precisa de ao menos uma necessidade.'})
+        for link in links:
+            validate_need(plan, link.care_need)
+            if not link.required_professional_id or not link.frequency_quantity or not link.frequency_period:
+                raise ValidationError({'needs': 'Configure profissional e frequência de todas as necessidades antes de ativar.'})
+    before = snapshot(plan)
+    plan.status = target
+    plan.updated_by = actor
+    plan.full_clean()
+    plan.save(update_fields=['status', 'updated_by', 'updated_at'])
+    record(plan, actor, f'Status: {before["status"]} → {target}', before)
+    return plan
 
 
 @transaction.atomic
