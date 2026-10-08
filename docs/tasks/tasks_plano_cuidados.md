@@ -23,6 +23,9 @@ Nesta task foi criada a **estrutura** de histórico; gravação automática, pre
 - Criar estrutura necessária para preservar histórico.
 
 ### TASK 02 — Modelar vínculo entre Plano e Necessidade
+
+Implementada a modelagem `CarePlanNeed`: vínculo com plano/necessidade protegidos contra exclusão em cascata, timestamps e remoção lógica com data, motivo obrigatório e autor opcional. O vínculo removido permanece armazenado; uma nova associação cria outro registro. Há unicidade no banco para vínculos não removidos do mesmo par e validação de pertencimento ao paciente. O model valida conflitos com outros planos ativos ao salvar vínculos e ativar/reativar planos. Na TASK 07, o serviço transacional deverá tratar concorrência; validações do model não substituem essa garantia e são contornadas por `QuerySet.update`/operações em lote. API de remoção, autorização e eventos automáticos de histórico seguem nas TASK 11/13/14/19; configuração e recursos seguem nas TASK 03/04.
+
 - Criar relacionamento entre Plano de Cuidados e Necessidades Identificadas.
 - Permitir múltiplos vínculos ao longo do tempo.
 - Controlar para que uma necessidade tenha somente um vínculo com plano ativo por vez.

@@ -5,6 +5,10 @@ from django.db.models import ProtectedError
 from django.test import TestCase
 from assessments.tests_api import make_api_users, make_patient, MEDICO_CPF
 from .models import CarePlan, CarePlanHistory, CarePlanStatus
+from .models import CarePlanNeed
+from django.utils import timezone
+from assessments.models import CareNeed, PatientAssessment, NeedPriority
+from patients.models import NeedType
 
 
 class CarePlanModelTests(TestCase):
@@ -85,3 +89,104 @@ class CarePlanModelTests(TestCase):
         self.assertEqual(plan.history.get().pk, event.pk)
         with self.assertRaises(ProtectedError):
             plan.delete()
+
+
+class CarePlanNeedModelTests(TestCase):
+    def setUp(self):
+        self.patient = make_patient()
+        assessment = PatientAssessment.objects.create(patient=self.patient)
+        self.need = CareNeed.objects.create(assessment=assessment,
+            need_type=NeedType.objects.get(name='Enfermagem'),
+            description='Curativo diário', priority=NeedPriority.HIGH)
+
+    def make_plan(self, status=CarePlanStatus.DRAFT, **kwargs):
+        return CarePlan.objects.create(patient=self.patient, start_date=date(2026, 10, 8),
+                                       status=status, **kwargs)
+
+    def link(self, plan, **kwargs):
+        return CarePlanNeed.objects.create(care_plan=plan, care_need=self.need, **kwargs)
+
+    def test_many_needs_and_draft_plans(self):
+        first, second = self.make_plan(), self.make_plan()
+        self.link(first)
+        self.link(second)
+        other = CareNeed.objects.create(assessment=self.need.assessment,
+            need_type=self.need.need_type, description='Monitoramento', priority=NeedPriority.LOW)
+        CarePlanNeed.objects.create(care_plan=first, care_need=other)
+        self.assertEqual(first.need_links.count(), 2)
+        self.assertEqual(self.need.care_plan_links.count(), 2)
+
+    def test_duplicate_current_link_is_rejected_by_model_and_database(self):
+        plan = self.make_plan()
+        self.link(plan)
+        with self.assertRaises(ValidationError):
+            self.link(plan)
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            CarePlanNeed.objects.bulk_create([CarePlanNeed(care_plan=plan, care_need=self.need)])
+
+    def test_wrong_patient_is_rejected(self):
+        other = make_patient(cpf='12345678909')
+        plan = CarePlan.objects.create(patient=other, start_date=date(2026, 10, 8))
+        with self.assertRaises(ValidationError) as error:
+            self.link(plan)
+        self.assertIn('care_need', error.exception.message_dict)
+
+    def test_only_one_active_plan_per_need(self):
+        self.link(self.make_plan(CarePlanStatus.ACTIVE))
+        with self.assertRaises(ValidationError):
+            self.link(self.make_plan(CarePlanStatus.ACTIVE))
+        self.link(self.make_plan())
+
+    def test_activation_and_reactivation_check_existing_links(self):
+        self.link(self.make_plan(CarePlanStatus.ACTIVE))
+        for status in (CarePlanStatus.DRAFT, CarePlanStatus.CLOSED):
+            plan = self.make_plan(status)
+            self.link(plan)
+            plan.status = CarePlanStatus.ACTIVE
+            with self.assertRaises(ValidationError):
+                plan.save()
+            plan.refresh_from_db()
+            self.assertEqual(plan.status, status)
+
+    def test_closed_plan_allows_reuse_and_keeps_need_active(self):
+        plan = self.make_plan(CarePlanStatus.ACTIVE)
+        old = self.link(plan)
+        plan.status = CarePlanStatus.CLOSED
+        plan.save()
+        self.link(self.make_plan(CarePlanStatus.ACTIVE))
+        self.need.refresh_from_db()
+        old.refresh_from_db()
+        self.assertTrue(self.need.is_active)
+        self.assertIsNone(old.removed_at)
+
+    def test_removal_preserves_record_and_allows_new_link(self):
+        plan = self.make_plan(CarePlanStatus.ACTIVE)
+        old = self.link(plan)
+        old.removed_at = timezone.now()
+        old.removal_reason = '  Revisão do plano  '
+        old.save()
+        self.link(plan)
+        old.refresh_from_db()
+        self.need.refresh_from_db()
+        self.assertEqual(old.removal_reason, 'Revisão do plano')
+        self.assertEqual(plan.need_links.count(), 2)
+        self.assertTrue(self.need.is_active)
+        self.assertIsNone(self.need.inactivated_at)
+
+    def test_removal_requires_date_and_nonblank_reason(self):
+        plan = self.make_plan()
+        for data in ({'removed_at': timezone.now()},
+                     {'removed_at': timezone.now(), 'removal_reason': '   '},
+                     {'removal_reason': 'Revisão'}):
+            with self.assertRaises(ValidationError):
+                self.link(plan, **data)
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            CarePlanNeed.objects.bulk_create([CarePlanNeed(care_plan=plan,
+                care_need=self.need, removed_at=timezone.now())])
+
+    def test_link_protects_need_and_plan_from_deletion(self):
+        plan = self.make_plan()
+        self.link(plan, removed_at=timezone.now(), removal_reason='Revisão')
+        for obj in (self.need, plan):
+            with self.assertRaises(ProtectedError):
+                obj.delete()
