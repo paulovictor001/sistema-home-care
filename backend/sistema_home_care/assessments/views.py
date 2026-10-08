@@ -33,6 +33,7 @@ from accounts.permissions import (
 )
 
 from .models import CareNeed, CareNeedHistory, PatientAssessment, Resource
+from .permissions import need_permissions
 from .serializers import (
     AssessmentResourceSerializer,
     CareNeedSerializer,
@@ -78,10 +79,7 @@ class AssessmentViewSet(viewsets.ModelViewSet):
                 RequirePermission("avaliacoes.update"),
             ]
         elif self.action == "criar_necessidade":
-            permission_classes = [
-                IsClinicalStaff,
-                RequirePermission("avaliacoes.add_need"),
-            ]
+            return need_permissions("create") + [RequirePermission("avaliacoes.add_need")()]
         elif self.action == "associar_recurso":
             permission_classes = [
                 IsClinicalStaff,
@@ -179,16 +177,8 @@ class CareNeedViewSet(
     )
 
     def get_permissions(self):
-        if self.action == "inativar":
-            return [IsCareTeam(), RequirePermission("necessidades.inactivate")()]
-        if self.action == "reativar":
-            return [IsCareTeam(), RequirePermission("necessidades.reactivate")()]
-        action_name = {
-            "update": "update",
-            "partial_update": "update",
-            "destroy": "delete",
-        }.get(self.action, "view")
-        return [IsClinicalStaff(), RequirePermission(f"necessidades.{action_name}")()]
+        # Métodos sem rota mapeada continuam retornando 405 após autenticação.
+        return need_permissions(self.action or "metadata")
 
     def filter_queryset(self, queryset):
         queryset = super().filter_queryset(queryset)

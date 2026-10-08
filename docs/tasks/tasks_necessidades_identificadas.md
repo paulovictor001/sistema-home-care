@@ -42,7 +42,7 @@
 - [x] Implementar exclusão.
 - [x] Implementar inativação.
 - [x] Preservar histórico na inativação.
-- [ ] Implementar autorização por perfil.
+- [x] Implementar autorização por perfil.
 
 ## 4. Frontend — Necessidades
 > Backend de consulta/edição/exclusão (RF-NEC-008/009/010): `GET /api/necessidades/` (20 por página, filtro opcional `?assessment=<id>`), `GET /api/necessidades/<id>/`, `PUT/PATCH /api/necessidades/<id>/` e `DELETE /api/necessidades/<id>/`. Acesso restrito a Médico/Enfermeiro com `necessidades.view/update/delete`, criadas e atribuídas às categorias clínicas pela migration `accounts.0006`. Exclusão física remove somente a necessidade, preservando avaliação, tipo e demais necessidades. Edição permite tipo, descrição e prioridade; avaliação de origem e status continuam read-only. Tipo histórico inativo pode ser mantido; a troca exige um tipo ativo. Criação segue no endpoint da avaliação. Inativação e telas permanecem nas tasks próprias.
@@ -66,10 +66,10 @@
 - [ ] Restringir a Gerente, Médico e Enfermeiro.
 
 ## 6. Autorização
-- [ ] Autorizar Médico e Enfermeiro a criar.
-- [ ] Autorizar Médico e Enfermeiro a visualizar.
-- [ ] Autorizar Médico e Enfermeiro a editar.
-- [ ] Autorizar Médico e Enfermeiro a excluir.
+- [x] Autorizar Médico e Enfermeiro a criar.
+- [x] Autorizar Médico e Enfermeiro a visualizar.
+- [x] Autorizar Médico e Enfermeiro a editar.
+- [x] Autorizar Médico e Enfermeiro a excluir.
 - [x] Autorizar Gerente, Médico e Enfermeiro a inativar.
 - [ ] Autorizar Gerente, Médico e Enfermeiro a administrar tipos.
 - [ ] Não assumir permissões não definidas.
@@ -87,7 +87,7 @@
 - [x] Testar ativação/inativação de tipos.
 - [ ] Testar que tipo inativo não aparece em novos cadastros.
 - [ ] Testar preservação de vínculos históricos (depende do futuro `CareNeed`).
-- [ ] Testar permissões por perfil.
+- [x] Testar permissões por perfil.
 
 ## 8. Fora do escopo
 Não implementar neste processo:
@@ -122,3 +122,12 @@ As tasks devem permanecer agrupadas por funcionalidade/processo, evitando uma ta
 - [x] Testar permissões, ciclos, idempotência, filtros, preservação dos dados e rollback.
 
 Esta extensão substitui a indicação anterior de reativação fora do escopo, por solicitação explícita do usuário.
+
+## Autorização backend — RF-NEC-018/021
+
+- Matriz centralizada em `assessments/permissions.py`: perfil e permissão granular são exigidos juntos; usuário inativo é bloqueado. Ações desconhecidas são negadas.
+- Médico/Enfermeiro: criar (`necessidades.create` e a permissão existente `avaliacoes.add_need`), consultar/histórico (`necessidades.view`), editar (`necessidades.update`) e excluir (`necessidades.delete`).
+- Gerente/Médico/Enfermeiro: inativar (`necessidades.inactivate`), reativar (`necessidades.reactivate`) e alterar situação de tipos (`tipos_necessidade.manage`).
+- Migration `accounts.0009` cria as permissões faltantes. A nova permissão de criação só é atribuída às categorias clínicas que ainda possuem `avaliacoes.add_need`, preservando revogações anteriores.
+- O catálogo de tipos continua usando a autorização da avaliação (`avaliacoes.view`). A visualização dos relacionados dentro da avaliação mantém o contrato RF-AVL-009/BE-003 existente; a consulta direta e o histórico de necessidades seguem RF-NEC-018.
+- Testes cobrem todas as operações contra anônimos, perfis indevidos mesmo com permissões atribuídas, categorias sem a permissão específica e usuários inativos, garantindo ausência de mutações nos bloqueios. Criação/edição de tipos não são adicionadas nesta task.

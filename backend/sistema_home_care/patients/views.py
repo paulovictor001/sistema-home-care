@@ -236,6 +236,7 @@ class NeedTypeStatusView(APIView):
     """Altera o status de um tipo de necessidade de forma idempotente (TA-78)."""
 
     target_status = None
+    permission_classes = [IsCareTeam, RequirePermission("tipos_necessidade.manage")]
 
     def post(self, request, pk):
         need_type = get_object_or_404(NeedType, pk=pk)
