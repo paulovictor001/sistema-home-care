@@ -17,6 +17,10 @@ class ProfessionalSerializer(serializers.Serializer):
     professional = serializers.PrimaryKeyRelatedField(queryset=Professional.objects.all())
 
 
+class ProfessionalsSerializer(serializers.Serializer):
+    professionals = serializers.PrimaryKeyRelatedField(queryset=Professional.objects.all(), many=True, allow_empty=False)
+
+
 class ScaleNeedSerializer(serializers.ModelSerializer):
     assignments = AssignmentSerializer(many=True, read_only=True)
     description = serializers.CharField(source='plan_need.care_need.description', read_only=True)
