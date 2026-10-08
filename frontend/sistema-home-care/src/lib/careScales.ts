@@ -29,3 +29,7 @@ export const addScaleProfessional = (id: number, item: number, professional: num
 export const removeScaleProfessional = (id: number, item: number, assignment: number) => apiJson<CareScale>(`${base}${id}/necessidades/${item}/profissionais/${assignment}/remover/`, {method: 'POST'});
 export const substituteScaleProfessional = (id: number, item: number, assignment: number, professional: number) => apiJson<CareScale>(`${base}${id}/necessidades/${item}/profissionais/${assignment}/substituir/`, {method: 'POST', json: {professional}});
 export const saveProfessionalPlanning = (professional: number, regions: string[], availability_notes: string) => apiJson<{regions: string[]; availability_notes: string}>(`${base}profissionais/${professional}/planejamento/`, {method: 'PUT', json: {regions, availability_notes}});
+export interface ScaleSubstitution {id: number; item: number | null; previous_name: string; new_name: string; actor_name: string; created_at: string}
+export interface ScaleAudit {id: number; actor_name: string; action: string; created_at: string; previous_data: unknown; new_data: unknown}
+export const scaleSubstitutions = (id: number) => apiJson<ScaleSubstitution[]>(`${base}${id}/substituicoes/`);
+export const scaleAudit = (id: number) => apiJson<ScaleAudit[]>(`${base}${id}/historico/`);
