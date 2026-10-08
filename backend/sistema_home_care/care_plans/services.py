@@ -1,6 +1,7 @@
 """Operações transacionais do plano; modelos mantêm registros históricos."""
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
+from django.utils import timezone
 from assessments.models import CareNeed
 from patients.models import Patient
 from .models import CarePlan, CarePlanNeed, CarePlanHistory, CarePlanStatus
@@ -90,6 +91,27 @@ def change_status(*, actor, plan, target):
     plan.save(update_fields=['status', 'updated_by', 'updated_at'])
     record(plan, actor, f'Status: {before["status"]} → {target}', before)
     return plan
+
+
+@transaction.atomic
+def remove_need(*, actor, link, reason):
+    require_role(actor, 'MEDICO')
+    reason = (reason or '').strip()
+    if not reason:
+        raise ValidationError({'reason': 'Informe o motivo da remoção.'})
+    plan = lock_plan(link.care_plan)
+    link = CarePlanNeed.objects.select_for_update().get(pk=link.pk, care_plan=plan)
+    if link.removed_at:
+        raise ValidationError({'need': 'Este vínculo já foi removido.'})
+    before = snapshot(plan)
+    link.removed_at = timezone.now()
+    link.removal_reason = reason
+    link.removed_by = actor
+    link.save(update_fields=['removed_at', 'removal_reason', 'removed_by', 'updated_at'])
+    plan.updated_by = actor
+    plan.save(update_fields=['updated_by', 'updated_at'])
+    record(plan, actor, f'Remoção de necessidade: {reason}', before)
+    return link
 
 
 @transaction.atomic
