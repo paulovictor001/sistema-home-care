@@ -1,147 +1,70 @@
 # Sistema Home Care
 
-Sistema de atendimento domiciliar com backend Django e frontend React.
+Sistema de atendimento domiciliar desenvolvido como projeto acadÃªmico, com frontend em React e backend em Django REST Framework.
 
-## Pré-requisitos
+## RepositÃ³rio
 
-- [Docker](https://docs.docker.com/get-docker/) + Docker Compose
-- Git
+GitHub: https://github.com/paulovictor001/sistema-home-care
 
-## Início Rápido
+## Funcionalidades
 
-```bash
-# Clone o repositório
-git clone <url-do-repositorio>
-cd sistema-home-care
+Atualmente o sistema possui:
 
-# Crie o arquivo de ambiente (obrigatório — sem ele o `up` falha)
-# Windows: copy .env.docker.example .env.docker
-cp .env.docker.example .env.docker
-# Edite o SECRET_KEY com uma chave forte
+- AutenticaÃ§Ã£o de usuÃ¡rios;
+- Painel inicial do sistema;
+- Cadastro e gerenciamento de pacientes;
+- Gerenciamento de usuÃ¡rios;
+- Gerenciamento de categorias;
+- Gerenciamento de profissÃµes;
+- AvaliaÃ§Ã£o inicial dos pacientes;
+- HistÃ³rico e visualizaÃ§Ã£o de avaliaÃ§Ãµes;
+- Cadastro e manutenÃ§Ã£o de tipos de necessidade;
+- AtivaÃ§Ã£o e inativaÃ§Ã£o de tipos de necessidade;
+- API REST para comunicaÃ§Ã£o entre frontend e backend.
 
-# Suba todos os serviços
-docker compose up -d
-
-# Rode as migrações (primeira vez)
-docker compose exec backend python manage.py migrate
-
-# Crie o bucket `home-care-media` no console MinIO (http://localhost:9001),
-# login minioadmin/minioadmin, antes de enviar arquivos pelo backend
-
-# Acesse
-# Frontend:  http://localhost:5173
-# Backend:   http://localhost:8000
-# MinIO:     http://localhost:9001
-```
-
-## Credenciais
-
-| Serviço | Usuário | Senha |
-|---|---|---|
-| MinIO Console | `minioadmin` | `minioadmin` |
-
-## Estrutura do Projeto
-
-```
-sistema-home-care/
-├── backend/                    # Django REST API
-│   ├── sistema_home_care/      # manage.py está aqui
-│   ├── venv/                   # Ambiente virtual (local)
-│   ├── .env                    # Variáveis de ambiente (local)
-│   └── requirements.txt
-├── frontend/
-│   └── sistema-home-care/      # App React (execute npm aqui)
-│       ├── src/
-│       └── package.json
-├── docs/                       # Documentação de processos
-├── docker-compose.yml
-└── .env.docker                 # Variáveis para Docker (não committar)
-```
-
-## Desenvolvimento Local (sem Docker)
+## Stack TecnolÃ³gica
 
 ### Backend
 
-```bash
-cd backend/sistema_home_care
-
-# Criar ambiente virtual (primeira vez)
-python -m venv venv
-venv\Scripts\activate          # Windows
-# source venv/bin/activate    # Linux/Mac
-
-# Instalar dependências
-pip install -r ../requirements.txt
-
-# Criar arquivo .env (copiar do .env.example)
-cp ../.env.example .env
-# Editar .env com sua SECRET_KEY
-
-# Rodar migrações
-python manage.py migrate
-
-# Criar superusuário
-python manage.py createsuperuser
-
-# Iniciar servidor
-python manage.py runserver
-```
+- Python
+- Django 5.2
+- Django REST Framework
+- SQLite
+- django-storages
+- boto3
 
 ### Frontend
 
-```bash
-cd frontend/sistema-home-care
+- React 19
+- TypeScript
+- Vite 8
+- Tailwind CSS 4
 
-# Instalar dependências
-npm install
+### Infraestrutura
 
-# Iniciar servidor de desenvolvimento
-npm run dev
+- Docker
+- Docker Compose
+- MinIO, compatÃ­vel com armazenamento S3
+
+## Estrutura do Projeto
+
+```text
+sistema-home-care/
+â”œâ”€â”€ backend/
+â”‚   â”œâ”€â”€ sistema_home_care/
+â”‚   â”‚   â”œâ”€â”€ accounts/
+â”‚   â”‚   â”œâ”€â”€ assessments/
+â”‚   â”‚   â”œâ”€â”€ patients/
+â”‚   â”‚   â”œâ”€â”€ professionals/
+â”‚   â”‚   â””â”€â”€ sistema_home_care/
+â”‚   â””â”€â”€ requirements.txt
+â”œâ”€â”€ frontend/
+â”‚   â””â”€â”€ sistema-home-care/
+â”‚       â”œâ”€â”€ src/
+â”‚       â””â”€â”€ package.json
+â”œâ”€â”€ docs/
+â”œâ”€â”€ docker-compose.yml
+â”œâ”€â”€ .env.docker.example
+â”œâ”€â”€ AGENTS.md
+â””â”€â”€ README.md
 ```
-
-## Criar Usuário no Django
-
-Para acessar o admin do Django (`http://localhost:8000/admin`), crie um superusuário:
-
-```bash
-# Desenvolvimento local
-cd backend/sistema_home_care
-python manage.py createsuperuser
-```
-
-```bash
-# Via Docker (com os containers rodando)
-docker compose exec backend python manage.py createsuperuser
-```
-
-Siga os prompts para informar nome de usuário, e-mail e senha.
-
-## Comandos Docker
-
-```bash
-docker compose up -d              # Subir todos os serviços
-docker compose down               # Parar todos os serviços
-docker compose logs -f backend    # Ver logs do backend
-docker compose logs -f frontend   # Ver logs do frontend
-docker compose ps                 # Status dos containers
-```
-
-## Portas
-
-| Serviço | Porta | Descrição |
-|---|---|---|
-| Backend | 8000 | API Django |
-| Frontend | 5173 | Vite dev server |
-| MinIO API | 9000 | API S3 |
-| MinIO Console | 9001 | Interface web |
-
-## Stack Tecnológica
-
-- **Backend**: Django 5.2, DRF, SQLite, django-storages, boto3
-- **Frontend**: React 19, Vite 8, TypeScript, Tailwind CSS 4
-- **Storage**: MinIO (compatível com S3)
-- **Linting**: oxlint (não ESLint)
-
-## Documentação
-
-Consulte a pasta `docs/` para documentação de processos e modelo de dados.
