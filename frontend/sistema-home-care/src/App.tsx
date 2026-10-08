@@ -16,6 +16,8 @@ import { Professions } from "./pages/Professions";
 import { UserDetail } from "./pages/UserDetail";
 import { UserForm } from "./pages/UserForm";
 import { UsersList } from "./pages/UsersList";
+import { CarePlans } from './pages/CarePlans';
+import { CarePlanDetail } from './pages/CarePlanDetail';
 
 function ProtectedLayout() {
   return (
@@ -47,6 +49,8 @@ function App() {
           />
         </Route>
         <Route path="/pacientes/:id" element={<PatientDetail />} />
+        <Route path="/pacientes/:patientId/planos-cuidados" element={<CarePlans />} />
+        <Route path="/planos-cuidados/:id" element={<CarePlanDetail />} />
         <Route
           path="/pacientes/:id/editar"
           element={<PatientForm mode="edit" />}
