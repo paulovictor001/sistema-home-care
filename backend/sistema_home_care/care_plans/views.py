@@ -6,14 +6,13 @@ from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError, PermissionDenied
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
-from accounts.permissions import IsGerente, IsClinicalStaff, IsMedico
-from assessments.permissions import IsActiveUser
 from assessments.models import CareNeed, Resource
 from professionals.models import Professional
 from .models import CarePlan
 from .serializers import (PlanSerializer, PlanCreateSerializer, PlanUpdateSerializer,
     AttachNeedSerializer, NeedConfigurationSerializer, RemovalSerializer, HistorySerializer)
 from . import services
+from .permissions import plan_permissions
 
 
 def execute(operation, **kwargs):
@@ -39,13 +38,7 @@ class CarePlanViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets
         'need_links__care_need__need_type', 'need_links__required_professional', 'need_links__resources__resource')
 
     def get_permissions(self):
-        if self.action in ('create', 'update', 'partial_update', 'vincular', 'configurar', 'remover', 'ativar', 'necessidades_disponiveis'):
-            profile = IsMedico
-        elif self.action in ('encerrar', 'reativar'):
-            profile = IsClinicalStaff
-        else:
-            profile = IsGerente | IsClinicalStaff
-        return [IsActiveUser(), profile()]
+        return plan_permissions(self.action or 'metadata')
 
     def get_queryset(self):
         queryset = super().get_queryset()
