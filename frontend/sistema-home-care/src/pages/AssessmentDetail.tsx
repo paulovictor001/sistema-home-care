@@ -2,11 +2,14 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useAuth } from "../contexts/useAuth";
 import { ApiError } from "../lib/api";
+import { NeedEditForm } from "../components/NeedEditForm";
 import {
   canEditAssessment,
   getAssessment,
   inactivateNeed,
   reactivateNeed,
+  deleteNeed,
+  type CareNeed,
   getNeedHistory,
   isCareTeam,
   isClinical,
@@ -35,16 +38,53 @@ export function AssessmentDetail() {
   const [needError, setNeedError] = useState<string | null>(null);
   const [busyNeed, setBusyNeed] = useState<number | null>(null);
   const [history, setHistory] = useState<Record<number, NeedHistoryEvent[]>>({});
+  const [editingNeed, setEditingNeed] = useState<number | null>(null);
+  const [needMessage, setNeedMessage] = useState<string | null>(null);
+
+  function savedNeed(need: CareNeed) {
+    setAssessment((previous) => previous ? {
+      ...previous, care_needs: previous.care_needs.map((item) => item.id === need.id ? need : item),
+    } : previous);
+    setEditingNeed(null);
+    setNeedMessage("Necessidade atualizada.");
+  }
+
+  async function removeNeed(need: CareNeed) {
+    if (!window.confirm(`Excluir definitivamente a necessidade "${need.description}"? Ela será removida da avaliação. Para preservar o registro, use Inativar.`)) return;
+    setBusyNeed(need.id);
+    setNeedError(null);
+    setNeedMessage(null);
+    try {
+      await deleteNeed(need.id);
+      setAssessment((previous) => previous ? {
+        ...previous, care_needs: previous.care_needs.filter((item) => item.id !== need.id),
+      } : previous);
+      setHistory((previous) => {
+        const updated = { ...previous };
+        delete updated[need.id];
+        return updated;
+      });
+      setNeedMessage("Necessidade excluída.");
+    } catch (error) {
+      setNeedError(error instanceof ApiError && error.status === 403
+        ? "Você não tem permissão para excluir esta necessidade."
+        : "Não foi possível excluir a necessidade. Tente novamente.");
+    } finally {
+      setBusyNeed(null);
+    }
+  }
 
   async function changeNeedState(id: number, active: boolean) {
     if (!window.confirm(`${active ? "Reativar" : "Inativar"} esta necessidade? O registro e seu histórico serão preservados.`)) return;
     setBusyNeed(id);
     setNeedError(null);
+    setNeedMessage(null);
     try {
       const result = await (active ? reactivateNeed(id) : inactivateNeed(id));
       setAssessment((previous) => previous ? {
         ...previous, care_needs: previous.care_needs.map((need) => need.id === id ? { ...need, ...result } : need),
       } : previous);
+      setNeedMessage(active ? "Necessidade reativada." : "Necessidade inativada.");
       setHistory((previous) => {
         const updated = { ...previous };
         delete updated[id];
@@ -184,6 +224,7 @@ export function AssessmentDetail() {
           Necessidades ({assessment.care_needs.length})
         </h2>
         {needError && <p role="alert" className="mb-2 text-sm text-red-600">{needError}</p>}
+        {needMessage && <p role="status" className="mb-2 text-sm text-green-700">{needMessage}</p>}
         {assessment.care_needs.length === 0 ? (
           <p className="text-sm text-gray-600">Nenhuma necessidade registrada.</p>
         ) : (
@@ -202,20 +243,29 @@ export function AssessmentDetail() {
                 </span>
                 {n.inactivated_at && <p className="mt-1 text-gray-600">Inativada em {new Date(n.inactivated_at).toLocaleString("pt-BR")}</p>}
                 <div className="mt-2 flex gap-2">
+                  {isClinical(user?.groups) && user?.permissions.includes("necessidades.update") && (
+                    <button type="button" disabled={busyNeed !== null || editingNeed !== null} onClick={() => {
+                      setNeedError(null); setNeedMessage(null); setEditingNeed(n.id);
+                    }} className="rounded border px-2 py-1 disabled:opacity-50">Editar necessidade</button>
+                  )}
+                  {isClinical(user?.groups) && user?.permissions.includes("necessidades.delete") && (
+                    <button type="button" disabled={busyNeed !== null || editingNeed !== null} onClick={() => void removeNeed(n)} className="rounded border border-red-300 px-2 py-1 text-red-700 disabled:opacity-50">Excluir</button>
+                  )}
                   {n.is_active && isCareTeam(user?.groups) && user?.permissions.includes("necessidades.inactivate") && (
-                    <button type="button" disabled={busyNeed !== null} onClick={() => void changeNeedState(n.id, false)} className="rounded border px-2 py-1 disabled:opacity-50">
+                    <button type="button" disabled={busyNeed !== null || editingNeed !== null} onClick={() => void changeNeedState(n.id, false)} className="rounded border px-2 py-1 disabled:opacity-50">
                       {busyNeed === n.id ? "Inativando…" : "Inativar"}
                     </button>
                   )}
                   {!n.is_active && isCareTeam(user?.groups) && user?.permissions.includes("necessidades.reactivate") && (
-                    <button type="button" disabled={busyNeed !== null} onClick={() => void changeNeedState(n.id, true)} className="rounded border px-2 py-1 disabled:opacity-50">
+                    <button type="button" disabled={busyNeed !== null || editingNeed !== null} onClick={() => void changeNeedState(n.id, true)} className="rounded border px-2 py-1 disabled:opacity-50">
                       {busyNeed === n.id ? "Reativando…" : "Reativar"}
                     </button>
                   )}
                   {isClinical(user?.groups) && user?.permissions.includes("necessidades.view") && (
-                    <button type="button" disabled={busyNeed !== null} onClick={() => void showHistory(n.id)} className="rounded border px-2 py-1 disabled:opacity-50">Histórico</button>
+                    <button type="button" disabled={busyNeed !== null || editingNeed !== null} onClick={() => void showHistory(n.id)} className="rounded border px-2 py-1 disabled:opacity-50">Histórico</button>
                   )}
                 </div>
+                {editingNeed === n.id && <NeedEditForm need={n} onSave={savedNeed} onCancel={() => setEditingNeed(null)} />}
                 {history[n.id] && busyNeed !== n.id && (
                   <ul className="mt-2 space-y-1 text-gray-600">
                     {history[n.id].length === 0 && <li>Nenhuma alteração de situação registrada.</li>}

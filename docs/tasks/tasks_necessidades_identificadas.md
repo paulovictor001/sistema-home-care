@@ -53,8 +53,8 @@
 - [x] Disponibilizar somente tipos ativos para novos cadastros.
 - [x] Disponibilizar prioridades definidas.
 - [x] Exibir status inicial `Identificada`.
-- [ ] Implementar edição conforme perfil.
-- [ ] Implementar exclusão conforme perfil.
+- [x] Implementar edição conforme perfil.
+- [x] Implementar exclusão conforme perfil.
 - [x] Implementar inativação conforme perfil.
 - [ ] Exibir informações históricas necessárias.
 
@@ -135,3 +135,7 @@ Esta extensão substitui a indicação anterior de reativação fora do escopo, 
 ## Seção de necessidades na avaliação
 
 O formulário de criação/edição mostra a seção desde o início, com orientação para salvar a avaliação antes de adicionar registros vinculados. Exibe lista, situação ativa/inativa e formulário Tipo/Descrição/Prioridade/Status inicial. Adição exige perfil clínico e permissões `necessidades.create` + `avaliacoes.add_need`; erros de catálogo e de inclusão aparecem na seção. Após criar, novos salvamentos atualizam a mesma avaliação. Link para o detalhe permite acessar situação e histórico. Edição/exclusão de necessidades na interface continuam em tasks próprias.
+
+## Frontend — Edição, exclusão e situação
+
+No detalhe da avaliação, Médico/Enfermeiro com `necessidades.update` podem editar tipo, descrição e prioridade em formulário inline com salvar/cancelar, validação e erros por campo. Tipos ativos são oferecidos; o tipo histórico atual pode ser mantido mesmo inativo. Status e situação são somente leitura. Exclusão exige `necessidades.delete` e confirmação explícita, tratando a resposta 204 sem tentar ler JSON. Lista e contagem são atualizadas após sucesso; falhas preservam os dados exibidos. Inativação/reativação e consulta do histórico permanecem integradas, com ações bloqueadas durante edição ou requisição em andamento.

@@ -466,6 +466,31 @@ class PatientDetailUpdateAPITests(TestCase):
         make_address(self.patient)
         self.url = f"/api/pacientes/{self.patient.pk}/"
 
+    def test_inactive_patient_detail_and_reactivation(self):
+        manager = make_api_client(self.users[GERENTE_CPF])
+        self.assertEqual(manager.post(self.url + "inativar/").status_code, 200)
+        for cpf in (GERENTE_CPF, MEDICO_CPF, ENFERMEIRO_CPF):
+            client = make_api_client(self.users[cpf])
+            response = client.get(self.url)
+            self.assertEqual(response.status_code, 200)
+            self.assertEqual(response.data["status"], "INACTIVE")
+            self.assertEqual(client.get(self.url + "?nome=inexistente&status=ativo").status_code, 200)
+        self.assertEqual(manager.get("/api/pacientes/?status=inativo").data["count"], 1)
+        self.assertEqual(manager.get("/api/pacientes/").data["count"], 0)
+        clinical = make_api_client(self.users[MEDICO_CPF])
+        self.assertEqual(clinical.post(self.url + "reativar/").status_code, 403)
+        self.assertEqual(manager.post(self.url + "reativar/").status_code, 200)
+        self.assertEqual(manager.get("/api/pacientes/").data["count"], 1)
+
+    def test_inactive_patient_can_be_edited_without_reactivation(self):
+        manager = make_api_client(self.users[GERENTE_CPF])
+        manager.post(self.url + "inativar/")
+        response = manager.patch(self.url, {"phone": "91911112222"}, format="json")
+        self.assertEqual(response.status_code, 200)
+        self.patient.refresh_from_db()
+        self.assertEqual(self.patient.phone, "91911112222")
+        self.assertEqual(self.patient.status, "INACTIVE")
+
     def test_enfermeiro_can_view_detail(self):
         client = make_api_client(self.users[ENFERMEIRO_CPF])
         response = client.get(self.url)
