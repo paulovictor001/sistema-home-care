@@ -178,7 +178,7 @@ def configure_need(*, actor, scale, item_id, data):
     require_scale_permission(actor, 'update', scale)
     scale = locked_scale(scale)
     item = current_item(scale, item_id)
-    allowed = {'frequency_quantity', 'frequency_period', 'observation'}
+    allowed = {'frequency_quantity', 'frequency_period', 'observation', 'frequency_reason'}
     if set(data) - allowed:
         raise ValidationError('Campo não editável na necessidade.')
     quantity = data.get('frequency_quantity', item.frequency_quantity)
