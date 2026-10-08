@@ -25,7 +25,7 @@ Escopo consultado no Jira: TA-88 a TA-92 e TA-97 a TA-111. Uma branch e uma PR p
 | TA-108 | Listagem, criação, detalhe e edição de planos | [#33](https://github.com/paulovictor001/sistema-home-care/pull/33) |
 | TA-109 | Configuração de profissional, frequência e recursos | [#34](https://github.com/paulovictor001/sistema-home-care/pull/34) |
 | TA-110 | Remoção com motivo na interface | [#35](https://github.com/paulovictor001/sistema-home-care/pull/35) |
-| TA-111 | Botões Ativar/Encerrar/Reativar por perfil/status | PR da branch `feat/ta-111-acoes-status-frontend` |
+| TA-111 | Botões Ativar/Encerrar/Reativar por perfil/status | [#36](https://github.com/paulovictor001/sistema-home-care/pull/36) |
 
 As PRs #17–21 formam uma sequência; #22 em diante formam outra. A primeira de cada sequência parte de main e as demais apontam para a branch anterior. Após integrar a dependência em main, retargetar a PR seguinte para main, preservando a ordem. TA-96 já estava em main ao iniciar estas tasks.
 
