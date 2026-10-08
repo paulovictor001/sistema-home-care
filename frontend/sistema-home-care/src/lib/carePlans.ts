@@ -42,3 +42,13 @@ export const planProfessionals = () => apiJson<PlanProfessional[]>(`${base}profi
 export const planResources = () => apiJson<CatalogResource[]>(`${base}recursos/`);
 export const configurePlanNeed = (plan: number, link: number, data: NeedConfiguration) => apiJson<CarePlan>(`${base}${plan}/necessidades/${link}/configurar/`, { method: 'POST', json: data });
 export const attachPlanNeed = (plan: number, need: number) => apiJson<CarePlan>(`${base}${plan}/necessidades/`, { method: 'POST', json: { care_need: need } });
+export const removePlanNeed = (plan: number, link: number, reason: string) => apiJson<CarePlan>(`${base}${plan}/necessidades/${link}/remover/`, { method: 'POST', json: { reason: reason.trim() } });
+export type PlanStatusAction = 'ativar' | 'encerrar' | 'reativar';
+export const statusActionLabels = { ativar: 'Ativar', encerrar: 'Encerrar', reativar: 'Reativar' };
+export function allowedStatusActions(user: SessionUser | null, status: PlanStatus): PlanStatusAction[] {
+  if (status === 'DRAFT' && canPlan(user, 'activate')) return ['ativar'];
+  if (status === 'ACTIVE' && canPlan(user, 'close')) return ['encerrar'];
+  if (status === 'CLOSED' && canPlan(user, 'reactivate')) return ['reativar'];
+  return [];
+}
+export const changePlanStatus = (plan: number, action: PlanStatusAction) => apiJson<CarePlan>(`${base}${plan}/${action}/`, { method: 'POST' });
