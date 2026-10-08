@@ -88,6 +88,8 @@ class PatientViewSet(viewsets.ModelViewSet):
 
     def filter_queryset(self, queryset):
         queryset = super().filter_queryset(queryset)
+        if self.action != "list":
+            return queryset
         params = self.request.query_params
 
         nome = params.get("nome")

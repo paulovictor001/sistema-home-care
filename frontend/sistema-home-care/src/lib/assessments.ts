@@ -1,4 +1,4 @@
-import { apiJson } from "./api";
+import { api, apiJson, ApiError } from "./api";
 import type { SessionUser } from "../contexts/auth-state";
 
 /** Espelha `assessments.serializers` (read) + catálogos. */
@@ -222,6 +222,18 @@ export interface NeedCreateInput {
   need_type: number;
   description: string;
   priority: string;
+}
+
+export function updateNeed(id: number, input: NeedCreateInput): Promise<CareNeed> {
+  return apiJson(`/api/necessidades/${id}/`, { method: "PATCH", json: input });
+}
+
+export async function deleteNeed(id: number): Promise<void> {
+  const response = await api(`/api/necessidades/${id}/`, { method: "DELETE" });
+  if (!response.ok) {
+    const message = await response.json().then((body) => body.detail ?? JSON.stringify(body)).catch(() => response.statusText);
+    throw new ApiError(response.status, String(message));
+  }
 }
 
 export function addNeed(

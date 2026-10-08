@@ -3,6 +3,12 @@
 ## 1. Modelagem e banco de dados
 
 ### TASK 01 — Modelar Plano de Cuidados
+**Concluída — modelagem.** App `care_plans` com `CarePlan` (`care_plans`) e `CarePlanHistory` (`care_plan_history`), migration `0001_initial` e testes de modelo.
+
+O plano contém paciente (`PROTECT`), status `DRAFT/ACTIVE/CLOSED` (default Rascunho, restrição de banco), início obrigatório, encerramento e objetivo opcionais, timestamps e autores `created_by/updated_by` (`SET_NULL`, nullable para preservar registros após exclusão do autor). O histórico contém plano (`PROTECT`), autor (`SET_NULL`), data, descrição e snapshots anteriores/novos. O admin oferece inspeção somente leitura, até o fluxo auditado ser implementado.
+
+Nesta task foi criada a **estrutura** de histórico; gravação automática, preenchimento dos autores e autorização vêm nas TASK 13/14/19. Necessidades, frequência e recursos são TASK 02–04; exclusividade de plano ativo é TASK 06/07; transições são TASK 10. Foram priorizadas as regras/requisitos específicos do Plano sobre o modelo geral mais antigo: não foi adicionado status Suspenso nem vínculo obrigatório direto com uma avaliação.
+
 - Criar entidade/tabela para Plano de Cuidados.
 - Relacionar o plano ao paciente.
 - Implementar status: Rascunho, Ativo e Encerrado.
