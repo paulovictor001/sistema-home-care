@@ -17,10 +17,20 @@ def validate_relationship(patient, care_plan):
     return care_plan
 
 
+def validate_period(start_date, end_date, plan):
+    if start_date is None or end_date is None:
+        raise ValidationError({'period': 'Início e fim da escala são obrigatórios.'})
+    if end_date < start_date:
+        raise ValidationError({'end_date': 'O fim não pode anteceder o início.'})
+    if start_date < plan.start_date or (plan.end_date and end_date > plan.end_date):
+        raise ValidationError({'period': 'O período da escala deve estar dentro do plano.'})
+
+
 @transaction.atomic
 def create_scale(*, actor, **data):
     require_scale_permission(actor, 'create')
     data['care_plan'] = validate_relationship(data.get('patient'), data.get('care_plan'))
+    validate_period(data.get('start_date'), data.get('end_date'), data['care_plan'])
     return CareScale.objects.create(created_by=actor, updated_by=actor, **data)
 
 
@@ -37,6 +47,7 @@ def update_scale(*, actor, scale, data):
     plan = validate_relationship(patient, data.get('care_plan', scale.care_plan))
     if (patient.pk != scale.patient_id or plan.pk != scale.care_plan_id) and scale.items.exists():
         raise ValidationError('Uma escala com necessidades não pode trocar de paciente ou plano.')
+    validate_period(data.get('start_date', scale.start_date), data.get('end_date', scale.end_date), plan)
     for field, value in data.items():
         if field not in ('patient', 'care_plan', 'start_date', 'end_date', 'observation'):
             raise ValidationError({field: 'Campo não editável.'})
