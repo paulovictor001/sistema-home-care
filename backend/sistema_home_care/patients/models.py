@@ -74,12 +74,12 @@ class PatientAuditLog(models.Model):
 class HealthCondition(models.Model):
     """Doenca/estado de saude (entidade cadastravel).
 
-    Estrutura detalhada pendente de definicao (RN-CAD-PAC-005,
-    TASK-CAD-PAC-003): propositadamente so possui id + timestamps para
-    permitir o relacionamento com o paciente sem inventar atributos
-    clinicos.
+    Nome adicionado para seleção e cadastro no formulário de pacientes.
+    Estrutura clínica detalhada permanece pendente (RN-CAD-PAC-005).
+    Registros legados podem continuar sem nome, preservando vínculos.
     """
 
+    name = models.CharField(max_length=255, blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -87,7 +87,7 @@ class HealthCondition(models.Model):
         db_table = "health_conditions"
 
     def __str__(self):
-        return f"HealthCondition #{self.pk}"
+        return self.name or f"Condição de saúde #{self.pk}"
 
 
 class Patient(models.Model):

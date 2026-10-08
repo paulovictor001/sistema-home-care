@@ -191,18 +191,22 @@ class PatientAssessmentSerializer(serializers.ModelSerializer):
 
 
 class CareNeedSerializer(serializers.ModelSerializer):
+    need_type_name = serializers.CharField(source="need_type.name", read_only=True)
+
     class Meta:
         model = CareNeed
         fields = (
             "id",
+            "assessment",
             "need_type",
+            "need_type_name",
             "description",
             "priority",
             "status",
             "created_at",
             "updated_at",
         )
-        read_only_fields = ("id", "status", "created_at", "updated_at")
+        read_only_fields = ("id", "assessment", "status", "created_at", "updated_at")
 
     def validate_description(self, value):
         if not (value or "").strip():
@@ -210,6 +214,9 @@ class CareNeedSerializer(serializers.ModelSerializer):
         return (value or "").strip()
 
     def validate_need_type(self, value):
+        # Um tipo inativado continua válido no vínculo histórico existente.
+        if self.instance is not None and value.pk == self.instance.need_type_id:
+            return value
         if value is not None and value.status != NeedTypeStatus.ACTIVE:
             raise serializers.ValidationError(
                 "Tipo de necessidade inativo não pode ser usado."

@@ -124,6 +124,15 @@ class PatientSerializer(serializers.ModelSerializer):
         return instance
 
 
+class HealthConditionSerializer(serializers.ModelSerializer):
+    name = serializers.CharField(max_length=255, allow_blank=False)
+
+    class Meta:
+        model = HealthCondition
+        fields = ("id", "name")
+        read_only_fields = ("id",)
+
+
 class NeedTypeCatalogSerializer(serializers.ModelSerializer):
     """Catálogo read-only p/ o select da avaliação (TA-61/TASK-AVL-FE-004).
 

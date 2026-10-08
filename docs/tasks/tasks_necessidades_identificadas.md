@@ -37,14 +37,16 @@
 - [ ] Validar descrição obrigatória.
 - [ ] Validar prioridade obrigatória e válida.
 - [ ] Definir automaticamente status `Identificada`.
-- [ ] Implementar consulta.
-- [ ] Implementar edição.
-- [ ] Implementar exclusão.
+- [x] Implementar consulta.
+- [x] Implementar edição.
+- [x] Implementar exclusão.
 - [ ] Implementar inativação.
 - [ ] Preservar histórico na inativação.
 - [ ] Implementar autorização por perfil.
 
 ## 4. Frontend — Necessidades
+> Backend de consulta/edição/exclusão (RF-NEC-008/009/010): `GET /api/necessidades/` (20 por página, filtro opcional `?assessment=<id>`), `GET /api/necessidades/<id>/`, `PUT/PATCH /api/necessidades/<id>/` e `DELETE /api/necessidades/<id>/`. Acesso restrito a Médico/Enfermeiro com `necessidades.view/update/delete`, criadas e atribuídas às categorias clínicas pela migration `accounts.0006`. Exclusão física remove somente a necessidade, preservando avaliação, tipo e demais necessidades. Edição permite tipo, descrição e prioridade; avaliação de origem e status continuam read-only. Tipo histórico inativo pode ser mantido; a troca exige um tipo ativo. Criação segue no endpoint da avaliação. Inativação e telas permanecem nas tasks próprias.
+
 - [ ] Criar seção de necessidades associada à avaliação.
 - [ ] Exibir necessidades existentes.
 - [ ] Criar formulário com Tipo, Descrição, Prioridade e Status.
