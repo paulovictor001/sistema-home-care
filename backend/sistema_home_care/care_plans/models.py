@@ -39,7 +39,9 @@ class CarePlan(models.Model):
     class Meta:
         db_table = 'care_plans'
         ordering = ['-created_at', '-pk']
-        constraints = [models.CheckConstraint(
+        constraints = [models.UniqueConstraint(fields=['patient'],
+            condition=models.Q(status=CarePlanStatus.ACTIVE), name='unique_active_plan_patient'),
+            models.CheckConstraint(
             condition=models.Q(status__in=CarePlanStatus.values), name='care_plan_valid_status',
         )]
 
@@ -48,6 +50,10 @@ class CarePlan(models.Model):
 
     def clean(self):
         super().clean()
+        if self.patient_id and self.status == CarePlanStatus.ACTIVE:
+            if CarePlan.objects.filter(patient_id=self.patient_id,
+                    status=CarePlanStatus.ACTIVE).exclude(pk=self.pk).exists():
+                raise ValidationError({'status': 'O paciente já possui um plano ativo.'})
         if self.pk and self.status == CarePlanStatus.ACTIVE:
             needs = self.need_links.filter(removed_at__isnull=True).values('care_need_id')
             if CarePlanNeed.objects.filter(care_need_id__in=needs,
