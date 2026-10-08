@@ -1,4 +1,5 @@
 from django.db import models
+from django.conf import settings
 from care_plans.models import FrequencyPeriod
 
 
@@ -10,6 +11,9 @@ class ScaleStatus(models.TextChoices):
 
 
 class CareScale(models.Model):
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name='created_scales')
+    updated_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name='updated_scales')
+    deleted_at = models.DateTimeField(null=True, blank=True)
     start_date = models.DateField(null=True, blank=True)
     end_date = models.DateField(null=True, blank=True)
     status = models.CharField(max_length=10, choices=ScaleStatus.choices, default=ScaleStatus.DRAFT)
@@ -66,3 +70,33 @@ class ScaleAssignment(models.Model):
         ordering = ['pk']
         constraints = [models.UniqueConstraint(fields=['item', 'professional'],
             condition=models.Q(removed_at__isnull=True), name='unique_current_scale_professional')]
+
+
+class ScaleAuditEvent(models.Model):
+    scale = models.ForeignKey(CareScale, null=True, on_delete=models.SET_NULL, related_name='audit_events')
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL)
+    actor_name = models.CharField(max_length=255)
+    action = models.CharField(max_length=30)
+    created_at = models.DateTimeField(auto_now_add=True)
+    previous_data = models.JSONField(default=dict)
+    new_data = models.JSONField(default=dict)
+
+    class Meta:
+        db_table = 'care_scale_audit_events'
+        ordering = ['-created_at', '-pk']
+
+
+class ScaleSubstitution(models.Model):
+    scale = models.ForeignKey(CareScale, null=True, on_delete=models.SET_NULL, related_name='substitutions')
+    item = models.ForeignKey(ScaleNeed, null=True, on_delete=models.SET_NULL, related_name='substitutions')
+    previous_professional = models.ForeignKey('professionals.Professional', null=True, on_delete=models.SET_NULL, related_name='previous_scale_substitutions')
+    new_professional = models.ForeignKey('professionals.Professional', null=True, on_delete=models.SET_NULL, related_name='new_scale_substitutions')
+    previous_name = models.CharField(max_length=255)
+    new_name = models.CharField(max_length=255)
+    actor = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL)
+    actor_name = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'care_scale_substitutions'
+        ordering = ['-created_at', '-pk']
