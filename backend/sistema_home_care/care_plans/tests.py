@@ -5,10 +5,12 @@ from django.db.models import ProtectedError
 from django.test import TestCase
 from assessments.tests_api import make_api_users, make_patient, MEDICO_CPF
 from .models import CarePlan, CarePlanHistory, CarePlanStatus
-from .models import CarePlanNeed
+from .models import CarePlanNeed, FrequencyPeriod
 from django.utils import timezone
 from assessments.models import CareNeed, PatientAssessment, NeedPriority
 from patients.models import NeedType
+from accounts.models import Profession
+from professionals.models import Professional
 
 
 class CarePlanModelTests(TestCase):
@@ -105,6 +107,49 @@ class CarePlanNeedModelTests(TestCase):
 
     def link(self, plan, **kwargs):
         return CarePlanNeed.objects.create(care_plan=plan, care_need=self.need, **kwargs)
+
+    def test_configuration_is_stored_per_link_and_preserved_after_removal(self):
+        professional = Professional.objects.create(full_name='João',
+            profession=Profession.objects.get(name='Enfermeiro'))
+        plan = self.make_plan()
+        link = self.link(plan, required_professional=professional,
+                         frequency_quantity=2, frequency_period=FrequencyPeriod.WEEK)
+        link.removed_at = timezone.now()
+        link.removal_reason = 'Revisão da frequência'
+        link.save()
+        replacement = self.link(plan, required_professional=professional,
+            frequency_quantity=1, frequency_period=FrequencyPeriod.DAY)
+        link.refresh_from_db()
+        replacement.refresh_from_db()
+        self.assertEqual(link.required_professional, professional)
+        self.assertEqual((link.frequency_quantity, link.frequency_period), (2, 'WEEK'))
+        self.assertEqual((replacement.frequency_quantity, replacement.frequency_period), (1, 'DAY'))
+        with self.assertRaises(ProtectedError):
+            professional.delete()
+
+    def test_frequency_periods_and_unconfigured_link(self):
+        link = self.link(self.make_plan())
+        self.assertIsNone(link.required_professional)
+        self.assertIsNone(link.frequency_quantity)
+        self.assertIsNone(link.frequency_period)
+        for period in FrequencyPeriod.values:
+            link.frequency_quantity = 3
+            link.frequency_period = period
+            link.save()
+            link.refresh_from_db()
+            self.assertEqual(link.frequency_period, period)
+
+    def test_invalid_frequency_is_rejected_by_model_and_database(self):
+        link = self.link(self.make_plan())
+        for field, value in (('frequency_quantity', 0), ('frequency_quantity', -1),
+                             ('frequency_period', 'YEAR'), ('frequency_period', '')):
+            with self.subTest(field=field, value=value):
+                setattr(link, field, value)
+                with self.assertRaises(ValidationError):
+                    link.save()
+                with self.assertRaises(IntegrityError), transaction.atomic():
+                    CarePlanNeed.objects.filter(pk=link.pk).update(**{field: value})
+                link.refresh_from_db()
 
     def test_many_needs_and_draft_plans(self):
         first, second = self.make_plan(), self.make_plan()
