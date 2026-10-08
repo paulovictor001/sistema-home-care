@@ -1,8 +1,12 @@
 from rest_framework import serializers
-from .models import CareScale, ScaleNeed, ScaleAssignment
+from .models import CareScale, ScaleNeed, ScaleAssignment, ScaleStatus
 from professionals.models import Professional
 from care_plans.models import CarePlanNeed
 from care_plans.models import FrequencyPeriod
+
+
+class StatusSerializer(serializers.Serializer):
+    status = serializers.ChoiceField(choices=ScaleStatus.choices)
 
 
 class NeedConfigurationSerializer(serializers.Serializer):

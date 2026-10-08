@@ -8,6 +8,7 @@ from .models import CareScale
 from .permissions import ScalePermission, visible_scales
 from .serializers import ScaleSerializer, ScaleWriteSerializer, AddNeedSerializer, ProfessionalSerializer, ProfessionalsSerializer
 from .serializers import NeedConfigurationSerializer
+from .serializers import StatusSerializer
 
 
 class ScalePagination(PageNumberPagination):
@@ -101,4 +102,11 @@ class CareScaleViewSet(viewsets.ModelViewSet):
         serializer = NeedConfigurationSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         services.configure_need(actor=request.user, scale=scale, item_id=item_id, data=serializer.validated_data)
+        return Response(ScaleSerializer(scale).data)
+
+    @action(detail=True, methods=['post'], url_path='status')
+    def change_status(self, request, pk=None):
+        serializer = StatusSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        scale = services.change_status(actor=request.user, scale=self.get_object(), **serializer.validated_data)
         return Response(ScaleSerializer(scale).data)
