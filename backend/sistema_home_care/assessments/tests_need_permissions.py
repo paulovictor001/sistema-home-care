@@ -31,6 +31,33 @@ class NeedAuthorizationTests(TestCase):
     def request(self, client, method, url, payload):
         return getattr(client, method)(url, payload, format='json')
 
+    def test_each_clinical_profile_has_successful_access_to_every_operation(self):
+        for cpf in (MEDICO_CPF, ENFERMEIRO_CPF):
+            client = auth_client(self.users[cpf])
+            created = client.post(f'/api/avaliacoes/{self.assessment.pk}/necessidades/',
+                {'need_type': self.kind.pk, 'description': 'Nova', 'priority': 'LOW'}, format='json')
+            self.assertEqual(created.status_code, 201)
+            url = f"/api/necessidades/{created.data['id']}/"
+            for endpoint in ('/api/necessidades/', url, url + 'historico/'):
+                self.assertEqual(client.get(endpoint).status_code, 200)
+            self.assertEqual(client.put(url, {'need_type': self.kind.pk,
+                'description': 'Editada', 'priority': 'HIGH'}, format='json').status_code, 200)
+            self.assertEqual(client.patch(url, {'priority': 'URGENT'}, format='json').status_code, 200)
+            self.assertEqual(client.post(url + 'inativar/').status_code, 200)
+            self.assertEqual(client.post(url + 'reativar/').status_code, 200)
+            self.assertEqual(client.delete(url).status_code, 204)
+
+    def test_manager_inactivation_requires_its_specific_permission(self):
+        manager = self.users[GERENTE_CPF]
+        permission = GranularPermission.objects.get(codename='necessidades.inactivate')
+        manager.category.permissions.remove(permission)
+        url = f'/api/necessidades/{self.need.pk}/inativar/'
+        self.assertEqual(auth_client(manager).post(url).status_code, 403)
+        self.assert_unchanged()
+        manager.category.permissions.add(permission)
+        self.assertEqual(auth_client(manager).post(url).status_code, 200)
+        self.assertEqual(auth_client(manager).get(f'/api/necessidades/{self.need.pk}/').status_code, 403)
+
     def assert_unchanged(self):
         self.need.refresh_from_db()
         self.assertEqual(self.need.description, 'Original')
