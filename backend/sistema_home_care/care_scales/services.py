@@ -1,7 +1,9 @@
 from django.db import transaction
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
-from .models import CareScale, ScaleNeed
+from .models import CareScale, ScaleNeed, ScaleAssignment, ScaleSubstitution
+from professionals.models import Professional
+from django.shortcuts import get_object_or_404
 from .permissions import require_scale_permission
 from care_plans.models import CarePlan, CarePlanNeed
 from patients.models import Patient
@@ -96,3 +98,58 @@ def remove_need(*, actor, scale, item_id):
     scale.updated_by = actor
     scale.save(update_fields=['updated_by', 'updated_at'])
     return item
+
+
+def current_item(scale, item_id):
+    return get_object_or_404(scale.items.select_for_update(), pk=item_id, removed_at__isnull=True)
+
+
+def assign(item, professional):
+    professional = Professional.objects.select_for_update().get(pk=professional.pk)
+    if item.assignments.filter(professional=professional, removed_at__isnull=True).exists():
+        raise ValidationError({'professional': 'O profissional já está vinculado à necessidade.'})
+    return ScaleAssignment.objects.create(item=item, professional=professional)
+
+
+@transaction.atomic
+def add_professional(*, actor, scale, item_id, professional):
+    require_scale_permission(actor, 'update', scale)
+    scale = locked_scale(scale)
+    result = assign(current_item(scale, item_id), professional)
+    scale.updated_by = actor
+    scale.save(update_fields=['updated_by', 'updated_at'])
+    return result
+
+
+@transaction.atomic
+def remove_professional(*, actor, scale, item_id, assignment_id):
+    require_scale_permission(actor, 'update', scale)
+    scale = locked_scale(scale)
+    item = current_item(scale, item_id)
+    assignment = get_object_or_404(item.assignments.select_for_update(), pk=assignment_id, removed_at__isnull=True)
+    assignment.removed_at = timezone.now()
+    assignment.save(update_fields=['removed_at'])
+    scale.updated_by = actor
+    scale.save(update_fields=['updated_by', 'updated_at'])
+    return assignment
+
+
+@transaction.atomic
+def substitute_professional(*, actor, scale, item_id, assignment_id, professional):
+    require_scale_permission(actor, 'update', scale)
+    scale = locked_scale(scale)
+    item = current_item(scale, item_id)
+    previous = get_object_or_404(item.assignments.select_for_update().select_related('professional'),
+                               pk=assignment_id, removed_at__isnull=True)
+    if previous.professional_id == professional.pk:
+        raise ValidationError({'professional': 'Escolha outro profissional para substituir.'})
+    new = assign(item, professional)
+    previous.removed_at = timezone.now()
+    previous.save(update_fields=['removed_at'])
+    ScaleSubstitution.objects.create(scale=scale, item=item,
+        previous_professional=previous.professional, new_professional=new.professional,
+        previous_name=previous.professional.full_name, new_name=new.professional.full_name,
+        actor=actor, actor_name=actor.get_full_name() or f'Usuário #{actor.pk}')
+    scale.updated_by = actor
+    scale.save(update_fields=['updated_by', 'updated_at'])
+    return new
