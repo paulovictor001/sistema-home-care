@@ -37,6 +37,26 @@ class NeedTypeAdmin(admin.ModelAdmin):
     search_fields = ("name",)
     list_filter = ("status",)
 
+    def _can_manage(self, request):
+        from assessments.permissions import type_management_permissions
+        return all(permission.has_permission(request, self)
+                   for permission in type_management_permissions())
+
+    def has_module_permission(self, request):
+        return self._can_manage(request)
+
+    def has_view_permission(self, request, obj=None):
+        return self._can_manage(request)
+
+    def has_add_permission(self, request):
+        return self._can_manage(request)
+
+    def has_change_permission(self, request, obj=None):
+        return self._can_manage(request)
+
+    def has_delete_permission(self, request, obj=None):
+        return self._can_manage(request)
+
 
 @admin.register(PatientAuditLog)
 class PatientAuditLogAdmin(admin.ModelAdmin):

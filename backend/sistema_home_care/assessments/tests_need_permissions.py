@@ -99,3 +99,28 @@ class NeedAuthorizationTests(TestCase):
             url = f'/api/tipos-necessidade/{self.kind.pk}/{operation}/'
             self.assertEqual(auth_client(other).post(url).status_code, 403)
             self.assertEqual(APIClient().post(url).status_code, 401)
+
+    def test_inactive_user_cannot_manage_types(self):
+        user = self.users[MEDICO_CPF]
+        user.is_active = False
+        user.save(update_fields=['is_active'])
+        response = auth_client(user).post(f'/api/tipos-necessidade/{self.kind.pk}/inativar/')
+        self.assertEqual(response.status_code, 403)
+        self.kind.refresh_from_db()
+        self.assertEqual(self.kind.status, 'ACTIVE')
+
+    def test_admin_type_management_obeys_same_profile_and_granular_rules(self):
+        from django.contrib import admin
+        from rest_framework.test import APIRequestFactory
+        model_admin = admin.site._registry[NeedType]
+        request = APIRequestFactory().get('/admin/')
+        other = self.users[SEM_GRUPO_CPF]
+        other.category.permissions.add(*GranularPermission.objects.all())
+        for cpf, allowed in ((GERENTE_CPF, True), (MEDICO_CPF, True),
+                             (ENFERMEIRO_CPF, True), (SEM_GRUPO_CPF, False)):
+            request.user = self.users[cpf]
+            for operation in ('module', 'view', 'add', 'change', 'delete'):
+                self.assertEqual(getattr(model_admin, f'has_{operation}_permission')(request), allowed)
+        request.user = self.users[MEDICO_CPF]
+        request.user.category.permissions.remove(GranularPermission.objects.get(codename='tipos_necessidade.manage'))
+        self.assertFalse(model_admin.has_change_permission(request))

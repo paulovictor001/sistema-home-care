@@ -240,6 +240,10 @@ class NeedTypeStatusView(APIView):
     target_status = None
     permission_classes = [IsCareTeam, RequirePermission("tipos_necessidade.manage")]
 
+    def get_permissions(self):
+        from assessments.permissions import type_management_permissions
+        return type_management_permissions()
+
     def post(self, request, pk):
         need_type = get_object_or_404(NeedType, pk=pk)
         need_type.status = self.target_status
