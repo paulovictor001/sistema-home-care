@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import CarePlan, CarePlanHistory
+from .models import CarePlan, CarePlanHistory, CarePlanNeed
 
 
 @admin.register(CarePlan)
@@ -33,3 +33,10 @@ class CarePlanHistoryAdmin(admin.ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return False
+
+
+@admin.register(CarePlanNeed)
+class CarePlanNeedAdmin(CarePlanHistoryAdmin):
+    list_display = ('id', 'care_plan', 'care_need', 'created_at', 'removed_at', 'removed_by')
+    list_filter = ('care_plan__status', 'removed_at')
+    search_fields = ('care_plan__patient__full_name', 'care_need__description', 'removal_reason')
