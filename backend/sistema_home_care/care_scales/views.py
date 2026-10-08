@@ -6,7 +6,7 @@ from rest_framework.decorators import action
 from . import services
 from .models import CareScale
 from .permissions import ScalePermission, visible_scales
-from .serializers import ScaleSerializer, ScaleWriteSerializer, AddNeedSerializer, ProfessionalSerializer
+from .serializers import ScaleSerializer, ScaleWriteSerializer, AddNeedSerializer, ProfessionalSerializer, ProfessionalsSerializer
 
 
 class ScalePagination(PageNumberPagination):
@@ -85,3 +85,11 @@ class CareScaleViewSet(viewsets.ModelViewSet):
         services.substitute_professional(actor=request.user, scale=scale, item_id=item_id,
             assignment_id=assignment_id, **serializer.validated_data)
         return Response(ScaleSerializer(scale).data)
+
+    @action(detail=True, methods=['post'], url_path=r'necessidades/(?P<item_id>\d+)/profissionais/lote')
+    def add_professionals(self, request, pk=None, item_id=None):
+        scale = self.get_object()
+        serializer = ProfessionalsSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        services.add_professionals(actor=request.user, scale=scale, item_id=item_id, **serializer.validated_data)
+        return Response(ScaleSerializer(scale).data, status=201)

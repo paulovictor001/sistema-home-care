@@ -157,3 +157,16 @@ def substitute_professional(*, actor, scale, item_id, assignment_id, professiona
     scale.updated_by = actor
     scale.save(update_fields=['updated_by', 'updated_at'])
     return new
+
+
+@transaction.atomic
+def add_professionals(*, actor, scale, item_id, professionals):
+    require_scale_permission(actor, 'update', scale)
+    scale = locked_scale(scale)
+    item = current_item(scale, item_id)
+    if not professionals:
+        raise ValidationError({'professionals': 'Selecione ao menos um profissional.'})
+    results = [assign(item, professional) for professional in professionals]
+    scale.updated_by = actor
+    scale.save(update_fields=['updated_by', 'updated_at'])
+    return results
