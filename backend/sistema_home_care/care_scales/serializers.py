@@ -9,6 +9,14 @@ class StatusSerializer(serializers.Serializer):
     status = serializers.ChoiceField(choices=ScaleStatus.choices)
 
 
+class PlanningInfoSerializer(serializers.Serializer):
+    regions = serializers.ListField(child=serializers.CharField(max_length=100), required=False)
+    availability_notes = serializers.CharField(allow_blank=True, required=False)
+
+    def validate_regions(self, value):
+        return list(dict.fromkeys(region.strip() for region in value))
+
+
 class NeedConfigurationSerializer(serializers.Serializer):
     frequency_reason = serializers.CharField(allow_blank=True, required=False)
     frequency_quantity = serializers.IntegerField(min_value=1, required=False)

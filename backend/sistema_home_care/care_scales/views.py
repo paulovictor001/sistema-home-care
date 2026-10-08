@@ -9,6 +9,9 @@ from .permissions import ScalePermission, visible_scales
 from .serializers import ScaleSerializer, ScaleWriteSerializer, AddNeedSerializer, ProfessionalSerializer, ProfessionalsSerializer
 from .serializers import NeedConfigurationSerializer
 from .serializers import StatusSerializer
+from .serializers import PlanningInfoSerializer
+from . import planning
+from django.shortcuts import get_object_or_404
 
 
 class ScalePagination(PageNumberPagination):
@@ -110,3 +113,16 @@ class CareScaleViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         scale = services.change_status(actor=request.user, scale=self.get_object(), **serializer.validated_data)
         return Response(ScaleSerializer(scale).data)
+
+    @action(detail=True, methods=['get'], url_path=r'necessidades/(?P<item_id>\d+)/profissionais-disponiveis')
+    def professional_options(self, request, pk=None, item_id=None):
+        scale = self.get_object()
+        item = get_object_or_404(scale.items, pk=item_id, removed_at__isnull=True)
+        return Response(planning.professional_options(scale, item))
+
+    @action(detail=False, methods=['put'], url_path=r'profissionais/(?P<professional_id>\d+)/planejamento')
+    def planning_info(self, request, professional_id=None):
+        serializer = PlanningInfoSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        info = planning.update_planning(actor=request.user, professional_id=professional_id, data=serializer.validated_data)
+        return Response(PlanningInfoSerializer(info).data)

@@ -100,3 +100,10 @@ class ScaleSubstitution(models.Model):
     class Meta:
         db_table = 'care_scale_substitutions'
         ordering = ['-created_at', '-pk']
+
+
+class ProfessionalPlanningInfo(models.Model):
+    professional = models.OneToOneField('professionals.Professional', on_delete=models.CASCADE, related_name='scale_planning')
+    regions = models.JSONField(default=list, blank=True)
+    availability_notes = models.TextField(blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
