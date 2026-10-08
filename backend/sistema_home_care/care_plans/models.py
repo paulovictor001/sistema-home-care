@@ -139,3 +139,28 @@ class CarePlanHistory(models.Model):
 
     def __str__(self):
         return f'Histórico #{self.pk} do plano {self.care_plan_id}'
+
+
+class CarePlanNeedResource(models.Model):
+    """Recurso cadastrado configurado para um vínculo de necessidade (TA-97)."""
+    plan_need = models.ForeignKey(CarePlanNeed, on_delete=models.PROTECT, related_name='resources')
+    resource = models.ForeignKey('assessments.Resource', on_delete=models.PROTECT,
+                                 related_name='care_plan_resources')
+    quantity = models.PositiveIntegerField()
+    observation = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'care_plan_need_resources'
+        ordering = ['pk']
+        constraints = [models.CheckConstraint(condition=models.Q(quantity__gt=0),
+            name='care_plan_resource_positive_quantity')]
+
+    def save(self, *args, **kwargs):
+        self.observation = (self.observation or '').strip()
+        self.full_clean()
+        return super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f'{self.resource_id} x{self.quantity} no vínculo {self.plan_need_id}'
