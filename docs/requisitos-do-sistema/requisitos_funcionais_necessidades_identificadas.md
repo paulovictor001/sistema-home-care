@@ -71,3 +71,6 @@ O sistema deve impedir o salvamento quando estiver ausente qualquer campo obriga
 
 ## RF-NEC-020 — Manter dados
 O sistema deve armazenar os dados necessários para identificar a necessidade, avaliação de origem, tipo, descrição, prioridade, status e informações de criação/atualização.
+
+## RF-NEC-021 — Reativar com histórico
+Gerente, Médico e Enfermeiro, com `necessidades.reactivate`, podem reativar necessidades. A necessidade deve voltar às consultas de ativas, preservando o status clínico e os eventos anteriores. O sistema deve registrar quem reativou, quando e os dados anteriores; repetir a operação não deve duplicar eventos. A tela de avaliação deve oferecer Reativar para registros inativos conforme a permissão do usuário.

@@ -3,6 +3,7 @@ from django.contrib import admin
 from .models import (
     AssessmentResource,
     CareNeed,
+    CareNeedHistory,
     PatientAssessment,
     Resource,
 )
@@ -23,9 +24,24 @@ class ResourceAdmin(admin.ModelAdmin):
 
 @admin.register(CareNeed)
 class CareNeedAdmin(admin.ModelAdmin):
-    list_display = ("id", "assessment", "need_type", "priority", "status")
+    list_display = ("id", "assessment", "need_type", "priority", "status", "is_active")
     search_fields = ("description",)
-    list_filter = ("priority", "status", "need_type")
+    list_filter = ("priority", "status", "need_type", "is_active")
+    readonly_fields = ("is_active", "inactivated_at")
+
+
+@admin.register(CareNeedHistory)
+class CareNeedHistoryAdmin(admin.ModelAdmin):
+    list_display = ("need", "actor_name", "action", "created_at")
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(AssessmentResource)

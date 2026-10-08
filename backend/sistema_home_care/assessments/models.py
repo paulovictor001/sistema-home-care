@@ -164,6 +164,8 @@ class CareNeed(models.Model):
     )
     description = models.TextField()
     priority = models.CharField(max_length=10, choices=NeedPriority.choices)
+    is_active = models.BooleanField(default=True)
+    inactivated_at = models.DateTimeField(null=True, blank=True)
     status = models.CharField(
         max_length=10,
         choices=NeedStatus.choices,
@@ -190,6 +192,21 @@ class CareNeed(models.Model):
 
     def __str__(self):
         return f"CareNeed #{self.pk} ({self.get_priority_display()})"
+
+
+class CareNeedHistory(models.Model):
+    """Inativação/reativação; snapshot preservado mesmo após exclusão física."""
+
+    need = models.ForeignKey(CareNeed, null=True, on_delete=models.SET_NULL, related_name="history")
+    actor = models.ForeignKey("accounts.User", null=True, on_delete=models.SET_NULL)
+    actor_name = models.CharField(max_length=255)
+    action = models.CharField(max_length=20, default="INACTIVATE", editable=False)
+    snapshot = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "care_need_history"
+        ordering = ["-created_at", "-pk"]
 
 
 class AssessmentResource(models.Model):

@@ -5,6 +5,12 @@ import { ApiError } from "../lib/api";
 import {
   canEditAssessment,
   getAssessment,
+  inactivateNeed,
+  reactivateNeed,
+  getNeedHistory,
+  isCareTeam,
+  isClinical,
+  type NeedHistoryEvent,
   NEED_PRIORITIES,
   type PatientAssessment,
 } from "../lib/assessments";
@@ -26,6 +32,44 @@ export function AssessmentDetail() {
   const [patientName, setPatientName] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [needError, setNeedError] = useState<string | null>(null);
+  const [busyNeed, setBusyNeed] = useState<number | null>(null);
+  const [history, setHistory] = useState<Record<number, NeedHistoryEvent[]>>({});
+
+  async function changeNeedState(id: number, active: boolean) {
+    if (!window.confirm(`${active ? "Reativar" : "Inativar"} esta necessidade? O registro e seu histórico serão preservados.`)) return;
+    setBusyNeed(id);
+    setNeedError(null);
+    try {
+      const result = await (active ? reactivateNeed(id) : inactivateNeed(id));
+      setAssessment((previous) => previous ? {
+        ...previous, care_needs: previous.care_needs.map((need) => need.id === id ? { ...need, ...result } : need),
+      } : previous);
+      setHistory((previous) => {
+        const updated = { ...previous };
+        delete updated[id];
+        return updated;
+      });
+    } catch {
+      setNeedError(`Não foi possível ${active ? "reativar" : "inativar"} a necessidade. Tente novamente.`);
+    } finally {
+      setBusyNeed(null);
+    }
+  }
+
+  async function showHistory(id: number) {
+    setBusyNeed(id);
+    setNeedError(null);
+    try {
+      setHistory((previous) => ({ ...previous, [id]: [] }));
+      const events = await getNeedHistory(id);
+      setHistory((previous) => ({ ...previous, [id]: events }));
+    } catch {
+      setNeedError("Não foi possível carregar o histórico.");
+    } finally {
+      setBusyNeed(null);
+    }
+  }
 
   const load = useCallback(async () => {
     if (!id) return;
@@ -139,6 +183,7 @@ export function AssessmentDetail() {
         <h2 className="mb-3 text-sm font-semibold">
           Necessidades ({assessment.care_needs.length})
         </h2>
+        {needError && <p role="alert" className="mb-2 text-sm text-red-600">{needError}</p>}
         {assessment.care_needs.length === 0 ? (
           <p className="text-sm text-gray-600">Nenhuma necessidade registrada.</p>
         ) : (
@@ -152,6 +197,33 @@ export function AssessmentDetail() {
                 {NEED_PRIORITIES.find((p) => p.value === n.priority)?.label ??
                   n.priority}{" "}
                 · {n.status === "IDENTIFIED" ? "Identificada" : n.status}
+                <span className={`ml-2 rounded px-2 py-0.5 ${n.is_active ? "bg-green-100" : "bg-gray-200"}`}>
+                  {n.is_active ? "Ativa" : "Inativa"}
+                </span>
+                {n.inactivated_at && <p className="mt-1 text-gray-600">Inativada em {new Date(n.inactivated_at).toLocaleString("pt-BR")}</p>}
+                <div className="mt-2 flex gap-2">
+                  {n.is_active && isCareTeam(user?.groups) && user?.permissions.includes("necessidades.inactivate") && (
+                    <button type="button" disabled={busyNeed !== null} onClick={() => void changeNeedState(n.id, false)} className="rounded border px-2 py-1 disabled:opacity-50">
+                      {busyNeed === n.id ? "Inativando…" : "Inativar"}
+                    </button>
+                  )}
+                  {!n.is_active && isCareTeam(user?.groups) && user?.permissions.includes("necessidades.reactivate") && (
+                    <button type="button" disabled={busyNeed !== null} onClick={() => void changeNeedState(n.id, true)} className="rounded border px-2 py-1 disabled:opacity-50">
+                      {busyNeed === n.id ? "Reativando…" : "Reativar"}
+                    </button>
+                  )}
+                  {isClinical(user?.groups) && user?.permissions.includes("necessidades.view") && (
+                    <button type="button" disabled={busyNeed !== null} onClick={() => void showHistory(n.id)} className="rounded border px-2 py-1 disabled:opacity-50">Histórico</button>
+                  )}
+                </div>
+                {history[n.id] && busyNeed !== n.id && (
+                  <ul className="mt-2 space-y-1 text-gray-600">
+                    {history[n.id].length === 0 && <li>Nenhuma alteração de situação registrada.</li>}
+                    {history[n.id].map((event) => <li key={event.id}>
+                      {event.action === "REACTIVATE" ? "Reativada" : "Inativada"} por {event.actor_name} em {new Date(event.created_at).toLocaleString("pt-BR")} · {event.snapshot.description}
+                    </li>)}
+                  </ul>
+                )}
               </li>
             ))}
           </ul>

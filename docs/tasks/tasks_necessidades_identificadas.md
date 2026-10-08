@@ -40,8 +40,8 @@
 - [x] Implementar consulta.
 - [x] Implementar edição.
 - [x] Implementar exclusão.
-- [ ] Implementar inativação.
-- [ ] Preservar histórico na inativação.
+- [x] Implementar inativação.
+- [x] Preservar histórico na inativação.
 - [ ] Implementar autorização por perfil.
 
 ## 4. Frontend — Necessidades
@@ -55,7 +55,7 @@
 - [ ] Exibir status inicial `Identificada`.
 - [ ] Implementar edição conforme perfil.
 - [ ] Implementar exclusão conforme perfil.
-- [ ] Implementar inativação conforme perfil.
+- [x] Implementar inativação conforme perfil.
 - [ ] Exibir informações históricas necessárias.
 
 ## 5. Administração dos tipos
@@ -70,7 +70,7 @@
 - [ ] Autorizar Médico e Enfermeiro a visualizar.
 - [ ] Autorizar Médico e Enfermeiro a editar.
 - [ ] Autorizar Médico e Enfermeiro a excluir.
-- [ ] Autorizar Gerente, Médico e Enfermeiro a inativar.
+- [x] Autorizar Gerente, Médico e Enfermeiro a inativar.
 - [ ] Autorizar Gerente, Médico e Enfermeiro a administrar tipos.
 - [ ] Não assumir permissões não definidas.
 
@@ -82,7 +82,7 @@
 - [ ] Testar status inicial `Identificada`.
 - [ ] Testar edição.
 - [ ] Testar exclusão.
-- [ ] Testar inativação e preservação do histórico.
+- [x] Testar inativação e preservação do histórico.
 - [ ] Testar CRUD dos tipos.
 - [x] Testar ativação/inativação de tipos.
 - [ ] Testar que tipo inativo não aparece em novos cadastros.
@@ -104,3 +104,21 @@ Não implementar neste processo:
 
 ## 9. Organização
 As tasks devem permanecer agrupadas por funcionalidade/processo, evitando uma task isolada para cada campo. A implementação deve seguir modelagem, backend/regras, frontend, autorização e testes.
+
+## Inativação com histórico — RF-NEC-011/012
+
+- `POST /api/necessidades/<id>/inativar/`: Gerente, Médico e Enfermeiro com `necessidades.inactivate` (migration `accounts.0007`). Resposta contém somente id, situação e data; a ação não concede consulta clínica ao Gerente.
+- `is_active` e `inactivated_at` são somente leitura. A inativação preserva descrição, prioridade, tipo, avaliação e status clínico `IDENTIFIED`, sem antecipar transições do Plano de Cuidados.
+- A alteração e o evento `CareNeedHistory` são transacionais. Repetir a ação mantém a data original e não duplica histórico. O evento guarda ator, nome do ator, data e snapshot anterior à inativação; FK `SET_NULL` preserva o evento mesmo após exclusão física do registro ou ator.
+- Listagem padrão retorna somente ativas; `?situacao=ativo|inativo|todos` permite consultar as demais. Detalhe e avaliação mantêm os registros inativos identificados como tal.
+- `GET /api/necessidades/<id>/historico/`: Médico/Enfermeiro com `necessidades.view`. Histórico somente leitura no admin. Eventos anteriores à implementação não são reconstruídos.
+- Detalhe da avaliação oferece botão Inativar com confirmação e indicação de situação/data; equipe clínica pode consultar o histórico de inativação. Reativação permanece fora do escopo.
+
+## Reativação com histórico — RF-NEC-021
+- [x] Endpoint idempotente `POST /api/necessidades/<id>/reativar/` para Gerente/Médico/Enfermeiro com `necessidades.reactivate` (migration `accounts.0008`).
+- [x] Restaurar `is_active=True` e limpar `inactivated_at`, mantendo dados e status clínico. Datas anteriores permanecem no histórico.
+- [x] Registrar evento `REACTIVATE` transacional com snapshot, ator e data, preservando eventos `INACTIVATE`.
+- [x] Botão Reativar no detalhe da avaliação e histórico com identificação de ambas as ações.
+- [x] Testar permissões, ciclos, idempotência, filtros, preservação dos dados e rollback.
+
+Esta extensão substitui a indicação anterior de reativação fora do escopo, por solicitação explícita do usuário.

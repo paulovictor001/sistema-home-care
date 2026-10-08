@@ -15,6 +15,9 @@ também liberada ao gerente (bloqueio fino no serializer, 403).
 """
 
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db import transaction
+from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError as DRFValidationError
@@ -29,10 +32,11 @@ from accounts.permissions import (
     RequirePermission,
 )
 
-from .models import CareNeed, PatientAssessment, Resource
+from .models import CareNeed, CareNeedHistory, PatientAssessment, Resource
 from .serializers import (
     AssessmentResourceSerializer,
     CareNeedSerializer,
+    CareNeedHistorySerializer,
     PatientAssessmentSerializer,
     ResourceCatalogSerializer,
 )
@@ -169,12 +173,16 @@ class CareNeedViewSet(
 
     serializer_class = CareNeedSerializer
     pagination_class = AssessmentPagination
-    http_method_names = ["get", "put", "patch", "delete", "head", "options"]
+    http_method_names = ["get", "post", "put", "patch", "delete", "head", "options"]
     queryset = CareNeed.objects.select_related("need_type", "assessment").order_by(
         "-created_at", "-pk"
     )
 
     def get_permissions(self):
+        if self.action == "inativar":
+            return [IsCareTeam(), RequirePermission("necessidades.inactivate")()]
+        if self.action == "reativar":
+            return [IsCareTeam(), RequirePermission("necessidades.reactivate")()]
         action_name = {
             "update": "update",
             "partial_update": "update",
@@ -185,6 +193,11 @@ class CareNeedViewSet(
     def filter_queryset(self, queryset):
         queryset = super().filter_queryset(queryset)
         if self.action == "list":
+            situation = self.request.query_params.get("situacao", "ativo").lower()
+            if situation not in ("ativo", "inativo", "todos"):
+                raise DRFValidationError({"situacao": "Use 'ativo', 'inativo' ou 'todos'."})
+            if situation != "todos":
+                queryset = queryset.filter(is_active=situation == "ativo")
             assessment_id = self.request.query_params.get("assessment")
             if assessment_id is not None:
                 try:
@@ -195,6 +208,37 @@ class CareNeedViewSet(
                     raise DRFValidationError({"assessment": "ID de avaliação inválido."})
                 queryset = queryset.filter(assessment_id=assessment_id)
         return queryset
+
+    def _set_active(self, request, pk, is_active):
+        with transaction.atomic():
+            need = get_object_or_404(self.get_queryset().select_for_update(), pk=pk)
+            self.check_object_permissions(request, need)
+            if need.is_active != is_active:
+                snapshot = dict(CareNeedSerializer(need).data)
+                need.is_active = is_active
+                need.inactivated_at = None if is_active else timezone.now()
+                need.save(update_fields=["is_active", "inactivated_at", "updated_at"])
+                CareNeedHistory.objects.create(
+                    need=need, actor=request.user,
+                    actor_name=request.user.get_full_name() or f"Usuário #{request.user.pk}",
+                    snapshot=snapshot,
+                    action="REACTIVATE" if is_active else "INACTIVATE",
+                )
+        # Gerente pode inativar sem receber dados clínicos da consulta.
+        return Response({"id": need.pk, "is_active": need.is_active, "inactivated_at": need.inactivated_at})
+
+    @action(detail=True, methods=["post"], url_path="inativar")
+    def inativar(self, request, pk=None):
+        return self._set_active(request, pk, False)
+
+    @action(detail=True, methods=["post"], url_path="reativar")
+    def reativar(self, request, pk=None):
+        return self._set_active(request, pk, True)
+
+    @action(detail=True, methods=["get"], url_path="historico")
+    def historico(self, request, pk=None):
+        need = self.get_object()
+        return Response(CareNeedHistorySerializer(need.history.all(), many=True).data)
 
 
 class ResourceCatalogViewSet(viewsets.ReadOnlyModelViewSet):
