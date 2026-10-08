@@ -15,7 +15,7 @@ também liberada ao gerente (bloqueio fino no serializer, 403).
 """
 
 from django.core.exceptions import ValidationError as DjangoValidationError
-from rest_framework import status, viewsets
+from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError as DRFValidationError
 from rest_framework.pagination import PageNumberPagination
@@ -29,7 +29,7 @@ from accounts.permissions import (
     RequirePermission,
 )
 
-from .models import PatientAssessment, Resource
+from .models import CareNeed, PatientAssessment, Resource
 from .serializers import (
     AssessmentResourceSerializer,
     CareNeedSerializer,
@@ -152,6 +152,49 @@ class AssessmentViewSet(viewsets.ModelViewSet):
             AssessmentResourceSerializer(link).data,
             status=status.HTTP_201_CREATED,
         )
+
+
+class CareNeedViewSet(
+    mixins.ListModelMixin,
+    mixins.RetrieveModelMixin,
+    mixins.UpdateModelMixin,
+    mixins.DestroyModelMixin,
+    viewsets.GenericViewSet,
+):
+    """Consulta, edição e exclusão física (RF-NEC-008/009/010).
+
+    Criação permanece em POST /api/avaliacoes/<id>/necessidades/.
+    A avaliação de origem e o status são imutáveis nesta API.
+    """
+
+    serializer_class = CareNeedSerializer
+    pagination_class = AssessmentPagination
+    http_method_names = ["get", "put", "patch", "delete", "head", "options"]
+    queryset = CareNeed.objects.select_related("need_type", "assessment").order_by(
+        "-created_at", "-pk"
+    )
+
+    def get_permissions(self):
+        action_name = {
+            "update": "update",
+            "partial_update": "update",
+            "destroy": "delete",
+        }.get(self.action, "view")
+        return [IsClinicalStaff(), RequirePermission(f"necessidades.{action_name}")()]
+
+    def filter_queryset(self, queryset):
+        queryset = super().filter_queryset(queryset)
+        if self.action == "list":
+            assessment_id = self.request.query_params.get("assessment")
+            if assessment_id is not None:
+                try:
+                    assessment_id = int(assessment_id)
+                    if assessment_id <= 0:
+                        raise ValueError
+                except (TypeError, ValueError):
+                    raise DRFValidationError({"assessment": "ID de avaliação inválido."})
+                queryset = queryset.filter(assessment_id=assessment_id)
+        return queryset
 
 
 class ResourceCatalogViewSet(viewsets.ReadOnlyModelViewSet):

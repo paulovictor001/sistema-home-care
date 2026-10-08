@@ -1,5 +1,20 @@
 import { apiJson } from "./api";
 
+export interface HealthCondition {
+  id: number;
+  name: string;
+}
+
+export function listHealthConditions(): Promise<HealthCondition[]> {
+  return apiJson<HealthCondition[]>("/api/condicoes-saude/");
+}
+
+export function createHealthCondition(name: string): Promise<HealthCondition> {
+  return apiJson<HealthCondition>("/api/condicoes-saude/", {
+    method: "POST", json: { name },
+  });
+}
+
 /** Espelha `patients.serializers.PatientSerializer` (read). */
 export interface PatientAddress {
   zip_code: string;

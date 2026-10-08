@@ -5,6 +5,9 @@ import { ApiError } from "../lib/api";
 import { formatCpf, stripCpf } from "../lib/cpf";
 import {
   createPatient,
+  createHealthCondition,
+  listHealthConditions,
+  type HealthCondition,
   getPatient,
   isGerente,
   listMedicos,
@@ -37,6 +40,7 @@ function Field({
 }
 
 const inputClass = "w-full rounded border border-gray-300 px-3 py-2";
+const genderOptions = ["Masculino", "Feminino", "Prefiro não dizer"];
 
 interface FormState {
   full_name: string;
@@ -90,6 +94,11 @@ export function PatientForm({ mode }: { mode: "create" | "edit" }) {
 
   const [form, setForm] = useState<FormState>(EMPTY);
   const [medicos, setMedicos] = useState<Medico[]>([]);
+  const [conditions, setConditions] = useState<HealthCondition[]>([]);
+  const [conditionsLoading, setConditionsLoading] = useState(true);
+  const [conditionsError, setConditionsError] = useState<string | null>(null);
+  const [newCondition, setNewCondition] = useState("");
+  const [addingCondition, setAddingCondition] = useState(false);
   const [loading, setLoading] = useState(mode === "edit");
   const [loadError, setLoadError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
@@ -97,6 +106,13 @@ export function PatientForm({ mode }: { mode: "create" | "edit" }) {
 
   useEffect(() => {
     async function load() {
+      try {
+        setConditions(await listHealthConditions());
+      } catch {
+        setConditionsError("Falha ao carregar condições de saúde. Recarregue a página para tentar novamente.");
+      } finally {
+        setConditionsLoading(false);
+      }
       // O select de médicos só é acessível ao gerente (GET /api/medicos/).
       if (manager) {
         try {
@@ -151,6 +167,22 @@ export function PatientForm({ mode }: { mode: "create" | "edit" }) {
 
   function set<K extends keyof FormState>(key: K, value: string) {
     setForm((prev) => ({ ...prev, [key]: value }));
+  }
+
+  async function addCondition() {
+    if (!newCondition.trim()) return;
+    setAddingCondition(true);
+    setConditionsError(null);
+    try {
+      const created = await createHealthCondition(newCondition.trim());
+      setConditions((previous) => [...previous, created].sort((a, b) => a.name.localeCompare(b.name)));
+      set("health_condition", String(created.id));
+      setNewCondition("");
+    } catch {
+      setConditionsError("Não foi possível cadastrar a condição de saúde. Tente novamente.");
+    } finally {
+      setAddingCondition(false);
+    }
   }
 
   async function handleSubmit(event: React.FormEvent) {
@@ -318,26 +350,56 @@ export function PatientForm({ mode }: { mode: "create" | "edit" }) {
           />
         </Field>
         <Field label="Sexo" error={detail(fieldErrors.gender)}>
-          <input
+          <select
             value={form.gender}
             onChange={(e) => set("gender", e.target.value)}
             required
             className={inputClass}
-          />
+          >
+            <option value="">Selecione…</option>
+            {form.gender && !genderOptions.includes(form.gender) && (
+              <option value={form.gender}>{form.gender}</option>
+            )}
+            {genderOptions.map((gender) => <option key={gender} value={gender}>{gender}</option>)}
+          </select>
         </Field>
         <Field
-          label="Condição de saúde (id)"
+          label="Condição de saúde"
           error={detail(fieldErrors.health_condition)}
         >
-          <input
-            type="number"
-            min={1}
+          <select
             value={form.health_condition}
             onChange={(e) => set("health_condition", e.target.value)}
             required={mode === "create"}
+            disabled={conditionsLoading || addingCondition}
             className={inputClass}
-          />
+          >
+            <option value="">{conditionsLoading ? "Carregando…" : "Selecione…"}</option>
+            {form.health_condition && !conditions.some((condition) => String(condition.id) === form.health_condition) && (
+              <option value={form.health_condition}>Condição atual (cadastro sem nome)</option>
+            )}
+            {conditions.map((condition) => (
+              <option key={condition.id} value={condition.id}>
+                {condition.name || `Condição sem nome — registro ${condition.id}`}
+              </option>
+            ))}
+          </select>
         </Field>
+        {manager && (
+          <div className="sm:col-span-2">
+            <label htmlFor="new-condition" className="mb-1 block text-sm font-medium">Cadastrar nova condição de saúde</label>
+            <div className="flex gap-2">
+              <input id="new-condition" value={newCondition} onChange={(event) => setNewCondition(event.target.value)}
+                maxLength={255} placeholder="Nome da condição de saúde" className={inputClass} />
+              <button type="button" onClick={() => void addCondition()} disabled={addingCondition || !newCondition.trim() || conditionsLoading}
+                className="shrink-0 rounded border border-blue-600 px-3 py-2 text-sm text-blue-600 disabled:opacity-50">
+                {addingCondition ? "Cadastrando…" : "Adicionar"}
+              </button>
+            </div>
+            {!conditionsLoading && conditions.length === 0 && !conditionsError && <p className="mt-1 text-sm text-gray-600">Cadastre uma condição para selecioná-la no paciente.</p>}
+          </div>
+        )}
+        {conditionsError && <p role="alert" className="text-sm text-red-600 sm:col-span-2">{conditionsError}</p>}
         <Field
           label="Médico responsável"
           error={detail(fieldErrors.responsible_doctor)}

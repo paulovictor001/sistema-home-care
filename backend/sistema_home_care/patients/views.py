@@ -16,7 +16,7 @@ para nao-gerentes e aplicado no serializer (403).
 
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.shortcuts import get_object_or_404
-from rest_framework import status, viewsets
+from rest_framework import mixins, status, viewsets
 from rest_framework.views import APIView
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError as DRFValidationError
@@ -31,8 +31,8 @@ from accounts.permissions import (
 )
 from accounts.validators import normalize_cpf
 
-from .models import NeedType, NeedTypeStatus, Patient, PatientAuditAction, PatientStatus
-from .serializers import NeedTypeCatalogSerializer, PatientSerializer
+from .models import HealthCondition, NeedType, NeedTypeStatus, Patient, PatientAuditAction, PatientStatus
+from .serializers import HealthConditionSerializer, NeedTypeCatalogSerializer, PatientSerializer
 from .audit import log_patient_event
 
 # Gerente + equipe clinica (leitura e edicao clinica).
@@ -188,6 +188,18 @@ class PatientViewSet(viewsets.ModelViewSet):
     def reativar(self, request, pk=None):
         """Reativa o paciente (TASK-CAD-PAC-013, so gerente)."""
         return self._set_status(request, pk, PatientStatus.ACTIVE)
+
+
+class HealthConditionViewSet(mixins.ListModelMixin, mixins.CreateModelMixin, viewsets.GenericViewSet):
+    queryset = HealthCondition.objects.order_by("name", "pk")
+    serializer_class = HealthConditionSerializer
+    pagination_class = None
+    http_method_names = ["get", "post", "head", "options"]
+
+    def get_permissions(self):
+        if self.action == "create":
+            return [IsGerente(), RequirePermission("pacientes.create")()]
+        return [IsCareTeam(), RequirePermission("pacientes.view")()]
 
 
 class NeedTypeCatalogViewSet(viewsets.ReadOnlyModelViewSet):

@@ -2,6 +2,7 @@ from django.urls import path
 from rest_framework.routers import DefaultRouter
 
 from .views import (
+    HealthConditionViewSet,
     NeedTypeCatalogViewSet,
     NeedTypeInactivateView,
     NeedTypeReactivateView,
@@ -9,6 +10,7 @@ from .views import (
 )
 
 router = DefaultRouter()
+router.register(r"condicoes-saude", HealthConditionViewSet, basename="condicao-saude")
 router.register(r"pacientes", PatientViewSet, basename="paciente")
 router.register(
     r"tipos-necessidade", NeedTypeCatalogViewSet, basename="tipo-necessidade"
