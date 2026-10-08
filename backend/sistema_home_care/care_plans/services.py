@@ -93,6 +93,11 @@ def change_status(*, actor, plan, target):
     return plan
 
 
+def close_plan(*, actor, plan):
+    """Encerramento preserva datas informadas, vínculos e situação clínica."""
+    return change_status(actor=actor, plan=plan, target=CarePlanStatus.CLOSED)
+
+
 @transaction.atomic
 def remove_need(*, actor, link, reason):
     require_role(actor, 'MEDICO')
