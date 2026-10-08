@@ -22,16 +22,19 @@ def snapshot(plan):
             'id': link.pk, 'care_need_id': link.care_need_id,
             'description': link.care_need.description, 'priority': link.care_need.priority,
             'required_professional_id': link.required_professional_id,
+            'professional_name': link.required_professional.full_name if link.required_professional_id else None,
+            'profession_id': link.required_professional.profession_id if link.required_professional_id else None,
             'frequency_quantity': link.frequency_quantity, 'frequency_period': link.frequency_period,
             'removed_at': link.removed_at.isoformat() if link.removed_at else None,
             'removal_reason': link.removal_reason, 'removed_by': link.removed_by_id,
-            'resources': list(link.resources.values('id', 'resource_id', 'quantity', 'observation')),
-        } for link in plan.need_links.select_related('care_need').order_by('pk')],
+            'resources': list(link.resources.values('id', 'resource_id', 'resource__name', 'quantity', 'observation')),
+        } for link in plan.need_links.select_related('care_need', 'required_professional').order_by('pk')],
     }
 
 
-def record(plan, actor, description, previous):
+def record(plan, actor, description, previous, event_type='UPDATE'):
     CarePlanHistory.objects.create(care_plan=plan, changed_by=actor,
+        actor_name=actor.get_full_name() or f'Usuário #{actor.pk}', event_type=event_type,
         description=description, previous_data=previous, new_data=snapshot(plan))
 
 
@@ -60,7 +63,7 @@ def attach_need(*, actor, plan, need):
     link = CarePlanNeed.objects.create(care_plan=plan, care_need=need)
     plan.updated_by = actor
     plan.save(update_fields=['updated_by', 'updated_at'])
-    record(plan, actor, 'Inclusão de necessidade', before)
+    record(plan, actor, 'Inclusão de necessidade', before, 'ADD_NEED')
     return link
 
 
@@ -89,7 +92,7 @@ def change_status(*, actor, plan, target):
     plan.updated_by = actor
     plan.full_clean()
     plan.save(update_fields=['status', 'updated_by', 'updated_at'])
-    record(plan, actor, f'Status: {before["status"]} → {target}', before)
+    record(plan, actor, f'Status: {before["status"]} → {target}', before, 'STATUS')
     return plan
 
 
@@ -115,7 +118,7 @@ def remove_need(*, actor, link, reason):
     link.save(update_fields=['removed_at', 'removal_reason', 'removed_by', 'updated_at'])
     plan.updated_by = actor
     plan.save(update_fields=['updated_by', 'updated_at'])
-    record(plan, actor, f'Remoção de necessidade: {reason}', before)
+    record(plan, actor, f'Remoção de necessidade: {reason}', before, 'REMOVE_NEED')
     return link
 
 
@@ -165,7 +168,7 @@ def configure_need(*, actor, link, data):
             CarePlanNeedResource.objects.create(plan_need=link, **item)
     plan.updated_by = actor
     plan.save(update_fields=['updated_by', 'updated_at'])
-    record(plan, actor, 'Configuração da necessidade', before)
+    record(plan, actor, 'Configuração da necessidade', before, 'CONFIGURE_NEED')
     return link
 
 
@@ -194,5 +197,5 @@ def create_plan(*, actor, patient=None, start_date=None, needs=None, objective='
     plan.save()
     for need in needs:
         CarePlanNeed.objects.create(care_plan=plan, care_need=need)
-    record(plan, actor, 'Criação do plano', {})
+    record(plan, actor, 'Criação do plano', {}, 'CREATE')
     return plan

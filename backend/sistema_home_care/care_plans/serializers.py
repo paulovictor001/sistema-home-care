@@ -85,5 +85,5 @@ class RemovalSerializer(serializers.Serializer):
 class HistorySerializer(serializers.ModelSerializer):
     class Meta:
         model = CarePlanHistory
-        fields = ('id', 'changed_by', 'changed_at', 'description', 'previous_data', 'new_data')
+        fields = ('id', 'changed_by', 'actor_name', 'event_type', 'changed_at', 'description', 'previous_data', 'new_data')
         read_only_fields = fields
