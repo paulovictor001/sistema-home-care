@@ -3,12 +3,15 @@ import {Link, useParams} from 'react-router-dom';
 import {useAuth} from '../contexts/useAuth';
 import {canScale, getScale, updateScale, scaleStatusLabels, type CareScale} from '../lib/careScales';
 import {frequencyLabels} from '../lib/carePlans';
+import {scalePlans, addScaleNeed, type ScalePlanOption} from '../lib/careScales';
+import {ScaleNeedManagement} from '../components/ScaleNeedManagement';
 
 export function CareScaleDetail() {
   const {id} = useParams(); const {user} = useAuth();
   const [scale, setScale] = useState<CareScale | null>(null); const [loading, setLoading] = useState(true);
   const [error, setError] = useState(''); const [editing, setEditing] = useState(false); const [busy, setBusy] = useState(false);
   const [start, setStart] = useState(''); const [end, setEnd] = useState(''); const [observation, setObservation] = useState('');
+  const [available, setAvailable] = useState<ScalePlanOption['needs'] | null>(null); const [selectedNeed, setSelectedNeed] = useState('');
   useEffect(() => {
     let cancelled = false; setScale(null); setLoading(true); setError(''); setEditing(false);
     getScale(Number(id)).then(value => {if (!cancelled) setScale(value);}).catch(err => {if (!cancelled) setError(err instanceof Error ? err.message : 'Falha ao carregar escala.');}).finally(() => {if (!cancelled) setLoading(false);});
@@ -18,6 +21,16 @@ export function CareScaleDetail() {
     event.preventDefault(); if (!scale) return; setBusy(true); setError('');
     try {setScale(await updateScale(scale.id, {start_date: start, end_date: end, observation})); setEditing(false);}
     catch (err) {setError(err instanceof Error ? err.message : 'Falha ao salvar escala.');} finally {setBusy(false);}
+  }
+  async function openNeeds() {
+    if (!scale) return; setBusy(true); setError('');
+    try {const plans = await scalePlans(); setAvailable(plans.find(plan => plan.id === scale.care_plan)?.needs.filter(need => !scale.items.some(item => !item.removed_at && item.plan_need === need.id)) || []); setSelectedNeed('');}
+    catch (err) {setError(err instanceof Error ? err.message : 'Falha ao carregar necessidades.');} finally {setBusy(false);}
+  }
+  async function attachNeed(event: FormEvent) {
+    event.preventDefault(); if (!scale || !selectedNeed) return; setBusy(true); setError('');
+    try {setScale(await addScaleNeed(scale.id, Number(selectedNeed))); setAvailable(null);}
+    catch (err) {setError(err instanceof Error ? err.message : 'Falha ao incluir necessidade.');} finally {setBusy(false);}
   }
   if (loading) return <p>Carregando…</p>;
   if (!scale) return <p role="alert" className="text-red-700">{error || 'Escala não encontrada.'}</p>;
@@ -35,6 +48,8 @@ export function CareScaleDetail() {
         {canScale(user, 'update') && <button className="rounded border p-2" onClick={() => {setStart(scale.start_date); setEnd(scale.end_date); setObservation(scale.observation); setEditing(true);}}>Editar escala</button>}</>}
     </section>
     <section className="space-y-3 rounded bg-white p-4 shadow"><h2 className="font-semibold">Necessidades e profissionais</h2>
+      {canScale(user, 'update') && !available && <button className="rounded border p-2" disabled={busy} onClick={() => void openNeeds()}>Adicionar necessidade</button>}
+      {available && <form onSubmit={attachNeed}><fieldset disabled={busy} className="flex flex-wrap gap-2"><label>Necessidade do plano<select className="ml-2 rounded border p-2" required value={selectedNeed} onChange={e => setSelectedNeed(e.target.value)}><option value="">Selecione</option>{available.map(need => <option key={need.id} value={need.id}>{need.care_need__description}</option>)}</select></label><button className="rounded border p-2" disabled={!available.length} type="submit">Incluir necessidade</button><button className="rounded border p-2" type="button" onClick={() => setAvailable(null)}>Cancelar</button>{!available.length && <p>Nenhuma necessidade vigente disponível no plano.</p>}</fieldset></form>}
       {!scale.items.filter(item => !item.removed_at).length && <p>Nenhuma necessidade vigente nesta escala.</p>}
       {scale.items.map(item => <article key={item.id} className={`space-y-2 rounded border p-3 ${item.removed_at ? 'bg-gray-50 text-gray-600' : ''}`}>
         <h3 className="font-medium">{item.need_type} · {item.description}{item.removed_at ? ' · Removida da escala' : ''}</h3>
@@ -43,6 +58,7 @@ export function CareScaleDetail() {
         <h4 className="font-medium">Profissionais vinculados</h4>
         {!item.assignments.filter(assignment => !assignment.removed_at).length && <p>Nenhum profissional vigente.</p>}
         <ul>{item.assignments.map(assignment => <li key={assignment.id}>{assignment.full_name} · {assignment.profession_name}{assignment.removed_at ? ' · Vínculo encerrado' : ''}</li>)}</ul>
+        {!item.removed_at && canScale(user, 'update') && <ScaleNeedManagement key={`${scale.id}-${item.id}`} scale={scale} item={item} onChange={setScale} />}
       </article>)}
     </section>
   </div>;

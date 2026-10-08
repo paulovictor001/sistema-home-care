@@ -20,3 +20,12 @@ export const createScale = (data: ScaleInput) => apiJson<CareScale>(base, {metho
 export const updateScale = (id: number, data: Partial<ScaleInput>) => apiJson<CareScale>(`${base}${id}/`, {method: 'PATCH', json: data});
 export const deleteScale = (id: number) => apiJson<void>(`${base}${id}/`, {method: 'DELETE'});
 export const changeScaleStatus = (id: number, status: ScaleStatus) => apiJson<CareScale>(`${base}${id}/status/`, {method: 'POST', json: {status}});
+export interface ScaleProfessional {id: number; full_name: string; profession_name: string; regions: string[]; availability_notes: string; patient_region: string; region_match: boolean | null}
+export const addScaleNeed = (id: number, plan_need: number) => apiJson<CareScale>(`${base}${id}/necessidades/`, {method: 'POST', json: {plan_need}});
+export const removeScaleNeed = (id: number, item: number) => apiJson<CareScale>(`${base}${id}/necessidades/${item}/remover/`, {method: 'POST'});
+export const configureScaleNeed = (id: number, item: number, data: {frequency_quantity: number; frequency_period: FrequencyPeriod; frequency_reason: string; observation: string}) => apiJson<CareScale>(`${base}${id}/necessidades/${item}/configurar/`, {method: 'POST', json: data});
+export const scaleProfessionals = (id: number, item: number) => apiJson<ScaleProfessional[]>(`${base}${id}/necessidades/${item}/profissionais-disponiveis/`);
+export const addScaleProfessional = (id: number, item: number, professional: number) => apiJson<CareScale>(`${base}${id}/necessidades/${item}/profissionais/`, {method: 'POST', json: {professional}});
+export const removeScaleProfessional = (id: number, item: number, assignment: number) => apiJson<CareScale>(`${base}${id}/necessidades/${item}/profissionais/${assignment}/remover/`, {method: 'POST'});
+export const substituteScaleProfessional = (id: number, item: number, assignment: number, professional: number) => apiJson<CareScale>(`${base}${id}/necessidades/${item}/profissionais/${assignment}/substituir/`, {method: 'POST', json: {professional}});
+export const saveProfessionalPlanning = (professional: number, regions: string[], availability_notes: string) => apiJson<{regions: string[]; availability_notes: string}>(`${base}profissionais/${professional}/planejamento/`, {method: 'PUT', json: {regions, availability_notes}});
