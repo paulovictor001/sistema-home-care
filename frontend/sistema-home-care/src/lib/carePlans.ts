@@ -42,3 +42,4 @@ export const planProfessionals = () => apiJson<PlanProfessional[]>(`${base}profi
 export const planResources = () => apiJson<CatalogResource[]>(`${base}recursos/`);
 export const configurePlanNeed = (plan: number, link: number, data: NeedConfiguration) => apiJson<CarePlan>(`${base}${plan}/necessidades/${link}/configurar/`, { method: 'POST', json: data });
 export const attachPlanNeed = (plan: number, need: number) => apiJson<CarePlan>(`${base}${plan}/necessidades/`, { method: 'POST', json: { care_need: need } });
+export const removePlanNeed = (plan: number, link: number, reason: string) => apiJson<CarePlan>(`${base}${plan}/necessidades/${link}/remover/`, { method: 'POST', json: { reason: reason.trim() } });
