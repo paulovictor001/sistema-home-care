@@ -79,3 +79,10 @@ Não são definidas aqui regras de:
 
 ## 10. Princípio
 As necessidades devem representar aquilo que foi identificado na avaliação, sem antecipar regras operacionais dos processos posteriores.
+
+## 11. Reativação (extensão solicitada)
+- Gerente, Médico e Enfermeiro podem reativar uma necessidade inativada, com a permissão granular `necessidades.reactivate`.
+- A necessidade volta a ser ativa, mantendo seus dados e o status clínico `Identificada`.
+- A reativação preserva todos os eventos anteriores e registra ator, data e snapshot anterior à alteração.
+- Repetir a reativação de uma necessidade já ativa não gera outro evento nem altera a data de atualização.
+- A reativação da necessidade não altera a situação do tipo associado e não constitui transição clínica do Plano de Cuidados.

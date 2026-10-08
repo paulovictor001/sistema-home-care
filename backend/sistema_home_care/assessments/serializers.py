@@ -24,6 +24,7 @@ from .models import (
     AssessmentResource,
     AssessmentType,
     CareNeed,
+    CareNeedHistory,
     PatientAssessment,
     Resource,
 )
@@ -67,6 +68,8 @@ class CareNeedReadSerializer(serializers.ModelSerializer):
             "description",
             "priority",
             "status",
+            "is_active",
+            "inactivated_at",
             "created_at",
         )
         read_only_fields = fields
@@ -203,10 +206,12 @@ class CareNeedSerializer(serializers.ModelSerializer):
             "description",
             "priority",
             "status",
+            "is_active",
+            "inactivated_at",
             "created_at",
             "updated_at",
         )
-        read_only_fields = ("id", "assessment", "status", "created_at", "updated_at")
+        read_only_fields = ("id", "assessment", "status", "is_active", "inactivated_at", "created_at", "updated_at")
 
     def validate_description(self, value):
         if not (value or "").strip():
@@ -222,6 +227,13 @@ class CareNeedSerializer(serializers.ModelSerializer):
                 "Tipo de necessidade inativo não pode ser usado."
             )
         return value
+
+
+class CareNeedHistorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CareNeedHistory
+        fields = ("id", "actor", "actor_name", "action", "snapshot", "created_at")
+        read_only_fields = fields
 
 
 class AssessmentResourceSerializer(serializers.ModelSerializer):

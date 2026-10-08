@@ -9,6 +9,8 @@ export interface CareNeed {
   description: string;
   priority: string;
   status: string;
+  is_active: boolean;
+  inactivated_at: string | null;
   created_at: string;
 }
 
@@ -230,6 +232,26 @@ export function addNeed(
     method: "POST",
     json: input,
   });
+}
+
+export function inactivateNeed(id: number): Promise<{ id: number; is_active: boolean; inactivated_at: string | null }> {
+  return apiJson(`/api/necessidades/${id}/inativar/`, { method: "POST" });
+}
+
+export function reactivateNeed(id: number): Promise<{ id: number; is_active: boolean; inactivated_at: string | null }> {
+  return apiJson(`/api/necessidades/${id}/reativar/`, { method: "POST" });
+}
+
+export interface NeedHistoryEvent {
+  id: number;
+  action: "INACTIVATE" | "REACTIVATE";
+  actor_name: string;
+  created_at: string;
+  snapshot: CareNeed;
+}
+
+export function getNeedHistory(id: number): Promise<NeedHistoryEvent[]> {
+  return apiJson(`/api/necessidades/${id}/historico/`);
 }
 
 export interface ResourceLinkInput {
