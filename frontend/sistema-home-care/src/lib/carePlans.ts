@@ -32,3 +32,13 @@ export const availableNeeds = (patient: number) => apiJson<AvailableNeed[]>(`${b
 export const createPlan = (data: { patient: number; start_date: string; end_date: string | null; objective: string; needs: number[] }) => apiJson<CarePlan>(base, { method: 'POST', json: data });
 export const updatePlan = (id: number, data: { start_date: string; end_date: string | null; objective: string }) => apiJson<CarePlan>(`${base}${id}/`, { method: 'PATCH', json: data });
 export const planHistory = (id: number) => apiJson<PlanHistory[]>(`${base}${id}/historico/`);
+export interface PlanProfessional { id: number; full_name: string; profession__name: string; is_active: boolean }
+export interface CatalogResource { id: number; name: string }
+export interface NeedConfiguration {
+  required_professional: number; frequency_quantity: number; frequency_period: FrequencyPeriod;
+  resources: { resource: number; quantity: number; observation: string }[];
+}
+export const planProfessionals = () => apiJson<PlanProfessional[]>(`${base}profissionais/`);
+export const planResources = () => apiJson<CatalogResource[]>(`${base}recursos/`);
+export const configurePlanNeed = (plan: number, link: number, data: NeedConfiguration) => apiJson<CarePlan>(`${base}${plan}/necessidades/${link}/configurar/`, { method: 'POST', json: data });
+export const attachPlanNeed = (plan: number, need: number) => apiJson<CarePlan>(`${base}${plan}/necessidades/`, { method: 'POST', json: { care_need: need } });
