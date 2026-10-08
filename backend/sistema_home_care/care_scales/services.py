@@ -201,9 +201,30 @@ def change_status(*, actor, scale, status):
     scale = locked_scale(scale)
     if status not in ScaleStatus.values:
         raise ValidationError({'status': 'Status inválido.'})
+    if status == ScaleStatus.ACTIVE:
+        validate_activation(scale)
     if scale.status == status:
         return scale
     scale.status = status
     scale.updated_by = actor
     scale.save(update_fields=['status', 'updated_by', 'updated_at'])
     return scale
+
+
+def validate_activation(scale):
+    plan = validate_relationship(scale.patient, scale.care_plan)
+    validate_period(scale.start_date, scale.end_date, plan)
+    items = list(scale.items.filter(removed_at__isnull=True).select_related('plan_need'))
+    if not items:
+        raise ValidationError({'items': 'Inclua ao menos uma necessidade para ativar.'})
+    for item in items:
+        if item.plan_need.removed_at or item.plan_need.care_plan_id != scale.care_plan_id:
+            raise ValidationError({'items': 'Há necessidade retirada do plano ou de outro plano.'})
+        if not item.frequency_quantity or item.frequency_period not in FrequencyPeriod.values:
+            raise ValidationError({'items': 'Configure a frequência das necessidades.'})
+        assignments = list(item.assignments.filter(removed_at__isnull=True).select_related('professional'))
+        if not assignments:
+            raise ValidationError({'items': 'Vincule ao menos um profissional a cada necessidade.'})
+        if any(not assignment.professional.is_active or not item.required_profession_id
+               or assignment.professional.profession_id != item.required_profession_id for assignment in assignments):
+            raise ValidationError({'items': 'Os profissionais vinculados devem estar ativos e compatíveis.'})
