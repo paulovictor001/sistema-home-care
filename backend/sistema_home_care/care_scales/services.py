@@ -3,15 +3,29 @@ from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 from .models import CareScale
 from .permissions import require_scale_permission
+from care_plans.models import CarePlan
+from patients.models import Patient
+
+
+def validate_relationship(patient, care_plan):
+    if patient is None or care_plan is None:
+        raise ValidationError('Paciente e plano são obrigatórios.')
+    Patient.objects.select_for_update().get(pk=patient.pk)
+    care_plan = CarePlan.objects.select_for_update().get(pk=care_plan.pk)
+    if care_plan.patient_id != patient.pk:
+        raise ValidationError({'care_plan': 'O plano deve pertencer ao paciente da escala.'})
+    return care_plan
 
 
 @transaction.atomic
 def create_scale(*, actor, **data):
     require_scale_permission(actor, 'create')
+    data['care_plan'] = validate_relationship(data.get('patient'), data.get('care_plan'))
     return CareScale.objects.create(created_by=actor, updated_by=actor, **data)
 
 
 def locked_scale(scale):
+    validate_relationship(scale.patient, scale.care_plan)
     return CareScale.objects.select_for_update().get(pk=scale.pk, deleted_at__isnull=True)
 
 
@@ -19,6 +33,10 @@ def locked_scale(scale):
 def update_scale(*, actor, scale, data):
     require_scale_permission(actor, 'update', scale)
     scale = locked_scale(scale)
+    patient = data.get('patient', scale.patient)
+    plan = validate_relationship(patient, data.get('care_plan', scale.care_plan))
+    if (patient.pk != scale.patient_id or plan.pk != scale.care_plan_id) and scale.items.exists():
+        raise ValidationError('Uma escala com necessidades não pode trocar de paciente ou plano.')
     for field, value in data.items():
         if field not in ('patient', 'care_plan', 'start_date', 'end_date', 'observation'):
             raise ValidationError({field: 'Campo não editável.'})
