@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import CareScale, ScaleNeed, ScaleAssignment, ScaleStatus
+from .models import CareScale, ScaleNeed, ScaleAssignment, ScaleStatus, ScaleAuditEvent, ScaleSubstitution
 from professionals.models import Professional
 from care_plans.models import CarePlanNeed
 from care_plans.models import FrequencyPeriod
@@ -85,3 +85,16 @@ class ScaleSerializer(serializers.ModelSerializer):
         fields = ['id', 'patient', 'patient_name', 'care_plan', 'start_date', 'end_date',
                   'status', 'observation', 'created_by', 'updated_by', 'created_at', 'updated_at', 'items']
         read_only_fields = fields
+
+
+class AuditSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ScaleAuditEvent
+        fields = ['id', 'actor', 'actor_name', 'action', 'created_at', 'previous_data', 'new_data']
+
+
+class SubstitutionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ScaleSubstitution
+        fields = ['id', 'item', 'previous_professional', 'new_professional',
+                  'previous_name', 'new_name', 'actor', 'actor_name', 'created_at']
