@@ -111,6 +111,9 @@ def remove_need(*, actor, link, reason):
     link = CarePlanNeed.objects.select_for_update().get(pk=link.pk, care_plan=plan)
     if link.removed_at:
         raise ValidationError({'need': 'Este vínculo já foi removido.'})
+    from care_scales.models import ScaleNeed
+    if ScaleNeed.objects.filter(plan_need=link, removed_at__isnull=True, scale__deleted_at__isnull=True).exists():
+        raise ValidationError({'need': 'Remova esta necessidade das escalas antes de retirá-la do plano.'})
     before = snapshot(plan)
     link.removed_at = timezone.now()
     link.removal_reason = reason
