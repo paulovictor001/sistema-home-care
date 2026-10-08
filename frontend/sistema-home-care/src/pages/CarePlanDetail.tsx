@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useAuth } from '../contexts/useAuth';
-import { canPlan, getPlan, updatePlan, planHistory, planStatusLabels, frequencyLabels, availableNeeds, attachPlanNeed, type AvailableNeed, type CarePlan, type PlanHistory } from '../lib/carePlans';
+import { canPlan, getPlan, updatePlan, planHistory, planStatusLabels, frequencyLabels, availableNeeds, attachPlanNeed, allowedStatusActions, changePlanStatus, statusActionLabels, type PlanStatusAction, type AvailableNeed, type CarePlan, type PlanHistory } from '../lib/carePlans';
 import { NEED_PRIORITIES } from '../lib/assessments';
 import { PlanNeedConfiguration } from '../components/PlanNeedConfiguration';
 import { PlanNeedRemoval } from '../components/PlanNeedRemoval';
@@ -23,6 +23,7 @@ export function CarePlanDetail() {
   const [adding, setAdding] = useState(false);
   const [available, setAvailable] = useState<AvailableNeed[]>([]);
   const [selectedNeed, setSelectedNeed] = useState('');
+  const [message, setMessage] = useState('');
   const permitted = canPlan(user, 'view');
   useEffect(() => {
     if (!permitted) return;
@@ -61,12 +62,25 @@ export function CarePlanDetail() {
     catch (err) { setError(err instanceof Error ? err.message : 'Falha ao vincular necessidade.'); }
     finally { setBusy(false); }
   }
+  async function changeStatus(action: PlanStatusAction) {
+    if (!plan) return;
+    const description = action === 'encerrar' ? 'As necessidades identificadas serão preservadas.'
+      : action === 'reativar' ? 'O mesmo plano será reativado, mantendo seu histórico.'
+      : 'Todas as necessidades devem ter profissional e frequência configurados.';
+    if (!window.confirm(`${statusActionLabels[action]} este plano? ${description}`)) return;
+    setBusy(true); setError(''); setMessage('');
+    try { const updated = await changePlanStatus(plan.id, action); setPlan(updated); setEvents(null); setMessage(`Plano ${planStatusLabels[updated.status].toLowerCase()}.`); }
+    catch (err) { setError(err instanceof Error ? err.message : 'Falha ao alterar status.'); }
+    finally { setBusy(false); }
+  }
   if (!permitted) return <p role="alert" className="p-6">Você não tem permissão para visualizar planos.</p>;
   if (loading) return <p className="p-6">Carregando…</p>;
   if (!plan) return <p role="alert" className="p-6 text-red-700">{error || 'Plano não encontrado.'}</p>;
   return <div className="mx-auto max-w-3xl space-y-4 p-6">
     <div className="flex flex-wrap justify-between gap-3"><div><h1 className="text-2xl font-semibold">Plano #{plan.id}</h1><p>{plan.patient_name} · {planStatusLabels[plan.status]}</p></div><Link className="text-blue-700 underline" to={`/pacientes/${plan.patient}/planos-cuidados`}>Planos do paciente</Link></div>
     {error && <p role="alert" className="text-red-700">{error}</p>}
+    {message && <p role="status" className="text-green-700">{message}</p>}
+    <div className="flex gap-2">{allowedStatusActions(user, plan.status).map(action => <button key={action} className="rounded border px-3 py-2 disabled:opacity-50" disabled={busy || editing || adding || configuring !== null || removing !== null} onClick={() => void changeStatus(action)}>{busy ? 'Processando…' : statusActionLabels[action]}</button>)}</div>
     <section className="space-y-3 rounded-lg bg-white p-4 shadow"><h2 className="font-semibold">Dados do plano</h2>
       {editing ? <form onSubmit={save}><fieldset disabled={busy} className="space-y-3">
         <label className="block">Data de início<input className="ml-2 rounded border p-2" type="date" required value={start} onChange={e => setStart(e.target.value)} /></label>
