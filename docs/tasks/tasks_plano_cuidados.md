@@ -32,6 +32,10 @@ Implementada a modelagem `CarePlanNeed`: vínculo com plano/necessidade protegid
 - Permitir remoção do vínculo sem excluir ou inativar a necessidade.
 
 ### TASK 03 — Modelar configuração da necessidade no plano
+**Concluída — modelagem (TA-96).** Campos em `CarePlanNeed`: `required_professional` aponta para um `Professional` cadastrado, com `PROTECT` para preservar a referência; `frequency_quantity` armazena inteiro positivo; `frequency_period` permite Dia/Semana/Mês (`DAY/WEEK/MONTH`). Constraints de banco rejeitam quantidades menores que 1 e períodos inválidos. Migration `0003_careplanneed_frequency_period_and_more` e testes de persistência, remoção lógica, proteção do profissional e validação no model/banco.
+
+Os campos são nullable para preservar vínculos existentes sem inventar profissional ou frequência, e permitir configuração posterior. Obrigatoriedade de preenchimento segue nas TASK 08/09; API, autorização e histórico automático seguem nas TASK 13/14/19. A configuração é própria de cada vínculo e permanece armazenada após sua remoção lógica.
+
 - Armazenar profissional específico necessário.
 - Armazenar quantidade da frequência.
 - Armazenar período da frequência.

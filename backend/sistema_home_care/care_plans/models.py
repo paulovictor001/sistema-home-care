@@ -1,7 +1,7 @@
 """TASK 01: plano principal e estrutura de histórico.
 
 Fonte: regras_negocio_plano_cuidados.md e requisitos_funcionais_plano_cuidados.md.
-Vínculos de necessidades: TASK 02; configurações e recursos: TASK 03–04.
+Vínculos e configurações de necessidades: TASK 02–03; recursos: TASK 04.
 Exclusividade de plano ativo e transições: TASK 06–10.
 Autorização e preenchimento dos autores: TASK 13–14; gravação do histórico: TASK 19.
 """
@@ -14,6 +14,12 @@ class CarePlanStatus(models.TextChoices):
     DRAFT = 'DRAFT', 'Rascunho'
     ACTIVE = 'ACTIVE', 'Ativo'
     CLOSED = 'CLOSED', 'Encerrado'
+
+
+class FrequencyPeriod(models.TextChoices):
+    DAY = 'DAY', 'Dia'
+    WEEK = 'WEEK', 'Semana'
+    MONTH = 'MONTH', 'Mês'
 
 
 class CarePlan(models.Model):
@@ -60,6 +66,13 @@ class CarePlanNeed(models.Model):
     care_plan = models.ForeignKey(CarePlan, on_delete=models.PROTECT, related_name='need_links')
     care_need = models.ForeignKey('assessments.CareNeed', on_delete=models.PROTECT,
                                  related_name='care_plan_links')
+    # Nullable para vínculos existentes e configuração posterior (TASK 08–09).
+    # PROTECT preserva a referência inclusive após remoção lógica do vínculo.
+    required_professional = models.ForeignKey('professionals.Professional',
+        on_delete=models.PROTECT, related_name='care_plan_needs', null=True, blank=True)
+    frequency_quantity = models.PositiveIntegerField(null=True, blank=True)
+    frequency_period = models.CharField(max_length=5, choices=FrequencyPeriod.choices,
+                                       null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     removed_at = models.DateTimeField(null=True, blank=True)
@@ -71,6 +84,11 @@ class CarePlanNeed(models.Model):
         db_table = 'care_plan_needs'
         ordering = ['created_at', 'pk']
         constraints = [
+            models.CheckConstraint(condition=(models.Q(frequency_quantity__isnull=True)
+                | models.Q(frequency_quantity__gt=0)), name='care_plan_need_positive_frequency'),
+            models.CheckConstraint(condition=(models.Q(frequency_period__isnull=True)
+                | models.Q(frequency_period__in=FrequencyPeriod.values)),
+                name='care_plan_need_valid_frequency_period'),
             models.UniqueConstraint(fields=['care_plan', 'care_need'],
                 condition=models.Q(removed_at__isnull=True), name='unique_current_plan_need'),
             models.CheckConstraint(condition=(
