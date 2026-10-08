@@ -118,6 +118,8 @@ export function AssessmentForm({ mode }: { mode: "create" | "edit" }) {
   const { user } = useAuth();
   const manager = isGerente(user?.groups);
   const clinical = isClinical(user?.groups);
+  const canAddNeeds = clinical && !!user?.permissions.includes("necessidades.create")
+    && !!user?.permissions.includes("avaliacoes.add_need");
 
   const [patient, setPatient] = useState<Patient | null>(null);
   const [assessment, setAssessment] = useState<PatientAssessment | null>(null);
@@ -136,6 +138,8 @@ export function AssessmentForm({ mode }: { mode: "create" | "edit" }) {
   const [needDesc, setNeedDesc] = useState("");
   const [needPriority, setNeedPriority] = useState("MEDIUM");
   const [addingNeed, setAddingNeed] = useState(false);
+  const [needError, setNeedError] = useState<string | null>(null);
+  const [needCatalogError, setNeedCatalogError] = useState(false);
   // Sub-form recurso (TA-63).
   const [resourceId, setResourceId] = useState("");
   const [resourceQty, setResourceQty] = useState("1");
@@ -159,6 +163,7 @@ export function AssessmentForm({ mode }: { mode: "create" | "edit" }) {
           setNeedTypes(await listNeedTypes());
         } catch {
           setNeedTypes([]);
+          setNeedCatalogError(true);
         }
         try {
           setResources(await listResources());
@@ -204,7 +209,7 @@ export function AssessmentForm({ mode }: { mode: "create" | "edit" }) {
     setActionError(null);
     setSubmitting(true);
     try {
-      if (mode === "create") {
+      if (mode === "create" && !assessment) {
         if (!patient) throw new Error("Paciente não carregado.");
         const created = await createAssessment({
           patient: patient.id,
@@ -278,9 +283,9 @@ export function AssessmentForm({ mode }: { mode: "create" | "edit" }) {
   }
 
   async function handleAddNeed() {
-    if (!assessment || !needType || !needDesc.trim()) return;
+    if (!canAddNeeds || !assessment || !needType || !needDesc.trim()) return;
     setAddingNeed(true);
-    setActionError(null);
+    setNeedError(null);
     try {
       const need = await addNeed(assessment.id, {
         need_type: Number(needType),
@@ -294,7 +299,7 @@ export function AssessmentForm({ mode }: { mode: "create" | "edit" }) {
       setNeedDesc("");
       setNeedPriority("MEDIUM");
     } catch (err) {
-      setActionError(
+      setNeedError(
         err instanceof ApiError ? err.message : "Falha ao adicionar necessidade.",
       );
     } finally {
@@ -558,13 +563,14 @@ export function AssessmentForm({ mode }: { mode: "create" | "edit" }) {
         </div>
       </form>
 
-      {assessment && clinical && (
-        <>
-          <section className="mt-4 rounded-lg bg-white p-4 shadow">
-            <h2 className="mb-3 text-sm font-semibold">
-              Necessidades ({assessment.care_needs.length})
+      <section aria-labelledby="assessment-needs-heading" className="mt-4 rounded-lg bg-white p-4 shadow">
+            <h2 id="assessment-needs-heading" className="mb-2 text-lg font-semibold">
+              Necessidades identificadas ({assessment?.care_needs.length ?? 0})
             </h2>
-            {assessment.care_needs.length > 0 && (
+            <p className="mb-3 text-sm text-gray-600">Registre os cuidados identificados nesta avaliação, como acompanhamento de enfermagem ou fisioterapia. Cada necessidade tem tipo, descrição e prioridade.</p>
+            {!assessment && <p className="mb-3 rounded bg-blue-50 p-3 text-sm text-blue-800">Salve a avaliação para adicionar necessidades. Elas ficarão vinculadas a esta avaliação.</p>}
+            {assessment && assessment.care_needs.length === 0 && <p className="mb-3 text-sm text-gray-600">Nenhuma necessidade registrada nesta avaliação.</p>}
+            {assessment && assessment.care_needs.length > 0 && (
               <ul className="mb-3 space-y-2">
                 {assessment.care_needs.map((n) => (
                   <li key={n.id} className="rounded border px-3 py-2 text-sm">
@@ -575,10 +581,16 @@ export function AssessmentForm({ mode }: { mode: "create" | "edit" }) {
                     {NEED_PRIORITIES.find((p) => p.value === n.priority)?.label ??
                       n.priority}{" "}
                     · {n.status === "IDENTIFIED" ? "Identificada" : n.status}
+                    <span className={`ml-2 rounded px-2 py-0.5 ${n.is_active ? "bg-green-100" : "bg-gray-200"}`}>{n.is_active ? "Ativa" : "Inativa"}</span>
                   </li>
                 ))}
               </ul>
             )}
+            {needError && <p role="alert" className="mb-3 text-sm text-red-600">{needError}</p>}
+            {canAddNeeds ? <fieldset disabled={!assessment || addingNeed}>
+            <legend className="mb-2 text-sm font-semibold">Adicionar necessidade</legend>
+            {needCatalogError && <p role="alert" className="mb-2 text-sm text-red-600">Não foi possível carregar os tipos. Recarregue a página para tentar novamente.</p>}
+            {!needCatalogError && needTypes.length === 0 && <p className="mb-2 text-sm text-gray-600">Nenhum tipo ativo disponível para seleção.</p>}
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               <label className="block">
                 <span className="mb-1 block text-sm font-medium">Tipo *</span>
@@ -617,6 +629,10 @@ export function AssessmentForm({ mode }: { mode: "create" | "edit" }) {
                   className={textClass}
                 />
               </label>
+              <label className="block">
+                <span className="mb-1 block text-sm font-medium">Status inicial</span>
+                <input value="Identificada" readOnly className={`${inputClass} bg-gray-100`} />
+              </label>
             </div>
             <button
               type="button"
@@ -626,8 +642,11 @@ export function AssessmentForm({ mode }: { mode: "create" | "edit" }) {
             >
               {addingNeed ? "Adicionando…" : "Adicionar necessidade"}
             </button>
-          </section>
+            </fieldset> : <p className="text-sm text-gray-600">Seu perfil não tem permissão para adicionar necessidades.</p>}
+            {assessment && <Link to={`/avaliacoes/${assessment.id}`} className="mt-3 inline-block text-sm text-blue-600 underline">Ver necessidades e histórico da avaliação</Link>}
+      </section>
 
+      {assessment && clinical && (
           <section className="mt-4 rounded-lg bg-white p-4 shadow">
             <h2 className="mb-3 text-sm font-semibold">
               Recursos ({assessment.assessment_resources.length})
@@ -689,7 +708,6 @@ export function AssessmentForm({ mode }: { mode: "create" | "edit" }) {
               {addingResource ? "Associando…" : "Associar recurso"}
             </button>
           </section>
-        </>
       )}
     </div>
   );

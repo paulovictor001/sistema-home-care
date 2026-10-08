@@ -47,12 +47,12 @@
 ## 4. Frontend — Necessidades
 > Backend de consulta/edição/exclusão (RF-NEC-008/009/010): `GET /api/necessidades/` (20 por página, filtro opcional `?assessment=<id>`), `GET /api/necessidades/<id>/`, `PUT/PATCH /api/necessidades/<id>/` e `DELETE /api/necessidades/<id>/`. Acesso restrito a Médico/Enfermeiro com `necessidades.view/update/delete`, criadas e atribuídas às categorias clínicas pela migration `accounts.0006`. Exclusão física remove somente a necessidade, preservando avaliação, tipo e demais necessidades. Edição permite tipo, descrição e prioridade; avaliação de origem e status continuam read-only. Tipo histórico inativo pode ser mantido; a troca exige um tipo ativo. Criação segue no endpoint da avaliação. Inativação e telas permanecem nas tasks próprias.
 
-- [ ] Criar seção de necessidades associada à avaliação.
-- [ ] Exibir necessidades existentes.
-- [ ] Criar formulário com Tipo, Descrição, Prioridade e Status.
-- [ ] Disponibilizar somente tipos ativos para novos cadastros.
-- [ ] Disponibilizar prioridades definidas.
-- [ ] Exibir status inicial `Identificada`.
+- [x] Criar seção de necessidades associada à avaliação.
+- [x] Exibir necessidades existentes.
+- [x] Criar formulário com Tipo, Descrição, Prioridade e Status.
+- [x] Disponibilizar somente tipos ativos para novos cadastros.
+- [x] Disponibilizar prioridades definidas.
+- [x] Exibir status inicial `Identificada`.
 - [ ] Implementar edição conforme perfil.
 - [ ] Implementar exclusão conforme perfil.
 - [x] Implementar inativação conforme perfil.
@@ -131,3 +131,7 @@ Esta extensão substitui a indicação anterior de reativação fora do escopo, 
 - Migration `accounts.0009` cria as permissões faltantes. A nova permissão de criação só é atribuída às categorias clínicas que ainda possuem `avaliacoes.add_need`, preservando revogações anteriores.
 - O catálogo de tipos continua usando a autorização da avaliação (`avaliacoes.view`). A visualização dos relacionados dentro da avaliação mantém o contrato RF-AVL-009/BE-003 existente; a consulta direta e o histórico de necessidades seguem RF-NEC-018.
 - Testes cobrem todas as operações contra anônimos, perfis indevidos mesmo com permissões atribuídas, categorias sem a permissão específica e usuários inativos, garantindo ausência de mutações nos bloqueios. Criação/edição de tipos não são adicionadas nesta task.
+
+## Seção de necessidades na avaliação
+
+O formulário de criação/edição mostra a seção desde o início, com orientação para salvar a avaliação antes de adicionar registros vinculados. Exibe lista, situação ativa/inativa e formulário Tipo/Descrição/Prioridade/Status inicial. Adição exige perfil clínico e permissões `necessidades.create` + `avaliacoes.add_need`; erros de catálogo e de inclusão aparecem na seção. Após criar, novos salvamentos atualizam a mesma avaliação. Link para o detalhe permite acessar situação e histórico. Edição/exclusão de necessidades na interface continuam em tasks próprias.
