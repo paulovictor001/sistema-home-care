@@ -238,6 +238,35 @@ class UserListDetailTests(TestCase):
         self.assertEqual(response.data["professional_detail"]["full_name"], "Dr. X")
         self.assertEqual(response.data["category_detail"]["name"], "Médico")
 
+    def test_inactive_detail_ignores_list_filters_and_keeps_permissions(self):
+        user = self._create(NOVO_CPF)
+        self.gerente.post(f"/api/usuarios/{user.pk}/inativar/")
+        url = f"/api/usuarios/{user.pk}/"
+        for suffix in ("", "?status=ativo&nome=inexistente&categoria=inexistente", "?status=xyz"):
+            response = self.gerente.get(url + suffix)
+            self.assertEqual(response.status_code, 200)
+            self.assertFalse(response.data["is_active"])
+            self.assertEqual(response.data["professional_detail"]["full_name"], "Dr. X")
+        self.assertEqual(make_client(self.users[MEDICO_CPF]).get(url).status_code, 403)
+        self.assertEqual(make_client().get(url).status_code, 401)
+        permission = GranularPermission.objects.get(codename="usuarios.view")
+        self.users[GERENTE_CPF].category.permissions.remove(permission)
+        self.assertEqual(self.gerente.get(url).status_code, 403)
+
+    def test_inactive_user_can_be_edited_deleted_or_reactivated(self):
+        user = self._create(NOVO_CPF)
+        url = f"/api/usuarios/{user.pk}/"
+        self.gerente.post(url + "inativar/")
+        response = self.gerente.patch(url, {"first_name": "Atualizado"}, format="json")
+        self.assertEqual(response.status_code, 200)
+        user.refresh_from_db()
+        self.assertEqual(user.first_name, "Atualizado")
+        self.assertFalse(user.is_active)
+        self.assertEqual(self.gerente.post(url + "reativar/").status_code, 200)
+        self.gerente.post(url + "inativar/")
+        self.assertEqual(self.gerente.delete(url).status_code, 204)
+        self.assertFalse(User.objects.filter(pk=user.pk).exists())
+
 
 class UserUpdateTests(TestCase):
     def setUp(self):

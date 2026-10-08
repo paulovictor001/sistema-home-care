@@ -75,6 +75,9 @@ class UserViewSet(viewsets.ModelViewSet):
 
     def filter_queryset(self, queryset):
         queryset = super().filter_queryset(queryset)
+        # Filtros da listagem não devem esconder registros acessados por ID.
+        if self.action != "list":
+            return queryset
         params = self.request.query_params
 
         nome = params.get("nome")
