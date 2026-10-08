@@ -1,0 +1,151 @@
+from rest_framework import viewsets
+from rest_framework.pagination import PageNumberPagination
+from rest_framework.response import Response
+from rest_framework.exceptions import ValidationError
+from rest_framework.decorators import action
+from . import services
+from .models import CareScale
+from .permissions import ScalePermission, visible_scales, has_scale_permission
+from .serializers import ScaleSerializer, ScaleWriteSerializer, AddNeedSerializer, ProfessionalSerializer, ProfessionalsSerializer
+from .serializers import NeedConfigurationSerializer
+from .serializers import StatusSerializer
+from .serializers import PlanningInfoSerializer
+from .serializers import AuditSerializer, SubstitutionSerializer
+from . import planning
+from django.shortcuts import get_object_or_404
+from care_plans.models import CarePlan
+
+
+class ScalePagination(PageNumberPagination):
+    page_size = 20
+
+
+class CareScaleViewSet(viewsets.ModelViewSet):
+    serializer_class = ScaleSerializer
+    permission_classes = [ScalePermission]
+    pagination_class = ScalePagination
+
+    def get_queryset(self):
+        if self.action in ('list', 'retrieve', 'history', 'substitutions'):
+            queryset = visible_scales(self.request.user)
+        else:
+            queryset = CareScale.objects.filter(deleted_at__isnull=True)
+        if 'patient' in self.request.query_params:
+            try:
+                patient_id = int(self.request.query_params['patient'])
+                if patient_id < 1:
+                    raise ValueError
+            except (ValueError, TypeError):
+                raise ValidationError({'patient': 'Informe um ID válido.'})
+            queryset = queryset.filter(patient_id=patient_id)
+        return queryset.select_related('patient', 'care_plan')
+
+    def create(self, request):
+        serializer = ScaleWriteSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        scale = services.create_scale(actor=request.user, **serializer.validated_data)
+        return Response(ScaleSerializer(scale).data, status=201)
+
+    def update(self, request, *args, **kwargs):
+        serializer = ScaleWriteSerializer(data=request.data, partial=kwargs.get('partial', False))
+        serializer.is_valid(raise_exception=True)
+        scale = services.update_scale(actor=request.user, scale=self.get_object(), data=serializer.validated_data)
+        return Response(ScaleSerializer(scale).data)
+
+    def destroy(self, request, *args, **kwargs):
+        services.delete_scale(actor=request.user, scale=self.get_object())
+        return Response(status=204)
+
+    @action(detail=True, methods=['post'], url_path='necessidades')
+    def add_need(self, request, pk=None):
+        scale = self.get_object()
+        serializer = AddNeedSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        services.add_need(actor=request.user, scale=scale, **serializer.validated_data)
+        return Response(ScaleSerializer(scale).data, status=201)
+
+    @action(detail=True, methods=['post'], url_path=r'necessidades/(?P<item_id>\d+)/remover')
+    def remove_need(self, request, pk=None, item_id=None):
+        scale = self.get_object()
+        services.remove_need(actor=request.user, scale=scale, item_id=item_id)
+        return Response(ScaleSerializer(scale).data)
+
+    @action(detail=True, methods=['post'], url_path=r'necessidades/(?P<item_id>\d+)/profissionais')
+    def add_professional(self, request, pk=None, item_id=None):
+        scale = self.get_object()
+        serializer = ProfessionalSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        services.add_professional(actor=request.user, scale=scale, item_id=item_id, **serializer.validated_data)
+        return Response(ScaleSerializer(scale).data, status=201)
+
+    @action(detail=True, methods=['post'], url_path=r'necessidades/(?P<item_id>\d+)/profissionais/(?P<assignment_id>\d+)/remover')
+    def remove_professional(self, request, pk=None, item_id=None, assignment_id=None):
+        scale = self.get_object()
+        services.remove_professional(actor=request.user, scale=scale, item_id=item_id, assignment_id=assignment_id)
+        return Response(ScaleSerializer(scale).data)
+
+    @action(detail=True, methods=['post'], url_path=r'necessidades/(?P<item_id>\d+)/profissionais/(?P<assignment_id>\d+)/substituir')
+    def substitute_professional(self, request, pk=None, item_id=None, assignment_id=None):
+        scale = self.get_object()
+        serializer = ProfessionalSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        services.substitute_professional(actor=request.user, scale=scale, item_id=item_id,
+            assignment_id=assignment_id, **serializer.validated_data)
+        return Response(ScaleSerializer(scale).data)
+
+    @action(detail=True, methods=['post'], url_path=r'necessidades/(?P<item_id>\d+)/profissionais/lote')
+    def add_professionals(self, request, pk=None, item_id=None):
+        scale = self.get_object()
+        serializer = ProfessionalsSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        services.add_professionals(actor=request.user, scale=scale, item_id=item_id, **serializer.validated_data)
+        return Response(ScaleSerializer(scale).data, status=201)
+
+    @action(detail=True, methods=['post'], url_path=r'necessidades/(?P<item_id>\d+)/configurar')
+    def configure_need(self, request, pk=None, item_id=None):
+        scale = self.get_object()
+        serializer = NeedConfigurationSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        services.configure_need(actor=request.user, scale=scale, item_id=item_id, data=serializer.validated_data)
+        return Response(ScaleSerializer(scale).data)
+
+    @action(detail=True, methods=['post'], url_path='status')
+    def change_status(self, request, pk=None):
+        serializer = StatusSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        scale = services.change_status(actor=request.user, scale=self.get_object(), **serializer.validated_data)
+        return Response(ScaleSerializer(scale).data)
+
+    @action(detail=True, methods=['get'], url_path=r'necessidades/(?P<item_id>\d+)/profissionais-disponiveis')
+    def professional_options(self, request, pk=None, item_id=None):
+        scale = self.get_object()
+        item = get_object_or_404(scale.items, pk=item_id, removed_at__isnull=True)
+        return Response(planning.professional_options(scale, item))
+
+    @action(detail=False, methods=['put'], url_path=r'profissionais/(?P<professional_id>\d+)/planejamento')
+    def planning_info(self, request, professional_id=None):
+        serializer = PlanningInfoSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        info = planning.update_planning(actor=request.user, professional_id=professional_id, data=serializer.validated_data)
+        return Response(PlanningInfoSerializer(info).data)
+
+    @action(detail=True, methods=['get'], url_path='historico')
+    def history(self, request, pk=None):
+        return Response(AuditSerializer(self.get_object().audit_events.all(), many=True).data)
+
+    @action(detail=True, methods=['get'], url_path='substituicoes')
+    def substitutions(self, request, pk=None):
+        return Response(SubstitutionSerializer(self.get_object().substitutions.all(), many=True).data)
+
+    @action(detail=False, methods=['get'], url_path='planos')
+    def plan_options(self, request):
+        return Response([{'id': plan.pk, 'patient': plan.patient_id, 'patient_name': plan.patient.full_name,
+            'start_date': plan.start_date, 'end_date': plan.end_date,
+            'needs': list(plan.need_links.filter(removed_at__isnull=True).values(
+                'id', 'care_need__description', 'frequency_quantity', 'frequency_period'))}
+            for plan in CarePlan.objects.select_related('patient').order_by('-pk')])
+
+    @action(detail=False, methods=['get'], url_path='acesso')
+    def access(self, request):
+        return Response({'view': visible_scales(request.user).exists() or has_scale_permission(request.user, 'view'),
+            **{name: has_scale_permission(request.user, name) for name in ('create', 'update', 'delete', 'change_status')}})

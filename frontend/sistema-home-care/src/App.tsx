@@ -16,6 +16,10 @@ import { Professions } from "./pages/Professions";
 import { UserDetail } from "./pages/UserDetail";
 import { UserForm } from "./pages/UserForm";
 import { UsersList } from "./pages/UsersList";
+import { CarePlans } from './pages/CarePlans';
+import { CarePlanDetail } from './pages/CarePlanDetail';
+import { CareScales } from './pages/CareScales';
+import { CareScaleDetail } from './pages/CareScaleDetail';
 
 function ProtectedLayout() {
   return (
@@ -47,6 +51,11 @@ function App() {
           />
         </Route>
         <Route path="/pacientes/:id" element={<PatientDetail />} />
+        <Route path="/pacientes/:patientId/planos-cuidados" element={<CarePlans />} />
+        <Route path="/planos-cuidados/:id" element={<CarePlanDetail />} />
+        <Route path="/escalas" element={<CareScales />} />
+        <Route path="/pacientes/:patientId/escalas" element={<CareScales />} />
+        <Route path="/escalas/:id" element={<CareScaleDetail />} />
         <Route
           path="/pacientes/:id/editar"
           element={<PatientForm mode="edit" />}

@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../contexts/useAuth";
 import { formatCpf } from "../lib/cpf";
 import { isGerente } from "../lib/patients";
+import { scaleAccess } from '../lib/careScales';
 
 function navClasses({ isActive }: { isActive: boolean }): string {
   return `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
@@ -21,6 +22,7 @@ function sectionLabel(text: string) {
 }
 
 const PAGE_TITLES: { prefix: string; title: string; crumb: string }[] = [
+  { prefix: "/escalas", title: "Escalas", crumb: "Painel / Escalas" },
   { prefix: "/avaliacoes/", title: "Detalhe da Avaliação", crumb: "Painel / Pacientes / Avaliações / Detalhe" },
   { prefix: "/avaliacoes", title: "Avaliações", crumb: "Painel / Pacientes / Avaliações" },
   { prefix: "/pacientes/novo", title: "Novo Paciente", crumb: "Painel / Pacientes / Novo" },
@@ -37,6 +39,8 @@ const PAGE_TITLES: { prefix: string; title: string; crumb: string }[] = [
 export function AppLayout() {
   const { user, logout } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [scalesVisible, setScalesVisible] = useState(false);
+  useEffect(() => {let cancelled = false; setScalesVisible(false); if (user) void scaleAccess().then(access => {if (!cancelled) setScalesVisible(Object.values(access).some(Boolean));}).catch(() => {}); return () => {cancelled = true;};}, [user]);
   const location = useLocation();
 
   const displayName =
@@ -90,6 +94,7 @@ export function AppLayout() {
               <NavLink to="/pacientes" end className={navClasses} onClick={closeMenu}>
                 <span aria-hidden="true">👥</span> Pacientes
               </NavLink>
+              {scalesVisible && <NavLink to="/escalas" className={navClasses} onClick={closeMenu}>Escalas</NavLink>}
             </div>
 
             {isGerente(user?.groups) && (
