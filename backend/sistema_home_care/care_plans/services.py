@@ -1,6 +1,7 @@
 """Operações transacionais do plano; modelos mantêm registros históricos."""
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
+from assessments.models import CareNeed
 from patients.models import Patient
 from .models import CarePlan, CarePlanNeed, CarePlanHistory
 
@@ -24,6 +25,35 @@ def snapshot(plan):
 def record(plan, actor, description, previous):
     CarePlanHistory.objects.create(care_plan=plan, changed_by=actor,
         description=description, previous_data=previous, new_data=snapshot(plan))
+
+
+def lock_plan(plan):
+    # Serializa operações do mesmo paciente nos bancos com row locks.
+    # SQLite serializa escritas; a unicidade condicional protege a ativação.
+    Patient.objects.select_for_update().get(pk=plan.patient_id)
+    return CarePlan.objects.select_for_update().get(pk=plan.pk)
+
+
+def validate_need(plan, need):
+    if need.assessment.patient_id != plan.patient_id or not need.is_active or need.status != 'IDENTIFIED':
+        raise ValidationError({'care_need': 'Selecione uma necessidade identificada ativa do paciente.'})
+    if plan.status == 'ACTIVE' and CarePlanNeed.objects.filter(care_need=need,
+            removed_at__isnull=True, care_plan__status='ACTIVE').exclude(care_plan=plan).exists():
+        raise ValidationError({'care_need': 'A necessidade já está vinculada a outro plano ativo.'})
+
+
+@transaction.atomic
+def attach_need(*, actor, plan, need):
+    require_role(actor, 'MEDICO')
+    plan = lock_plan(plan)
+    need = CareNeed.objects.select_for_update().get(pk=need.pk)
+    validate_need(plan, need)
+    before = snapshot(plan)
+    link = CarePlanNeed.objects.create(care_plan=plan, care_need=need)
+    plan.updated_by = actor
+    plan.save(update_fields=['updated_by', 'updated_at'])
+    record(plan, actor, 'Inclusão de necessidade', before)
+    return link
 
 
 @transaction.atomic
