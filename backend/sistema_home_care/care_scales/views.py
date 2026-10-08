@@ -7,6 +7,7 @@ from . import services
 from .models import CareScale
 from .permissions import ScalePermission, visible_scales
 from .serializers import ScaleSerializer, ScaleWriteSerializer, AddNeedSerializer, ProfessionalSerializer, ProfessionalsSerializer
+from .serializers import NeedConfigurationSerializer
 
 
 class ScalePagination(PageNumberPagination):
@@ -93,3 +94,11 @@ class CareScaleViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         services.add_professionals(actor=request.user, scale=scale, item_id=item_id, **serializer.validated_data)
         return Response(ScaleSerializer(scale).data, status=201)
+
+    @action(detail=True, methods=['post'], url_path=r'necessidades/(?P<item_id>\d+)/configurar')
+    def configure_need(self, request, pk=None, item_id=None):
+        scale = self.get_object()
+        serializer = NeedConfigurationSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        services.configure_need(actor=request.user, scale=scale, item_id=item_id, data=serializer.validated_data)
+        return Response(ScaleSerializer(scale).data)

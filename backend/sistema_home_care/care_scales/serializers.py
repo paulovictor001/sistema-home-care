@@ -2,6 +2,19 @@ from rest_framework import serializers
 from .models import CareScale, ScaleNeed, ScaleAssignment
 from professionals.models import Professional
 from care_plans.models import CarePlanNeed
+from care_plans.models import FrequencyPeriod
+
+
+class NeedConfigurationSerializer(serializers.Serializer):
+    frequency_quantity = serializers.IntegerField(min_value=1, required=False)
+    frequency_period = serializers.ChoiceField(choices=FrequencyPeriod.choices, required=False)
+    observation = serializers.CharField(allow_blank=True, required=False)
+
+    def to_internal_value(self, data):
+        unknown = set(data) - set(self.fields)
+        if unknown:
+            raise serializers.ValidationError({key: 'Campo não editável.' for key in unknown})
+        return super().to_internal_value(data)
 
 
 class AssignmentSerializer(serializers.ModelSerializer):

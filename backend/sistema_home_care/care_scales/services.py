@@ -6,6 +6,7 @@ from professionals.models import Professional
 from django.shortcuts import get_object_or_404
 from .permissions import require_scale_permission
 from care_plans.models import CarePlan, CarePlanNeed
+from care_plans.models import FrequencyPeriod
 from patients.models import Patient
 
 
@@ -170,3 +171,25 @@ def add_professionals(*, actor, scale, item_id, professionals):
     scale.updated_by = actor
     scale.save(update_fields=['updated_by', 'updated_at'])
     return results
+
+
+@transaction.atomic
+def configure_need(*, actor, scale, item_id, data):
+    require_scale_permission(actor, 'update', scale)
+    scale = locked_scale(scale)
+    item = current_item(scale, item_id)
+    allowed = {'frequency_quantity', 'frequency_period', 'observation'}
+    if set(data) - allowed:
+        raise ValidationError('Campo não editável na necessidade.')
+    quantity = data.get('frequency_quantity', item.frequency_quantity)
+    period = data.get('frequency_period', item.frequency_period)
+    if not isinstance(quantity, int) or isinstance(quantity, bool) or quantity <= 0:
+        raise ValidationError({'frequency_quantity': 'Informe uma quantidade inteira positiva.'})
+    if period not in FrequencyPeriod.values:
+        raise ValidationError({'frequency_period': 'Selecione dia, semana ou mês.'})
+    for field, value in data.items():
+        setattr(item, field, value)
+    item.save()
+    scale.updated_by = actor
+    scale.save(update_fields=['updated_by', 'updated_at'])
+    return item

@@ -39,6 +39,7 @@ class ScalePermission(BasePermission):
     action_map.update({'add_need': 'update', 'remove_need': 'update'})
     action_map.update({'add_professional': 'update', 'remove_professional': 'update', 'substitute_professional': 'update'})
     action_map['add_professionals'] = 'update'
+    action_map['configure_need'] = 'update'
 
     def has_permission(self, request, view):
         action = self.action_map.get(view.action)
