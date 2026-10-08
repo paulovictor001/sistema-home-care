@@ -1,9 +1,9 @@
 from django.db import transaction
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
-from .models import CareScale
+from .models import CareScale, ScaleNeed
 from .permissions import require_scale_permission
-from care_plans.models import CarePlan
+from care_plans.models import CarePlan, CarePlanNeed
 from patients.models import Patient
 
 
@@ -64,3 +64,35 @@ def delete_scale(*, actor, scale):
     scale.deleted_at = timezone.now()
     scale.updated_by = actor
     scale.save(update_fields=['deleted_at', 'updated_by', 'updated_at'])
+
+
+@transaction.atomic
+def add_need(*, actor, scale, plan_need):
+    require_scale_permission(actor, 'update', scale)
+    scale = locked_scale(scale)
+    link = CarePlanNeed.objects.select_for_update().select_related('required_professional').get(pk=plan_need.pk)
+    if link.care_plan_id != scale.care_plan_id or link.removed_at:
+        raise ValidationError({'plan_need': 'Selecione uma necessidade vigente do plano desta escala.'})
+    if scale.items.filter(plan_need=link, removed_at__isnull=True).exists():
+        raise ValidationError({'plan_need': 'A necessidade já está na escala.'})
+    item = ScaleNeed.objects.create(scale=scale, plan_need=link,
+        required_profession_id=link.required_professional.profession_id if link.required_professional_id else None,
+        planned_quantity=link.frequency_quantity, planned_period=link.frequency_period,
+        frequency_quantity=link.frequency_quantity, frequency_period=link.frequency_period)
+    scale.updated_by = actor
+    scale.save(update_fields=['updated_by', 'updated_at'])
+    return item
+
+
+@transaction.atomic
+def remove_need(*, actor, scale, item_id):
+    require_scale_permission(actor, 'update', scale)
+    scale = locked_scale(scale)
+    from django.shortcuts import get_object_or_404
+    item = get_object_or_404(scale.items.select_for_update(), pk=item_id, removed_at__isnull=True)
+    item.removed_at = timezone.now()
+    item.save(update_fields=['removed_at', 'updated_at'])
+    item.assignments.filter(removed_at__isnull=True).update(removed_at=item.removed_at)
+    scale.updated_by = actor
+    scale.save(update_fields=['updated_by', 'updated_at'])
+    return item

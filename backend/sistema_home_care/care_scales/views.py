@@ -2,10 +2,11 @@ from rest_framework import viewsets
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError
+from rest_framework.decorators import action
 from . import services
 from .models import CareScale
 from .permissions import ScalePermission, visible_scales
-from .serializers import ScaleSerializer, ScaleWriteSerializer
+from .serializers import ScaleSerializer, ScaleWriteSerializer, AddNeedSerializer
 
 
 class ScalePagination(PageNumberPagination):
@@ -47,3 +48,17 @@ class CareScaleViewSet(viewsets.ModelViewSet):
     def destroy(self, request, *args, **kwargs):
         services.delete_scale(actor=request.user, scale=self.get_object())
         return Response(status=204)
+
+    @action(detail=True, methods=['post'], url_path='necessidades')
+    def add_need(self, request, pk=None):
+        scale = self.get_object()
+        serializer = AddNeedSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        services.add_need(actor=request.user, scale=scale, **serializer.validated_data)
+        return Response(ScaleSerializer(scale).data, status=201)
+
+    @action(detail=True, methods=['post'], url_path=r'necessidades/(?P<item_id>\d+)/remover')
+    def remove_need(self, request, pk=None, item_id=None):
+        scale = self.get_object()
+        services.remove_need(actor=request.user, scale=scale, item_id=item_id)
+        return Response(ScaleSerializer(scale).data)
