@@ -106,6 +106,10 @@ def current_item(scale, item_id):
 
 def assign(item, professional):
     professional = Professional.objects.select_for_update().get(pk=professional.pk)
+    if not professional.is_active:
+        raise ValidationError({'professional': 'Selecione um profissional ativo.'})
+    if not item.required_profession_id or professional.profession_id != item.required_profession_id:
+        raise ValidationError({'professional': 'A profissão deve ser compatível com a necessidade do plano.'})
     if item.assignments.filter(professional=professional, removed_at__isnull=True).exists():
         raise ValidationError({'professional': 'O profissional já está vinculado à necessidade.'})
     return ScaleAssignment.objects.create(item=item, professional=professional)
