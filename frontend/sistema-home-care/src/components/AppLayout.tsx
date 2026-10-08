@@ -21,6 +21,7 @@ function sectionLabel(text: string) {
 }
 
 const PAGE_TITLES: { prefix: string; title: string; crumb: string }[] = [
+  { prefix: "/escalas", title: "Escalas", crumb: "Painel / Escalas" },
   { prefix: "/avaliacoes/", title: "Detalhe da Avaliação", crumb: "Painel / Pacientes / Avaliações / Detalhe" },
   { prefix: "/avaliacoes", title: "Avaliações", crumb: "Painel / Pacientes / Avaliações" },
   { prefix: "/pacientes/novo", title: "Novo Paciente", crumb: "Painel / Pacientes / Novo" },
@@ -90,6 +91,7 @@ export function AppLayout() {
               <NavLink to="/pacientes" end className={navClasses} onClick={closeMenu}>
                 <span aria-hidden="true">👥</span> Pacientes
               </NavLink>
+              <NavLink to="/escalas" className={navClasses} onClick={closeMenu}>Escalas</NavLink>
             </div>
 
             {isGerente(user?.groups) && (
