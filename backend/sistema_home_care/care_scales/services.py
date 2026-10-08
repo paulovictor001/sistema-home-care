@@ -1,7 +1,7 @@
 from django.db import transaction
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
-from .models import CareScale, ScaleNeed, ScaleAssignment, ScaleSubstitution
+from .models import CareScale, ScaleNeed, ScaleAssignment, ScaleSubstitution, ScaleStatus
 from professionals.models import Professional
 from django.shortcuts import get_object_or_404
 from .permissions import require_scale_permission
@@ -193,3 +193,17 @@ def configure_need(*, actor, scale, item_id, data):
     scale.updated_by = actor
     scale.save(update_fields=['updated_by', 'updated_at'])
     return item
+
+
+@transaction.atomic
+def change_status(*, actor, scale, status):
+    require_scale_permission(actor, 'change_status', scale)
+    scale = locked_scale(scale)
+    if status not in ScaleStatus.values:
+        raise ValidationError({'status': 'Status inválido.'})
+    if scale.status == status:
+        return scale
+    scale.status = status
+    scale.updated_by = actor
+    scale.save(update_fields=['status', 'updated_by', 'updated_at'])
+    return scale
