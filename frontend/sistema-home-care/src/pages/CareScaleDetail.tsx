@@ -1,14 +1,16 @@
 import {useEffect, useState, type FormEvent} from 'react';
-import {Link, useParams} from 'react-router-dom';
+import {Link, useParams, useNavigate} from 'react-router-dom';
 import {useAuth} from '../contexts/useAuth';
 import {canScale, getScale, updateScale, scaleStatusLabels, type CareScale} from '../lib/careScales';
 import {frequencyLabels} from '../lib/carePlans';
 import {scalePlans, addScaleNeed, type ScalePlanOption} from '../lib/careScales';
 import {ScaleNeedManagement} from '../components/ScaleNeedManagement';
 import {scaleSubstitutions, scaleAudit, type ScaleSubstitution, type ScaleAudit} from '../lib/careScales';
+import {changeScaleStatus, deleteScale, type ScaleStatus} from '../lib/careScales';
 
 export function CareScaleDetail() {
   const {id} = useParams(); const {user} = useAuth();
+  const navigate = useNavigate(); const [targetStatus, setTargetStatus] = useState<ScaleStatus>('DRAFT');
   const [scale, setScale] = useState<CareScale | null>(null); const [loading, setLoading] = useState(true);
   const [error, setError] = useState(''); const [editing, setEditing] = useState(false); const [busy, setBusy] = useState(false);
   const [start, setStart] = useState(''); const [end, setEnd] = useState(''); const [observation, setObservation] = useState('');
@@ -21,7 +23,7 @@ export function CareScaleDetail() {
   }, [id]);
   async function save(event: FormEvent) {
     event.preventDefault(); if (!scale) return; setBusy(true); setError('');
-    try {setScale(await updateScale(scale.id, {start_date: start, end_date: end, observation})); setEditing(false);}
+    try {changed(await updateScale(scale.id, {start_date: start, end_date: end, observation})); setEditing(false);}
     catch (err) {setError(err instanceof Error ? err.message : 'Falha ao salvar escala.');} finally {setBusy(false);}
   }
   async function openNeeds() {
@@ -31,7 +33,7 @@ export function CareScaleDetail() {
   }
   async function attachNeed(event: FormEvent) {
     event.preventDefault(); if (!scale || !selectedNeed) return; setBusy(true); setError('');
-    try {setScale(await addScaleNeed(scale.id, Number(selectedNeed))); setAvailable(null);}
+    try {changed(await addScaleNeed(scale.id, Number(selectedNeed))); setAvailable(null);}
     catch (err) {setError(err instanceof Error ? err.message : 'Falha ao incluir necessidade.');} finally {setBusy(false);}
   }
   function changed(value: CareScale) {setScale(value); setSubstitutions(null); setEvents(null);}
@@ -40,12 +42,23 @@ export function CareScaleDetail() {
     try {const [substitutionList, auditList] = await Promise.all([scaleSubstitutions(scale.id), scaleAudit(scale.id)]); setSubstitutions(substitutionList); setEvents(auditList);}
     catch (err) {setError(err instanceof Error ? err.message : 'Falha ao carregar histórico.');} finally {setBusy(false);}
   }
+  async function status(event: FormEvent) {
+    event.preventDefault(); if (!scale) return; setBusy(true); setError('');
+    try {changed(await changeScaleStatus(scale.id, targetStatus));}
+    catch (err) {setError(err instanceof Error ? err.message : 'Falha ao alterar status.');} finally {setBusy(false);}
+  }
+  async function remove() {
+    if (!scale || !window.confirm('Excluir esta escala? Ela será retirada da listagem e seus registros serão preservados.')) return;
+    setBusy(true); setError(''); try {await deleteScale(scale.id); navigate('/escalas');}
+    catch (err) {setError(err instanceof Error ? err.message : 'Falha ao excluir escala.');} finally {setBusy(false);}
+  }
   if (loading) return <p>Carregando…</p>;
   if (!scale) return <p role="alert" className="text-red-700">{error || 'Escala não encontrada.'}</p>;
   return <div className="mx-auto max-w-4xl space-y-4">
     <div className="flex justify-between"><h1 className="text-2xl font-semibold">Escala #{scale.id}</h1><Link className="text-blue-700 underline" to="/escalas">Escalas</Link></div>
     <p>{scale.patient_name} · Plano #{scale.care_plan} · {scaleStatusLabels[scale.status]}</p>
     {error && <p role="alert" className="text-red-700">{error}</p>}
+    <div className="flex flex-wrap gap-3">{canScale(user, 'change_status') && <form onSubmit={status}><fieldset disabled={busy} className="flex gap-2"><label>Status de destino<select className="ml-2 rounded border p-2" value={targetStatus} onChange={e => setTargetStatus(e.target.value as ScaleStatus)}>{Object.entries(scaleStatusLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><button className="rounded border p-2" type="submit">Alterar status</button></fieldset></form>}{canScale(user, 'delete') && <button className="rounded border p-2" disabled={busy} onClick={() => void remove()}>Excluir escala</button>}</div>
     <section className="space-y-3 rounded bg-white p-4 shadow"><h2 className="font-semibold">Dados da escala</h2>
       {editing ? <form onSubmit={save}><fieldset disabled={busy} className="space-y-3">
         <label className="block">Início<input className="ml-2 rounded border p-2" type="date" required value={start} onChange={e => setStart(e.target.value)} /></label>
