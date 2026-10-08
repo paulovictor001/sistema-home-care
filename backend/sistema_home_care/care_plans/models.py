@@ -135,6 +135,8 @@ class CarePlanHistory(models.Model):
     changed_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True,
         on_delete=models.SET_NULL, related_name='care_plan_changes')
     changed_at = models.DateTimeField(auto_now_add=True)
+    actor_name = models.CharField(max_length=255, blank=True)
+    event_type = models.CharField(max_length=30, default='UPDATE')
     description = models.TextField()
     previous_data = models.JSONField(default=dict, blank=True)
     new_data = models.JSONField(default=dict, blank=True)
