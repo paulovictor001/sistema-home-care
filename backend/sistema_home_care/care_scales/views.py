@@ -6,7 +6,7 @@ from rest_framework.decorators import action
 from . import services
 from .models import CareScale
 from .permissions import ScalePermission, visible_scales
-from .serializers import ScaleSerializer, ScaleWriteSerializer, AddNeedSerializer
+from .serializers import ScaleSerializer, ScaleWriteSerializer, AddNeedSerializer, ProfessionalSerializer
 
 
 class ScalePagination(PageNumberPagination):
@@ -61,4 +61,27 @@ class CareScaleViewSet(viewsets.ModelViewSet):
     def remove_need(self, request, pk=None, item_id=None):
         scale = self.get_object()
         services.remove_need(actor=request.user, scale=scale, item_id=item_id)
+        return Response(ScaleSerializer(scale).data)
+
+    @action(detail=True, methods=['post'], url_path=r'necessidades/(?P<item_id>\d+)/profissionais')
+    def add_professional(self, request, pk=None, item_id=None):
+        scale = self.get_object()
+        serializer = ProfessionalSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        services.add_professional(actor=request.user, scale=scale, item_id=item_id, **serializer.validated_data)
+        return Response(ScaleSerializer(scale).data, status=201)
+
+    @action(detail=True, methods=['post'], url_path=r'necessidades/(?P<item_id>\d+)/profissionais/(?P<assignment_id>\d+)/remover')
+    def remove_professional(self, request, pk=None, item_id=None, assignment_id=None):
+        scale = self.get_object()
+        services.remove_professional(actor=request.user, scale=scale, item_id=item_id, assignment_id=assignment_id)
+        return Response(ScaleSerializer(scale).data)
+
+    @action(detail=True, methods=['post'], url_path=r'necessidades/(?P<item_id>\d+)/profissionais/(?P<assignment_id>\d+)/substituir')
+    def substitute_professional(self, request, pk=None, item_id=None, assignment_id=None):
+        scale = self.get_object()
+        serializer = ProfessionalSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        services.substitute_professional(actor=request.user, scale=scale, item_id=item_id,
+            assignment_id=assignment_id, **serializer.validated_data)
         return Response(ScaleSerializer(scale).data)

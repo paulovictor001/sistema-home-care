@@ -1,9 +1,24 @@
 from rest_framework import serializers
-from .models import CareScale, ScaleNeed
+from .models import CareScale, ScaleNeed, ScaleAssignment
+from professionals.models import Professional
 from care_plans.models import CarePlanNeed
 
 
+class AssignmentSerializer(serializers.ModelSerializer):
+    full_name = serializers.CharField(source='professional.full_name', read_only=True)
+    profession_name = serializers.CharField(source='professional.profession.name', read_only=True)
+
+    class Meta:
+        model = ScaleAssignment
+        fields = ['id', 'professional', 'full_name', 'profession_name', 'created_at', 'removed_at']
+
+
+class ProfessionalSerializer(serializers.Serializer):
+    professional = serializers.PrimaryKeyRelatedField(queryset=Professional.objects.all())
+
+
 class ScaleNeedSerializer(serializers.ModelSerializer):
+    assignments = AssignmentSerializer(many=True, read_only=True)
     description = serializers.CharField(source='plan_need.care_need.description', read_only=True)
     need_type = serializers.CharField(source='plan_need.care_need.need_type.name', read_only=True)
 
@@ -11,7 +26,7 @@ class ScaleNeedSerializer(serializers.ModelSerializer):
         model = ScaleNeed
         fields = ['id', 'plan_need', 'description', 'need_type', 'required_profession',
                   'planned_quantity', 'planned_period', 'frequency_quantity', 'frequency_period',
-                  'frequency_reason', 'observation', 'removed_at']
+                  'frequency_reason', 'observation', 'removed_at', 'assignments']
 
 
 class AddNeedSerializer(serializers.Serializer):
