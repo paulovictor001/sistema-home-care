@@ -6,6 +6,7 @@ from care_plans.models import FrequencyPeriod
 
 
 class NeedConfigurationSerializer(serializers.Serializer):
+    frequency_reason = serializers.CharField(allow_blank=True, required=False)
     frequency_quantity = serializers.IntegerField(min_value=1, required=False)
     frequency_period = serializers.ChoiceField(choices=FrequencyPeriod.choices, required=False)
     observation = serializers.CharField(allow_blank=True, required=False)
