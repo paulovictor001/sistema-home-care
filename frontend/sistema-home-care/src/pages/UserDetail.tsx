@@ -65,7 +65,7 @@ export function UserDetail() {
     }
   }
 
-  if (loading) return <p className="text-sm text-slate-500">Carregando…</p>;
+  if (loading) return <p className="text-sm text-muted">Carregando…</p>;
   if (error && !user) return <p role="alert" className="text-sm text-red-600">{error}</p>;
   if (!user) return null;
 
@@ -75,12 +75,12 @@ export function UserDetail() {
   return (
     <div className="mx-auto max-w-2xl">
       <div className="mb-4 flex items-center justify-between">
-        <Link to="/usuarios" className="text-sm text-blue-600 hover:underline">
+        <Link to="/usuarios" className="text-sm text-primary hover:underline">
           ← Voltar
         </Link>
         <Link
           to={`/usuarios/${user.id}/editar`}
-          className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm hover:bg-slate-100"
+          className="rounded-lg border border-line bg-surface px-3 py-1.5 text-sm hover:bg-line"
         >
           Editar
         </Link>
@@ -92,14 +92,14 @@ export function UserDetail() {
         </p>
       )}
 
-      <div className="rounded-xl bg-white p-5 shadow">
+      <div className="rounded-xl bg-surface p-5 shadow">
         <div className="flex items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold text-slate-900">{fullName}</h2>
+          <h2 className="text-lg font-semibold text-ink">{fullName}</h2>
           <span
             className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
               user.is_active
                 ? "bg-green-100 text-green-800"
-                : "bg-slate-200 text-slate-700"
+                : "bg-line text-ink"
             }`}
           >
             {user.is_active ? "Ativo" : "Inativo"}
@@ -108,20 +108,20 @@ export function UserDetail() {
 
         <dl className="mt-4 space-y-2 text-sm">
           <div className="flex gap-2">
-            <dt className="w-28 shrink-0 text-slate-500">CPF</dt>
-            <dd className="text-slate-900">{formatCpf(user.cpf)}</dd>
+            <dt className="w-28 shrink-0 text-muted">CPF</dt>
+            <dd className="text-ink">{formatCpf(user.cpf)}</dd>
           </div>
           <div className="flex gap-2">
-            <dt className="w-28 shrink-0 text-slate-500">E-mail</dt>
-            <dd className="text-slate-900">{user.email}</dd>
+            <dt className="w-28 shrink-0 text-muted">E-mail</dt>
+            <dd className="text-ink">{user.email}</dd>
           </div>
           <div className="flex gap-2">
-            <dt className="w-28 shrink-0 text-slate-500">Categoria</dt>
-            <dd className="text-slate-900">{user.category_detail?.name ?? "—"}</dd>
+            <dt className="w-28 shrink-0 text-muted">Categoria</dt>
+            <dd className="text-ink">{user.category_detail?.name ?? "—"}</dd>
           </div>
           <div className="flex gap-2">
-            <dt className="w-28 shrink-0 text-slate-500">Profissional</dt>
-            <dd className="text-slate-900">
+            <dt className="w-28 shrink-0 text-muted">Profissional</dt>
+            <dd className="text-ink">
               {user.professional_detail
                 ? `${user.professional_detail.full_name} · ${user.professional_detail.profession.name}`
                 : "—"}

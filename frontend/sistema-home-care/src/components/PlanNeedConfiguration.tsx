@@ -13,7 +13,7 @@ export function PlanNeedConfiguration({ planId, need, onSave, onCancel, onBusy }
   const [quantity, setQuantity] = useState(String(need.frequency_quantity || ''));
   const [period, setPeriod] = useState<FrequencyPeriod>(need.frequency_period || 'DAY');
   const [rows, setRows] = useState(need.resources.map(resource => ({ resource: String(resource.resource), quantity: String(resource.quantity), observation: resource.observation })));
-  const input = 'mt-1 w-full rounded border border-gray-300 p-2';
+  const input = 'mt-1 w-full rounded border border-line p-2';
   const button = 'rounded border px-3 py-2 text-sm disabled:opacity-50';
   useEffect(() => {
     let cancelled = false;

@@ -68,58 +68,58 @@ export function UsersList() {
   return (
     <div className="mx-auto max-w-6xl">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-muted">
           Mostrando {from}–{to} de {count} registro{count === 1 ? "" : "s"}
         </p>
         <Link
           to="/usuarios/novo"
-          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+          className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-dark"
         >
           + Adicionar Usuário
         </Link>
       </div>
 
       <form
-        className="mb-4 grid grid-cols-1 gap-3 rounded-xl bg-white p-4 shadow sm:grid-cols-2 lg:grid-cols-5"
+        className="mb-4 grid grid-cols-1 gap-3 rounded-xl bg-surface p-4 shadow sm:grid-cols-2 lg:grid-cols-5"
         onSubmit={(e) => {
           e.preventDefault();
           void fetchPage(1);
         }}
       >
         <label className="block">
-          <span className="mb-1 block text-sm font-medium text-slate-700">Nome</span>
+          <span className="mb-1 block text-sm font-medium text-ink">Nome</span>
           <input
             value={nome}
             onChange={(e) => setNome(e.target.value)}
             placeholder="Buscar por nome"
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            className="w-full rounded-lg border border-line px-3 py-2 text-sm"
           />
         </label>
         <label className="block">
-          <span className="mb-1 block text-sm font-medium text-slate-700">CPF</span>
+          <span className="mb-1 block text-sm font-medium text-ink">CPF</span>
           <input
             value={cpf}
             onChange={(e) => setCpf(formatCpf(e.target.value))}
             placeholder="000.000.000-00"
             inputMode="numeric"
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            className="w-full rounded-lg border border-line px-3 py-2 text-sm"
           />
         </label>
         <label className="block">
-          <span className="mb-1 block text-sm font-medium text-slate-700">Categoria</span>
+          <span className="mb-1 block text-sm font-medium text-ink">Categoria</span>
           <input
             value={categoria}
             onChange={(e) => setCategoria(e.target.value)}
             placeholder="Filtrar por categoria"
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            className="w-full rounded-lg border border-line px-3 py-2 text-sm"
           />
         </label>
         <label className="block">
-          <span className="mb-1 block text-sm font-medium text-slate-700">Status</span>
+          <span className="mb-1 block text-sm font-medium text-ink">Status</span>
           <select
             value={status}
             onChange={(e) => setStatus(e.target.value as UserStatusFilter)}
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            className="w-full rounded-lg border border-line px-3 py-2 text-sm"
           >
             {STATUS_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
@@ -132,7 +132,7 @@ export function UsersList() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+            className="w-full rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-dark disabled:opacity-50"
           >
             {loading ? "Buscando…" : "Filtrar"}
           </button>
@@ -145,10 +145,10 @@ export function UsersList() {
         </p>
       )}
 
-      <div className="overflow-x-auto rounded-xl bg-white shadow">
+      <div className="overflow-x-auto rounded-xl bg-surface shadow">
         <table className="w-full min-w-[760px] text-left text-sm">
           <thead>
-            <tr className="border-b border-slate-200 text-xs tracking-wide text-slate-500 uppercase">
+            <tr className="border-b border-line text-xs tracking-wide text-muted uppercase">
               <th className="px-4 py-3 font-semibold">#</th>
               <th className="px-4 py-3 font-semibold">Usuário / Profissional</th>
               <th className="px-4 py-3 font-semibold">CPF</th>
@@ -160,13 +160,13 @@ export function UsersList() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-slate-500">
+                <td colSpan={6} className="px-4 py-6 text-center text-muted">
                   Carregando…
                 </td>
               </tr>
             ) : results.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-slate-500">
+                <td colSpan={6} className="px-4 py-6 text-center text-muted">
                   Nenhum usuário encontrado.
                 </td>
               </tr>
@@ -174,21 +174,21 @@ export function UsersList() {
               results.map((user, index) => (
                 <tr
                   key={user.id}
-                  className="border-b border-slate-100 last:border-0 hover:bg-slate-50"
+                  className="border-b border-line last:border-0 hover:bg-background"
                 >
-                  <td className="px-4 py-3 text-slate-500">
+                  <td className="px-4 py-3 text-muted">
                     {(page - 1) * PAGE_SIZE + index + 1}
                   </td>
                   <td className="px-4 py-3">
-                    <p className="font-medium text-slate-900">{displayName(user)}</p>
-                    <p className="text-xs text-slate-500">
+                    <p className="font-medium text-ink">{displayName(user)}</p>
+                    <p className="text-xs text-muted">
                       {user.professional_detail
                         ? `${user.professional_detail.full_name} · ${user.professional_detail.profession.name}`
                         : "Sem profissional"}
                     </p>
                   </td>
-                  <td className="px-4 py-3 text-slate-600">{formatCpf(user.cpf)}</td>
-                  <td className="px-4 py-3 text-slate-600">
+                  <td className="px-4 py-3 text-ink">{formatCpf(user.cpf)}</td>
+                  <td className="px-4 py-3 text-ink">
                     {user.category_detail?.name ?? "—"}
                   </td>
                   <td className="px-4 py-3">
@@ -196,7 +196,7 @@ export function UsersList() {
                       className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
                         user.is_active
                           ? "bg-green-100 text-green-800"
-                          : "bg-slate-200 text-slate-700"
+                          : "bg-line text-ink"
                       }`}
                     >
                       {user.is_active ? "Ativo" : "Inativo"}
@@ -205,7 +205,7 @@ export function UsersList() {
                   <td className="px-4 py-3 text-right">
                     <Link
                       to={`/usuarios/${user.id}`}
-                      className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100"
+                      className="rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-ink hover:bg-line"
                     >
                       Ver
                     </Link>
@@ -222,18 +222,18 @@ export function UsersList() {
           type="button"
           disabled={page <= 1 || loading}
           onClick={() => void fetchPage(page - 1)}
-          className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm disabled:opacity-50"
+          className="rounded-lg border border-line bg-surface px-3 py-1.5 text-sm disabled:opacity-50"
         >
           Anterior
         </button>
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-muted">
           Página {page} de {totalPages}
         </p>
         <button
           type="button"
           disabled={page >= totalPages || loading}
           onClick={() => void fetchPage(page + 1)}
-          className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm disabled:opacity-50"
+          className="rounded-lg border border-line bg-surface px-3 py-1.5 text-sm disabled:opacity-50"
         >
           Próxima
         </button>

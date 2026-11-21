@@ -18,9 +18,9 @@ import {
 
 function Field({ label, value }: { label: string; value: string }) {
   return (
-    <div>
-      <dt className="text-xs font-medium text-gray-500 uppercase">{label}</dt>
-      <dd className="mt-0.5 text-sm">{value || "—"}</dd>
+    <div className="min-w-0">
+      <dt className="text-xs font-semibold tracking-wide text-muted">{label}</dt>
+      <dd className="mt-1 break-words text-sm font-medium text-ink">{value || "—"}</dd>
     </div>
   );
 }
@@ -50,7 +50,7 @@ export function PatientDetail() {
   }, [id]);
 
   useEffect(() => {
-    void load();
+    void Promise.resolve().then(load);
   }, [load]);
 
   async function handleStatus(action: "inativar" | "reativar") {
@@ -81,7 +81,7 @@ export function PatientDetail() {
   if (loading) {
     return (
       <div className="mx-auto max-w-3xl p-6">
-        <p className="text-sm text-gray-600">Carregando…</p>
+        <p className="text-sm text-ink">Carregando…</p>
       </div>
     );
   }
@@ -92,7 +92,7 @@ export function PatientDetail() {
         <p role="alert" className="mb-3 text-sm text-red-600">
           {error ?? "Paciente não encontrado."}
         </p>
-        <Link to="/pacientes" className="text-sm text-blue-600 underline">
+        <Link to="/pacientes" className="text-sm text-primary underline">
           Voltar para a listagem
         </Link>
       </div>
@@ -105,32 +105,34 @@ export function PatientDetail() {
 
   return (
     <div className="mx-auto max-w-3xl p-6">
-      <div className="mb-4 flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold">{patient.full_name}</h1>
-          <p className="mt-1 text-sm text-gray-600">
-            {active ? "Ativo" : "Inativo"} · CPF {formatCpf(patient.cpf)}
-          </p>
+      <div className="mb-6 flex flex-col gap-5 rounded-2xl border border-line bg-surface p-5 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-6">
+        <div className="min-w-0">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">Prontuário cadastral</p>
+          <h1 className="mt-2 break-words text-2xl font-semibold tracking-tight text-ink sm:text-3xl">{patient.full_name}</h1>
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-muted">
+            <span className={`inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-xs font-semibold ${active ? "bg-primary-light text-primary" : "bg-background text-muted"}`}><span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full ${active ? "bg-primary" : "bg-muted"}`} />{active ? "Ativo" : "Inativo"}</span>
+            <span>CPF {formatCpf(patient.cpf)}</span>
+          </div>
         </div>
-        <div className="flex shrink-0 gap-2">
+        <div className="flex flex-wrap gap-2">
           <Link
             to="/pacientes"
-            className="rounded border border-gray-300 px-3 py-1.5 text-sm"
+            className="inline-flex min-h-10 items-center justify-center rounded-lg border border-line px-4 text-sm font-medium text-ink transition hover:bg-background"
           >
             Voltar
           </Link>
           <Link
             to={`/pacientes/${patient.id}/editar`}
-            className="rounded border border-gray-300 px-3 py-1.5 text-sm"
+            className="inline-flex min-h-10 items-center justify-center rounded-lg border border-line px-4 text-sm font-medium text-primary transition hover:bg-primary-light"
           >
             Editar
           </Link>
         </div>
       </div>
 
-      <section className="mb-4 rounded-lg bg-white p-4 shadow">
-        <h2 className="mb-3 text-sm font-semibold">Dados pessoais</h2>
-        <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <section className="mb-4 rounded-2xl border border-line bg-surface p-5 shadow-sm sm:p-6">
+        <div className="mb-5"><h2 className="text-base font-semibold text-ink">Dados pessoais</h2><p className="mt-1 text-sm text-muted">Identificação e contato do paciente.</p></div>
+        <dl className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
           <Field label="Nome completo" value={patient.full_name} />
           <Field label="Data de nascimento" value={patient.birth_date} />
           <Field label="CPF" value={formatCpf(patient.cpf)} />
@@ -139,10 +141,13 @@ export function PatientDetail() {
           <Field label="Telefone" value={patient.phone} />
           <Field label="Sexo" value={patient.gender} />
           <Field label="Status" value={active ? "Ativo" : "Inativo"} />
-          <Field
-            label="Médico responsável (id)"
-            value={patient.responsible_doctor?.toString() ?? ""}
-          />
+        </dl>
+      </section>
+
+      <section className="mb-4 rounded-2xl border border-line bg-surface p-5 shadow-sm sm:p-6">
+        <div className="mb-5"><h2 className="text-base font-semibold text-ink">Informações clínicas e responsáveis</h2><p className="mt-1 text-sm text-muted">Referências atuais do acompanhamento do paciente.</p></div>
+        <dl className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2">
+          <Field label="Médico responsável (id)" value={patient.responsible_doctor?.toString() ?? ""} />
           <Field
             label="Equipe responsável"
             value={
@@ -160,10 +165,10 @@ export function PatientDetail() {
         </dl>
       </section>
 
-      <section className="mb-4 rounded-lg bg-white p-4 shadow">
-        <h2 className="mb-3 text-sm font-semibold">Endereço</h2>
+      <section className="mb-4 rounded-2xl border border-line bg-surface p-5 shadow-sm sm:p-6">
+        <div className="mb-5"><h2 className="text-base font-semibold text-ink">Endereço</h2><p className="mt-1 text-sm text-muted">Localização e referências para atendimento domiciliar.</p></div>
         {address ? (
-          <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <dl className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2">
             <Field label="CEP" value={address.zip_code} />
             <Field
               label="Estado / Cidade"
@@ -179,24 +184,24 @@ export function PatientDetail() {
             <Field label="Região" value={address.region} />
           </dl>
         ) : (
-          <p className="text-sm text-gray-600">Sem endereço cadastrado.</p>
+          <p className="text-sm text-ink">Sem endereço cadastrado.</p>
         )}
       </section>
 
       {canViewAssessments(user) && (
-        <section className="mb-4 rounded-lg bg-white p-4 shadow">
-          <h2 className="mb-3 text-sm font-semibold">Avaliação inicial</h2>
+        <section className="mb-4 rounded-2xl border border-line bg-surface p-5 shadow-sm sm:p-6">
+          <h2 className="mb-4 text-base font-semibold text-ink">Avaliação inicial</h2>
           <div className="flex flex-wrap gap-2">
             <Link
               to={`/pacientes/${patient.id}/avaliacoes`}
-              className="rounded border border-gray-300 px-3 py-1.5 text-sm"
+              className="inline-flex min-h-10 items-center rounded-lg border border-line px-4 text-sm font-medium text-ink transition hover:bg-background"
             >
               Ver histórico
             </Link>
             {canCreateAssessment(user) && (
               <Link
                 to={`/pacientes/${patient.id}/avaliacoes/nova`}
-                className="rounded bg-blue-600 px-3 py-1.5 text-sm font-medium text-white"
+              className="inline-flex min-h-10 items-center rounded-lg bg-primary px-4 text-sm font-semibold text-white transition hover:bg-primary-dark"
               >
                 Nova avaliação
               </Link>
@@ -205,11 +210,11 @@ export function PatientDetail() {
         </section>
       )}
 
-      {canPlan(user, 'view') && <section className="mb-4 rounded-lg bg-white p-4 shadow"><h2 className="mb-3 text-sm font-semibold">Plano de cuidados</h2><Link className="rounded border px-3 py-2 text-sm" to={`/pacientes/${patient.id}/planos-cuidados`}>Ver planos de cuidados</Link></section>}
+      {canPlan(user, 'view') && <section className="mb-4 rounded-2xl border border-line bg-surface p-5 shadow-sm sm:p-6"><h2 className="mb-4 text-base font-semibold text-ink">Plano de cuidados</h2><Link className="inline-flex min-h-10 items-center rounded-lg border border-line px-4 text-sm font-medium text-ink transition hover:bg-background" to={`/pacientes/${patient.id}/planos-cuidados`}>Ver planos de cuidados</Link></section>}
 
       {manager && (
-        <section className="rounded-lg bg-white p-4 shadow">
-          <h2 className="mb-3 text-sm font-semibold">Ações de status</h2>
+        <section className="rounded-2xl border border-line bg-surface p-5 shadow-sm sm:p-6">
+          <h2 className="mb-4 text-base font-semibold text-ink">Ações de status</h2>
           {actionError && (
             <p role="alert" className="mb-3 text-sm text-red-600">
               {actionError}
@@ -220,7 +225,7 @@ export function PatientDetail() {
               type="button"
               disabled={acting}
               onClick={() => void handleStatus("inativar")}
-              className="rounded bg-red-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+              className="min-h-11 rounded-lg bg-red-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-800 disabled:opacity-50"
             >
               {acting ? "Inativando…" : "Inativar paciente"}
             </button>
@@ -229,7 +234,7 @@ export function PatientDetail() {
               type="button"
               disabled={acting}
               onClick={() => void handleStatus("reativar")}
-              className="rounded bg-green-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+              className="min-h-11 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary-dark disabled:opacity-50"
             >
               {acting ? "Reativando…" : "Reativar paciente"}
             </button>

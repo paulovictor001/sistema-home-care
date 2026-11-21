@@ -16,7 +16,7 @@ import {
 } from "../lib/users";
 
 const inputClasses =
-  "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-100";
+  "w-full rounded-lg border border-line px-3 py-2 text-sm disabled:bg-line";
 
 function FieldError({ messages }: { messages?: string[] }) {
   if (!messages?.length) return null;
@@ -151,16 +151,16 @@ export function UserForm({ mode }: { mode: "create" | "edit" }) {
   }
 
   if (loading) {
-    return <p className="text-sm text-slate-500">Carregando…</p>;
+    return <p className="text-sm text-muted">Carregando…</p>;
   }
 
   return (
     <div className="mx-auto max-w-2xl">
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-slate-900">
+        <h2 className="text-lg font-semibold text-ink">
           {isCreate ? "Novo usuário" : "Editar usuário"}
         </h2>
-        <Link to="/usuarios" className="text-sm text-blue-600 hover:underline">
+        <Link to="/usuarios" className="text-sm text-primary hover:underline">
           ← Voltar
         </Link>
       </div>
@@ -171,10 +171,10 @@ export function UserForm({ mode }: { mode: "create" | "edit" }) {
         </p>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-4 rounded-xl bg-white p-5 shadow">
+      <form onSubmit={handleSubmit} className="space-y-4 rounded-xl bg-surface p-5 shadow">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <label className="block">
-            <span className="mb-1 block text-sm font-medium text-slate-700">CPF *</span>
+            <span className="mb-1 block text-sm font-medium text-ink">CPF *</span>
             <input
               value={cpf}
               onChange={(e) => setCpf(formatCpf(e.target.value))}
@@ -186,7 +186,7 @@ export function UserForm({ mode }: { mode: "create" | "edit" }) {
             <FieldError messages={errors.cpf} />
           </label>
           <label className="block">
-            <span className="mb-1 block text-sm font-medium text-slate-700">
+            <span className="mb-1 block text-sm font-medium text-ink">
               {isCreate ? "Senha *" : "Nova senha (opcional)"}
             </span>
             <input
@@ -200,7 +200,7 @@ export function UserForm({ mode }: { mode: "create" | "edit" }) {
         </div>
 
         <label className="block">
-          <span className="mb-1 block text-sm font-medium text-slate-700">E-mail *</span>
+          <span className="mb-1 block text-sm font-medium text-ink">E-mail *</span>
           <input
             type="email"
             value={email}
@@ -212,7 +212,7 @@ export function UserForm({ mode }: { mode: "create" | "edit" }) {
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <label className="block">
-            <span className="mb-1 block text-sm font-medium text-slate-700">Nome</span>
+            <span className="mb-1 block text-sm font-medium text-ink">Nome</span>
             <input
               value={firstName}
               onChange={(e) => setFirstName(e.target.value)}
@@ -220,7 +220,7 @@ export function UserForm({ mode }: { mode: "create" | "edit" }) {
             />
           </label>
           <label className="block">
-            <span className="mb-1 block text-sm font-medium text-slate-700">Sobrenome</span>
+            <span className="mb-1 block text-sm font-medium text-ink">Sobrenome</span>
             <input
               value={lastName}
               onChange={(e) => setLastName(e.target.value)}
@@ -231,7 +231,7 @@ export function UserForm({ mode }: { mode: "create" | "edit" }) {
 
         {isCreate ? (
           <label className="block">
-            <span className="mb-1 block text-sm font-medium text-slate-700">Categoria *</span>
+            <span className="mb-1 block text-sm font-medium text-ink">Categoria *</span>
             <select
               value={categoryId}
               onChange={(e) => setCategoryId(e.target.value)}
@@ -247,15 +247,15 @@ export function UserForm({ mode }: { mode: "create" | "edit" }) {
             <FieldError messages={errors.category} />
           </label>
         ) : (
-          <p className="rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">
+          <p className="rounded-lg bg-background px-3 py-2 text-sm text-ink">
             Categoria: <strong>{lockedCategory ?? "—"}</strong> (acompanha a profissão;
             use a transferência de profissão para alterar)
           </p>
         )}
 
         {isCreate ? (
-          <fieldset className="rounded-lg border border-slate-200 p-4">
-            <legend className="px-1 text-sm font-medium text-slate-700">
+          <fieldset className="rounded-lg border border-line p-4">
+            <legend className="px-1 text-sm font-medium text-ink">
               Profissional vinculado *
             </legend>
             <div className="mb-3 flex gap-4 text-sm">
@@ -279,7 +279,7 @@ export function UserForm({ mode }: { mode: "create" | "edit" }) {
             {proMode === "novo" ? (
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <label className="block">
-                  <span className="mb-1 block text-sm font-medium text-slate-700">
+                  <span className="mb-1 block text-sm font-medium text-ink">
                     Nome do profissional *
                   </span>
                   <input
@@ -289,7 +289,7 @@ export function UserForm({ mode }: { mode: "create" | "edit" }) {
                   />
                 </label>
                 <label className="block">
-                  <span className="mb-1 block text-sm font-medium text-slate-700">
+                  <span className="mb-1 block text-sm font-medium text-ink">
                     Profissão *
                   </span>
                   <select
@@ -308,7 +308,7 @@ export function UserForm({ mode }: { mode: "create" | "edit" }) {
               </div>
             ) : (
               <label className="block">
-                <span className="mb-1 block text-sm font-medium text-slate-700">
+                <span className="mb-1 block text-sm font-medium text-ink">
                   Profissional sem acesso *
                 </span>
                 <select
@@ -328,7 +328,7 @@ export function UserForm({ mode }: { mode: "create" | "edit" }) {
             <FieldError messages={errors.professional} />
           </fieldset>
         ) : (
-          <p className="rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">
+          <p className="rounded-lg bg-background px-3 py-2 text-sm text-ink">
             Profissional: <strong>{lockedProfessional ?? "—"}</strong> (não pode ser
             trocado; para outro profissional ter acesso, crie outro usuário)
           </p>
@@ -337,7 +337,7 @@ export function UserForm({ mode }: { mode: "create" | "edit" }) {
         <button
           type="submit"
           disabled={saving}
-          className="w-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+          className="w-full rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-dark disabled:opacity-50"
         >
           {saving ? "Salvando…" : isCreate ? "Criar usuário" : "Salvar alterações"}
         </button>
