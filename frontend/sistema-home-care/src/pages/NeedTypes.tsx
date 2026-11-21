@@ -34,7 +34,7 @@ export function NeedTypes() {
   }
 
   useEffect(() => {
-    void loadTypes();
+    void Promise.resolve().then(loadTypes);
   }, []);
 
   function startEdit(item: NeedType) {
@@ -120,7 +120,7 @@ export function NeedTypes() {
     <div className="mx-auto max-w-5xl p-6">
       <div className="mb-6">
         <h1 className="text-2xl font-semibold">Manutenção de tipos</h1>
-        <p className="mt-1 text-sm text-gray-600">
+        <p className="mt-1 text-sm text-ink">
           Cadastre, edite, ative e inative os tipos de necessidades.
         </p>
       </div>
@@ -131,7 +131,7 @@ export function NeedTypes() {
         </p>
       )}
 
-      <section className="mb-6 rounded-lg bg-white p-6 shadow">
+      <section className="mb-6 rounded-lg bg-surface p-6 shadow">
         <h2 className="mb-4 text-lg font-semibold">
           {editingId ? "Editar tipo" : "Novo tipo"}
         </h2>
@@ -142,7 +142,7 @@ export function NeedTypes() {
             <input
               value={name}
               onChange={(event) => setName(event.target.value)}
-              className="w-full rounded border border-gray-300 px-3 py-2"
+              className="w-full rounded border border-line px-3 py-2"
               placeholder="Ex.: Necessidade de mobilidade"
             />
           </div>
@@ -153,7 +153,7 @@ export function NeedTypes() {
               value={description}
               onChange={(event) => setDescription(event.target.value)}
               rows={3}
-              className="w-full rounded border border-gray-300 px-3 py-2"
+              className="w-full rounded border border-line px-3 py-2"
               placeholder="Descreva este tipo de necessidade."
             />
           </div>
@@ -162,7 +162,7 @@ export function NeedTypes() {
             <button
               type="submit"
               disabled={loading}
-              className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+              className="rounded bg-primary px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
             >
               {loading
                 ? "Salvando..."
@@ -175,7 +175,7 @@ export function NeedTypes() {
               <button
                 type="button"
                 onClick={cancelEdit}
-                className="rounded border border-gray-300 px-4 py-2 text-sm"
+                className="rounded border border-line px-4 py-2 text-sm"
               >
                 Cancelar
               </button>
@@ -184,13 +184,13 @@ export function NeedTypes() {
         </form>
       </section>
 
-      <section className="rounded-lg bg-white p-6 shadow">
+      <section className="rounded-lg bg-surface p-6 shadow">
         <h2 className="mb-4 text-lg font-semibold">Tipos cadastrados</h2>
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead>
-              <tr className="border-b border-gray-200">
+              <tr className="border-b border-line">
                 <th className="px-3 py-3 font-medium">Nome</th>
                 <th className="px-3 py-3 font-medium">Descrição</th>
                 <th className="px-3 py-3 font-medium">Status</th>
@@ -200,9 +200,9 @@ export function NeedTypes() {
 
             <tbody>
               {types.map((item) => (
-                <tr key={item.id} className="border-b border-gray-100">
+                <tr key={item.id} className="border-b border-line">
                   <td className="px-3 py-3 font-medium">{item.name}</td>
-                  <td className="px-3 py-3 text-gray-600">
+                  <td className="px-3 py-3 text-ink">
                     {item.description || "-"}
                   </td>
                   <td className="px-3 py-3">
@@ -210,7 +210,7 @@ export function NeedTypes() {
                       className={
                         item.status === "ACTIVE"
                           ? "rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-700"
-                          : "rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600"
+                          : "rounded-full bg-line px-2 py-1 text-xs font-medium text-ink"
                       }
                     >
                       {item.status === "ACTIVE" ? "Ativo" : "Inativo"}
@@ -222,7 +222,7 @@ export function NeedTypes() {
                         type="button"
                         onClick={() => startEdit(item)}
                         disabled={loading}
-                        className="rounded border border-gray-300 px-3 py-1.5 text-xs font-medium disabled:opacity-50"
+                        className="rounded border border-line px-3 py-1.5 text-xs font-medium disabled:opacity-50"
                       >
                         Editar
                       </button>
@@ -248,7 +248,7 @@ export function NeedTypes() {
                 <tr>
                   <td
                     colSpan={4}
-                    className="px-3 py-6 text-center text-gray-500"
+                    className="px-3 py-6 text-center text-muted"
                   >
                     Nenhum tipo cadastrado.
                   </td>

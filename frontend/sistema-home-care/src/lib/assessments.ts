@@ -171,6 +171,16 @@ export function listAssessmentsByPatient(
   );
 }
 
+/** Lista global de avaliações (filtro `patient` é opcional no backend). */
+export function listAssessments(page = 1): Promise<Paginated<PatientAssessment>> {
+  const search = new URLSearchParams();
+  if (page > 1) search.set("page", String(page));
+  const query = search.toString();
+  return apiJson<Paginated<PatientAssessment>>(
+    `/api/avaliacoes/${query ? `?${query}` : ""}`,
+  );
+}
+
 export function getAssessment(id: number): Promise<PatientAssessment> {
   return apiJson<PatientAssessment>(`/api/avaliacoes/${id}/`);
 }

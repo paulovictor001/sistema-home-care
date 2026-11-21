@@ -31,7 +31,7 @@ function Field({
       <span className="mb-1 block text-sm font-medium">{label}</span>
       {children}
       {error?.map((msg) => (
-        <span key={msg} className="mt-0.5 block text-xs text-red-600">
+        <span key={msg} role="alert" className="mt-1 block text-xs font-medium text-red-700">
           {msg}
         </span>
       ))}
@@ -39,8 +39,20 @@ function Field({
   );
 }
 
-const inputClass = "w-full rounded border border-gray-300 px-3 py-2";
+const inputClass = "min-h-11 w-full rounded-lg border border-line bg-white px-3.5 text-sm text-ink outline-none transition placeholder:text-muted/80 focus:border-primary focus:ring-2 focus:ring-primary/15 disabled:bg-background disabled:text-muted";
 const genderOptions = ["Masculino", "Feminino", "Prefiro não dizer"];
+
+function FormSection({ title, description, children }: { title: string; description: string; children: ReactNode }) {
+  return (
+    <section className="grid grid-cols-1 gap-4 border-b border-line pb-6 last:border-0 last:pb-0 sm:grid-cols-2">
+      <div className="sm:col-span-2">
+        <h2 className="text-base font-semibold text-ink">{title}</h2>
+        <p className="mt-1 text-sm text-muted">{description}</p>
+      </div>
+      {children}
+    </section>
+  );
+}
 
 interface FormState {
   full_name: string;
@@ -255,19 +267,19 @@ export function PatientForm({ mode }: { mode: "create" | "edit" }) {
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-3xl p-6">
-        <p className="text-sm text-gray-600">Carregando…</p>
+      <div className="mx-auto max-w-3xl p-4 sm:p-6">
+        <p className="text-sm text-ink">Carregando…</p>
       </div>
     );
   }
 
   if (loadError) {
     return (
-      <div className="mx-auto max-w-3xl p-6">
+      <div className="mx-auto max-w-3xl p-4 sm:p-6">
         <p role="alert" className="mb-3 text-sm text-red-600">
           {loadError}
         </p>
-        <Link to="/pacientes" className="text-sm text-blue-600 underline">
+        <Link to="/pacientes" className="text-sm text-primary underline">
           Voltar para a listagem
         </Link>
       </div>
@@ -278,21 +290,26 @@ export function PatientForm({ mode }: { mode: "create" | "edit" }) {
     msg?.length ? msg : fieldErrors.detail;
 
   return (
-    <div className="mx-auto max-w-3xl p-6">
-      <h1 className="mb-4 text-2xl font-semibold">
-        {mode === "create" ? "Novo paciente" : "Editar paciente"}
-      </h1>
+      <div className="mx-auto max-w-4xl p-4 sm:p-6">
+      <header className="mb-6">
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">Cadastro de pacientes</p>
+        <h1 className="mt-2 text-2xl font-semibold tracking-tight text-ink">
+          {mode === "create" ? "Novo paciente" : "Editar paciente"}
+        </h1>
+        <p className="mt-1 text-sm text-muted">Organize os dados pessoais, clínicos e de endereço.</p>
+      </header>
 
       {fieldErrors.detail && (
-        <p role="alert" className="mb-3 text-sm text-red-600">
+        <p role="alert" className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700">
           {fieldErrors.detail.join(" ")}
         </p>
       )}
 
       <form
         onSubmit={(e) => void handleSubmit(e)}
-        className="grid grid-cols-1 gap-3 rounded-lg bg-white p-4 shadow sm:grid-cols-2"
+        className="space-y-6 rounded-2xl border border-line bg-surface p-4 shadow-sm sm:p-6"
       >
+        <FormSection title="Dados pessoais" description="Identificação e formas de contato do paciente.">
         <Field label="Nome completo" error={detail(fieldErrors.full_name)}>
           <input
             value={form.full_name}
@@ -363,6 +380,9 @@ export function PatientForm({ mode }: { mode: "create" | "edit" }) {
             {genderOptions.map((gender) => <option key={gender} value={gender}>{gender}</option>)}
           </select>
         </Field>
+        </FormSection>
+
+        <FormSection title="Informações clínicas e responsáveis" description="Condição de saúde e equipe responsável pelo acompanhamento.">
         <Field
           label="Condição de saúde"
           error={detail(fieldErrors.health_condition)}
@@ -392,14 +412,14 @@ export function PatientForm({ mode }: { mode: "create" | "edit" }) {
               <input id="new-condition" value={newCondition} onChange={(event) => setNewCondition(event.target.value)}
                 maxLength={255} placeholder="Nome da condição de saúde" className={inputClass} />
               <button type="button" onClick={() => void addCondition()} disabled={addingCondition || !newCondition.trim() || conditionsLoading}
-                className="shrink-0 rounded border border-blue-600 px-3 py-2 text-sm text-blue-600 disabled:opacity-50">
+                className="shrink-0 rounded border border-primary px-3 py-2 text-sm text-primary disabled:opacity-50">
                 {addingCondition ? "Cadastrando…" : "Adicionar"}
               </button>
             </div>
-            {!conditionsLoading && conditions.length === 0 && !conditionsError && <p className="mt-1 text-sm text-gray-600">Cadastre uma condição para selecioná-la no paciente.</p>}
+            {!conditionsLoading && conditions.length === 0 && !conditionsError && <p className="mt-1 text-sm text-ink">Cadastre uma condição para selecioná-la no paciente.</p>}
           </div>
         )}
-        {conditionsError && <p role="alert" className="text-sm text-red-600 sm:col-span-2">{conditionsError}</p>}
+        {conditionsError && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700 sm:col-span-2">{conditionsError}</p>}
         <Field
           label="Médico responsável"
           error={detail(fieldErrors.responsible_doctor)}
@@ -410,7 +430,7 @@ export function PatientForm({ mode }: { mode: "create" | "edit" }) {
             required={mode === "create"}
             disabled={!manager}
             title={!manager ? "Somente gerente pode alterar" : undefined}
-            className={`${inputClass} disabled:bg-gray-100`}
+            className={`${inputClass} disabled:bg-line`}
           >
             <option value="">Selecione…</option>
             {medicos.map((medico) => (
@@ -430,11 +450,12 @@ export function PatientForm({ mode }: { mode: "create" | "edit" }) {
             placeholder="Texto livre (provisório)"
             disabled={!manager}
             title={!manager ? "Somente gerente pode alterar" : undefined}
-            className={`${inputClass} disabled:bg-gray-100`}
+            className={`${inputClass} disabled:bg-line`}
           />
         </Field>
+        </FormSection>
 
-        <h2 className="mt-2 text-sm font-semibold sm:col-span-2">Endereço</h2>
+        <FormSection title="Endereço" description="Localização e referências para atendimento domiciliar.">
         <Field label="CEP" error={detail(fieldErrors.address)}>
           <input
             value={form.zip_code}
@@ -508,12 +529,13 @@ export function PatientForm({ mode }: { mode: "create" | "edit" }) {
             className={inputClass}
           />
         </Field>
+        </FormSection>
 
-        <div className="flex gap-2 sm:col-span-2">
+        <div className="flex flex-col-reverse gap-3 border-t border-line pt-5 sm:flex-row sm:justify-end">
           <button
             type="submit"
             disabled={submitting}
-            className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+            className="min-h-11 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-dark disabled:cursor-wait disabled:opacity-50"
           >
             {submitting
               ? "Salvando…"
@@ -523,7 +545,7 @@ export function PatientForm({ mode }: { mode: "create" | "edit" }) {
           </button>
           <Link
             to={mode === "create" ? "/pacientes" : `/pacientes/${id}`}
-            className="rounded border border-gray-300 px-4 py-2 text-sm"
+            className="inline-flex min-h-11 items-center justify-center rounded-lg border border-line px-5 py-2.5 text-sm font-medium text-ink transition hover:bg-background"
           >
             Cancelar
           </Link>

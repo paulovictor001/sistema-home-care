@@ -15,8 +15,11 @@ const PAGE_SIZE = 20;
 const STATUS_OPTIONS: { value: PatientStatusFilter; label: string }[] = [
   { value: "ativo", label: "Ativos" },
   { value: "inativo", label: "Inativos" },
-  { value: "todos", label: "Todos" },
+  { value: "todos", label: "Todos os status" },
 ];
+
+const inputClass =
+  "min-h-11 w-full rounded-lg border border-line bg-white px-3.5 text-sm text-ink outline-none transition placeholder:text-muted/80 focus:border-primary focus:ring-2 focus:ring-primary/15";
 
 function initialsOf(name: string): string {
   return name
@@ -24,6 +27,41 @@ function initialsOf(name: string): string {
     .slice(0, 2)
     .map((part) => part[0]?.toUpperCase() ?? "")
     .join("");
+}
+
+function PatientStatus({ status }: { status: Patient["status"] }) {
+  const active = status === "ACTIVE";
+  return (
+    <span
+      className={`inline-flex items-center gap-2 rounded-full px-2.5 py-1 text-xs font-semibold ${
+        active ? "bg-primary-light text-primary" : "bg-background text-muted"
+      }`}
+    >
+      <span
+        aria-hidden="true"
+        className={`h-1.5 w-1.5 rounded-full ${active ? "bg-primary" : "bg-muted"}`}
+      />
+      {active ? "Ativo" : "Inativo"}
+    </span>
+  );
+}
+
+function PatientIdentity({ patient }: { patient: Patient }) {
+  return (
+    <div className="flex min-w-0 items-center gap-3">
+      <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-light text-xs font-bold tracking-wide text-primary">
+        {initialsOf(patient.full_name)}
+      </span>
+      <span className="min-w-0">
+        <span className="block truncate font-semibold text-ink">
+          {patient.full_name}
+        </span>
+        <span className="mt-0.5 block text-xs text-muted md:hidden">
+          CPF {formatCpf(patient.cpf)}
+        </span>
+      </span>
+    </div>
+  );
 }
 
 export function PatientsList() {
@@ -66,196 +104,280 @@ export function PatientsList() {
 
   useEffect(() => {
     void fetchPage(1);
-    // Carrega uma vez na montagem; novas buscas pelo botão filtrar.
+    // Busca inicial; alterações nos filtros são aplicadas ao enviar o formulário.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const totalPages = Math.max(1, Math.ceil(count / PAGE_SIZE));
   const from = count === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
   const to = Math.min(page * PAGE_SIZE, count);
+  const hasFilters = Boolean(nome || cpf || regiao || status !== "ativo");
+
+  function clearFilters() {
+    setNome("");
+    setCpf("");
+    setRegiao("");
+    setStatus("ativo");
+    void listPatients({ status: "ativo", page: 1 })
+      .then((data) => {
+        setResults(data.results);
+        setCount(data.count);
+        setPage(1);
+        setError(null);
+      })
+      .catch((err: unknown) => {
+        setError(
+          err instanceof ApiError ? err.message : "Falha ao carregar pacientes.",
+        );
+      })
+      .finally(() => setLoading(false));
+    setLoading(true);
+  }
 
   return (
-    <div className="mx-auto max-w-6xl">
-      {/* Cabeçalho estilo Users List */}
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-slate-500">
-          Mostrando {from}–{to} de {count} registro{count === 1 ? "" : "s"}
-        </p>
+    <div className="mx-auto max-w-6xl space-y-5">
+      <section className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <p className="mb-1 text-sm font-medium text-primary">Gestão clínica</p>
+          <h2 className="text-2xl font-semibold tracking-tight text-ink sm:text-[28px]">
+            Pacientes
+          </h2>
+          <p className="mt-1 max-w-xl text-sm leading-6 text-muted">
+            Consulte os cadastros e encontre rapidamente quem precisa de atendimento.
+          </p>
+        </div>
         {isGerente(user?.groups) && (
           <Link
             to="/pacientes/novo"
-            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-dark focus-visible:outline-offset-4"
           >
-            + Adicionar Paciente
+            <span aria-hidden="true" className="text-lg leading-none">+</span>
+            Adicionar paciente
           </Link>
         )}
-      </div>
+      </section>
 
-      {/* Filtros */}
-      <form
-        className="mb-4 grid grid-cols-1 gap-3 rounded-xl bg-white p-4 shadow sm:grid-cols-2 lg:grid-cols-5"
-        onSubmit={(e) => {
-          e.preventDefault();
-          void fetchPage(1);
-        }}
-      >
-        <label className="block">
-          <span className="mb-1 block text-sm font-medium text-slate-700">Nome</span>
-          <input
-            value={nome}
-            onChange={(e) => setNome(e.target.value)}
-            placeholder="Buscar por nome"
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-          />
-        </label>
-        <label className="block">
-          <span className="mb-1 block text-sm font-medium text-slate-700">CPF</span>
-          <input
-            value={cpf}
-            onChange={(e) => setCpf(formatCpf(e.target.value))}
-            placeholder="000.000.000-00"
-            inputMode="numeric"
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-          />
-        </label>
-        <label className="block">
-          <span className="mb-1 block text-sm font-medium text-slate-700">Região</span>
-          <input
-            value={regiao}
-            onChange={(e) => setRegiao(e.target.value)}
-            placeholder="Filtrar por região"
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-          />
-        </label>
-        <label className="block">
-          <span className="mb-1 block text-sm font-medium text-slate-700">Status</span>
-          <select
-            value={status}
-            onChange={(e) => setStatus(e.target.value as PatientStatusFilter)}
-            className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-          >
-            {STATUS_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <div className="flex items-end">
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-          >
-            {loading ? "Buscando…" : "Filtrar"}
-          </button>
+      <section className="overflow-hidden rounded-xl border border-line bg-surface shadow-sm">
+        <form
+          onSubmit={(event) => {
+            event.preventDefault();
+            void fetchPage(1);
+          }}
+          className="p-4 sm:p-5"
+        >
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h3 className="text-sm font-semibold text-ink">Buscar pacientes</h3>
+              <p className="mt-0.5 text-xs text-muted">
+                Combine os campos e aplique os filtros para refinar a lista.
+              </p>
+            </div>
+            {hasFilters && (
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="min-h-9 rounded-md px-2 text-sm font-medium text-primary transition hover:bg-primary-light"
+              >
+                Limpar filtros
+              </button>
+            )}
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-[1.3fr_1fr_1fr_0.9fr_auto] lg:items-end">
+            <label className="block">
+              <span className="mb-1.5 block text-xs font-semibold text-ink">Nome</span>
+              <input
+                value={nome}
+                onChange={(event) => setNome(event.target.value)}
+                placeholder="Buscar pelo nome"
+                autoComplete="off"
+                className={inputClass}
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1.5 block text-xs font-semibold text-ink">CPF</span>
+              <input
+                value={cpf}
+                onChange={(event) => setCpf(formatCpf(event.target.value))}
+                placeholder="000.000.000-00"
+                inputMode="numeric"
+                autoComplete="off"
+                className={inputClass}
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1.5 block text-xs font-semibold text-ink">Região</span>
+              <input
+                value={regiao}
+                onChange={(event) => setRegiao(event.target.value)}
+                placeholder="Ex.: Norte"
+                autoComplete="off"
+                className={inputClass}
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1.5 block text-xs font-semibold text-ink">Status</span>
+              <select
+                value={status}
+                onChange={(event) =>
+                  setStatus(event.target.value as PatientStatusFilter)
+                }
+                className={inputClass}
+              >
+                {STATUS_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="submit"
+              disabled={loading}
+              className="min-h-11 rounded-lg bg-primary px-5 text-sm font-semibold text-white transition hover:bg-primary-dark disabled:cursor-wait disabled:opacity-60"
+            >
+              {loading ? "Buscando…" : "Filtrar"}
+            </button>
+          </div>
+        </form>
+
+        <div className="flex flex-col gap-1 border-t border-line bg-background/60 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+          <p className="text-sm font-medium text-ink" aria-live="polite">
+            {loading ? "Atualizando lista…" : `${count} paciente${count === 1 ? "" : "s"}`}
+          </p>
+          <p className="text-xs text-muted">
+            {count > 0 ? `Exibindo ${from}–${to} de ${count} registros` : "Resultados da busca"}
+          </p>
         </div>
-      </form>
 
-      {error && (
-        <p role="alert" className="mb-3 text-sm text-red-600">
-          {error}
-        </p>
-      )}
+        {error && (
+          <div role="alert" className="m-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 sm:m-5">
+            <p className="text-sm font-medium text-red-800">Não foi possível carregar a lista</p>
+            <p className="mt-1 text-sm text-red-700">{error}</p>
+            <button
+              type="button"
+              onClick={() => void fetchPage(page)}
+              className="mt-2 text-sm font-semibold text-red-800 underline underline-offset-2"
+            >
+              Tentar novamente
+            </button>
+          </div>
+        )}
 
-      {/* Tabela estilo Users List */}
-      <div className="overflow-x-auto rounded-xl bg-white shadow">
-        <table className="w-full min-w-[720px] text-left text-sm">
-          <thead>
-            <tr className="border-b border-slate-200 text-xs tracking-wide text-slate-500 uppercase">
-              <th className="px-4 py-3 font-semibold">#</th>
-              <th className="px-4 py-3 font-semibold">Nome</th>
-              <th className="px-4 py-3 font-semibold">CPF</th>
-              <th className="px-4 py-3 font-semibold">Região</th>
-              <th className="px-4 py-3 font-semibold">Status</th>
-              <th className="px-4 py-3 text-right font-semibold">Ação</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-slate-500">
-                  Carregando…
-                </td>
-              </tr>
-            ) : results.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="px-4 py-6 text-center text-slate-500">
-                  Nenhum paciente encontrado.
-                </td>
-              </tr>
-            ) : (
-              results.map((patient, index) => (
-                <tr
-                  key={patient.id}
-                  className="border-b border-slate-100 last:border-0 hover:bg-slate-50"
-                >
-                  <td className="px-4 py-3 text-slate-500">
-                    {(page - 1) * PAGE_SIZE + index + 1}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-700">
-                        {initialsOf(patient.full_name)}
-                      </span>
-                      <span className="font-medium text-slate-900">
-                        {patient.full_name}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-slate-600">
-                    {formatCpf(patient.cpf)}
-                  </td>
-                  <td className="px-4 py-3 text-slate-600">
-                    {patient.address?.region || "—"}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                        patient.status === "ACTIVE"
-                          ? "bg-green-100 text-green-800"
-                          : "bg-slate-200 text-slate-700"
-                      }`}
-                    >
-                      {patient.status === "ACTIVE" ? "Ativo" : "Inativo"}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-right">
+        <div className="md:hidden">
+          {loading ? (
+            <div className="space-y-3 p-4" aria-label="Carregando pacientes" aria-busy="true">
+              {[0, 1, 2].map((item) => (
+                <div key={item} className="h-[102px] animate-pulse rounded-lg bg-background" />
+              ))}
+            </div>
+          ) : results.length === 0 ? (
+            <div className="px-5 py-12 text-center">
+              <p className="font-semibold text-ink">Nenhum paciente encontrado</p>
+              <p className="mt-1 text-sm text-muted">Tente ajustar os filtros e faça uma nova busca.</p>
+            </div>
+          ) : (
+            <ul className="divide-y divide-line">
+              {results.map((patient) => (
+                <li key={patient.id} className="p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <PatientIdentity patient={patient} />
+                    <PatientStatus status={patient.status} />
+                  </div>
+                  <div className="mt-3 flex items-end justify-between gap-3">
+                    <p className="min-w-0 truncate text-xs text-muted">
+                      Região <span className="font-medium text-ink">{patient.address?.region || "Não informada"}</span>
+                    </p>
                     <Link
                       to={`/pacientes/${patient.id}`}
-                      className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-100"
+                      aria-label={`Ver detalhes de ${patient.full_name}`}
+                      className="shrink-0 rounded-md px-2 py-1 text-sm font-semibold text-primary hover:bg-primary-light"
                     >
-                      Ver
+                      Detalhes <span aria-hidden="true">→</span>
                     </Link>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div className="hidden overflow-x-auto md:block">
+          <table className="w-full min-w-[680px] text-left text-sm">
+            <thead className="bg-background/60 text-xs uppercase tracking-wide text-muted">
+              <tr className="border-y border-line">
+                <th scope="col" className="w-16 px-5 py-3.5 font-semibold">Nº</th>
+                <th scope="col" className="px-5 py-3.5 font-semibold">Paciente</th>
+                <th scope="col" className="px-5 py-3.5 font-semibold">CPF</th>
+                <th scope="col" className="px-5 py-3.5 font-semibold">Região</th>
+                <th scope="col" className="px-5 py-3.5 font-semibold">Status</th>
+                <th scope="col" className="px-5 py-3.5 text-right font-semibold">Ação</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan={6} className="px-5 py-14 text-center text-muted" aria-live="polite">
+                    Carregando pacientes…
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+              ) : results.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-5 py-14 text-center">
+                    <p className="font-semibold text-ink">Nenhum paciente encontrado</p>
+                    <p className="mt-1 text-sm text-muted">Ajuste os filtros para tentar novamente.</p>
+                  </td>
+                </tr>
+              ) : (
+                results.map((patient, index) => (
+                  <tr key={patient.id} className="border-b border-line last:border-0 hover:bg-background/70">
+                    <td className="px-5 py-3.5 text-xs tabular-nums text-muted">
+                      {String((page - 1) * PAGE_SIZE + index + 1).padStart(2, "0")}
+                    </td>
+                    <td className="px-5 py-3.5"><PatientIdentity patient={patient} /></td>
+                    <td className="px-5 py-3.5 tabular-nums text-ink">{formatCpf(patient.cpf)}</td>
+                    <td className="px-5 py-3.5 text-ink">{patient.address?.region || "—"}</td>
+                    <td className="px-5 py-3.5"><PatientStatus status={patient.status} /></td>
+                    <td className="px-5 py-3.5 text-right">
+                      <Link
+                        to={`/pacientes/${patient.id}`}
+                        aria-label={`Ver detalhes de ${patient.full_name}`}
+                        className="inline-flex min-h-9 items-center rounded-lg border border-line px-3 text-xs font-semibold text-ink transition hover:border-primary/30 hover:bg-primary-light hover:text-primary"
+                      >
+                        Ver detalhes
+                      </Link>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
 
-      <div className="mt-4 flex items-center justify-between">
-        <button
-          type="button"
-          disabled={page <= 1 || loading}
-          onClick={() => void fetchPage(page - 1)}
-          className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm disabled:opacity-50"
+        <nav
+          aria-label="Paginação de pacientes"
+          className="flex flex-wrap items-center justify-between gap-3 border-t border-line px-4 py-3 sm:px-5"
         >
-          Anterior
-        </button>
-        <p className="text-sm text-slate-500">
-          Página {page} de {totalPages}
-        </p>
-        <button
-          type="button"
-          disabled={page >= totalPages || loading}
-          onClick={() => void fetchPage(page + 1)}
-          className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm disabled:opacity-50"
-        >
-          Próxima
-        </button>
-      </div>
+          <p className="text-xs text-muted">Página {page} de {totalPages}</p>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              disabled={page <= 1 || loading}
+              onClick={() => void fetchPage(page - 1)}
+              className="min-h-10 rounded-lg border border-line bg-surface px-3 text-sm font-medium text-ink transition hover:bg-background disabled:cursor-not-allowed disabled:opacity-45"
+            >
+              Anterior
+            </button>
+            <button
+              type="button"
+              disabled={page >= totalPages || loading}
+              onClick={() => void fetchPage(page + 1)}
+              className="min-h-10 rounded-lg border border-line bg-surface px-3 text-sm font-medium text-ink transition hover:bg-background disabled:cursor-not-allowed disabled:opacity-45"
+            >
+              Próxima
+            </button>
+          </div>
+        </nav>
+      </section>
     </div>
   );
 }

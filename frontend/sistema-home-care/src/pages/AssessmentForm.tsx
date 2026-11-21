@@ -51,7 +51,7 @@ function Field({
   );
 }
 
-const inputClass = "w-full rounded border border-gray-300 px-3 py-2";
+const inputClass = "w-full rounded border border-line px-3 py-2";
 const textClass = `${inputClass} min-h-20`;
 
 interface MainForm {
@@ -337,7 +337,7 @@ export function AssessmentForm({ mode }: { mode: "create" | "edit" }) {
   if (loading) {
     return (
       <div className="mx-auto max-w-3xl p-6">
-        <p className="text-sm text-gray-600">Carregando…</p>
+        <p className="text-sm text-ink">Carregando…</p>
       </div>
     );
   }
@@ -348,7 +348,7 @@ export function AssessmentForm({ mode }: { mode: "create" | "edit" }) {
         <p role="alert" className="mb-3 text-sm text-red-600">
           {loadError}
         </p>
-        <Link to="/pacientes" className="text-sm text-blue-600 underline">
+        <Link to="/pacientes" className="text-sm text-primary underline">
           Voltar para pacientes
         </Link>
       </div>
@@ -374,11 +374,11 @@ export function AssessmentForm({ mode }: { mode: "create" | "edit" }) {
         {mode === "create" ? "Nova avaliação inicial" : "Editar avaliação"}
       </h1>
       {patient && (
-        <p className="mb-4 text-sm text-gray-600">
+        <p className="mb-4 text-sm text-ink">
           Paciente: {patient.full_name} ·{" "}
           <Link
             to={`/pacientes/${patient.id}/avaliacoes`}
-            className="text-blue-600 underline"
+            className="text-primary underline"
           >
             ver histórico
           </Link>
@@ -402,14 +402,14 @@ export function AssessmentForm({ mode }: { mode: "create" | "edit" }) {
 
       <form
         onSubmit={(e) => void handleSubmit(e)}
-        className="grid grid-cols-1 gap-3 rounded-lg bg-white p-4 shadow sm:grid-cols-2"
+        className="grid grid-cols-1 gap-3 rounded-lg bg-surface p-4 shadow sm:grid-cols-2"
       >
         <Field label="Tipo da avaliação">
           <input
             value="Avaliação inicial"
             disabled
             title="Tipo único neste momento (RN-AVL-001)"
-            className={`${inputClass} bg-gray-100`}
+            className={`${inputClass} bg-line`}
           />
         </Field>
         <Field
@@ -426,7 +426,7 @@ export function AssessmentForm({ mode }: { mode: "create" | "edit" }) {
                 ? "Gerente altera apenas este campo"
                 : "Deve ser Médico ou Enfermeiro"
             }
-            className={`${inputClass} disabled:bg-gray-100`}
+            className={`${inputClass} disabled:bg-line`}
           >
             <option value="">Selecione…</option>
             {clinicos.map((c) => (
@@ -450,7 +450,7 @@ export function AssessmentForm({ mode }: { mode: "create" | "edit" }) {
             onChange={(e) => set("assessment_date", e.target.value)}
             required
             disabled={readOnlyMain}
-            className={`${inputClass} disabled:bg-gray-100`}
+            className={`${inputClass} disabled:bg-line`}
           />
         </Field>
         <Field label="Hora da avaliação *" error={detail(fieldErrors.assessment_time)}>
@@ -460,7 +460,7 @@ export function AssessmentForm({ mode }: { mode: "create" | "edit" }) {
             onChange={(e) => set("assessment_time", e.target.value)}
             required
             disabled={readOnlyMain}
-            className={`${inputClass} disabled:bg-gray-100`}
+            className={`${inputClass} disabled:bg-line`}
           />
         </Field>
         <Field label="Origem da solicitação" error={detail(fieldErrors.request_origin)}>
@@ -468,7 +468,7 @@ export function AssessmentForm({ mode }: { mode: "create" | "edit" }) {
             value={form.request_origin}
             onChange={(e) => set("request_origin", e.target.value)}
             disabled={readOnlyMain}
-            className={`${inputClass} disabled:bg-gray-100`}
+            className={`${inputClass} disabled:bg-line`}
           >
             <option value="">Selecione…</option>
             {REQUEST_ORIGINS.map((o) => (
@@ -484,7 +484,7 @@ export function AssessmentForm({ mode }: { mode: "create" | "edit" }) {
             value={form.need_start_date}
             onChange={(e) => set("need_start_date", e.target.value)}
             disabled={readOnlyMain}
-            className={`${inputClass} disabled:bg-gray-100`}
+            className={`${inputClass} disabled:bg-line`}
           />
         </Field>
         <div className="sm:col-span-2">
@@ -497,7 +497,7 @@ export function AssessmentForm({ mode }: { mode: "create" | "edit" }) {
               onChange={(e) => set("request_reason", e.target.value)}
               required
               disabled={readOnlyMain}
-              className={`${textClass} disabled:bg-gray-100`}
+              className={`${textClass} disabled:bg-line`}
             />
           </Field>
         </div>
@@ -511,7 +511,7 @@ export function AssessmentForm({ mode }: { mode: "create" | "edit" }) {
               onChange={(e) => set("chief_complaint", e.target.value)}
               required
               disabled={readOnlyMain}
-              className={`${textClass} disabled:bg-gray-100`}
+              className={`${textClass} disabled:bg-line`}
             />
           </Field>
         </div>
@@ -534,7 +534,7 @@ export function AssessmentForm({ mode }: { mode: "create" | "edit" }) {
                 value={form[key]}
                 onChange={(e) => set(key, e.target.value)}
                 disabled={readOnlyMain}
-                className={`${textClass} disabled:bg-gray-100`}
+                className={`${textClass} disabled:bg-line`}
               />
             </Field>
           </div>
@@ -544,7 +544,7 @@ export function AssessmentForm({ mode }: { mode: "create" | "edit" }) {
           <button
             type="submit"
             disabled={submitting}
-            className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+            className="rounded bg-primary px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
           >
             {submitting
               ? "Salvando…"
@@ -555,7 +555,7 @@ export function AssessmentForm({ mode }: { mode: "create" | "edit" }) {
           {assessment && (
             <Link
               to={`/avaliacoes/${assessment.id}`}
-              className="rounded border border-gray-300 px-4 py-2 text-sm"
+              className="rounded border border-line px-4 py-2 text-sm"
             >
               Ver avaliação
             </Link>
@@ -563,13 +563,13 @@ export function AssessmentForm({ mode }: { mode: "create" | "edit" }) {
         </div>
       </form>
 
-      <section aria-labelledby="assessment-needs-heading" className="mt-4 rounded-lg bg-white p-4 shadow">
+      <section aria-labelledby="assessment-needs-heading" className="mt-4 rounded-lg bg-surface p-4 shadow">
             <h2 id="assessment-needs-heading" className="mb-2 text-lg font-semibold">
               Necessidades identificadas ({assessment?.care_needs.length ?? 0})
             </h2>
-            <p className="mb-3 text-sm text-gray-600">Registre os cuidados identificados nesta avaliação, como acompanhamento de enfermagem ou fisioterapia. Cada necessidade tem tipo, descrição e prioridade.</p>
-            {!assessment && <p className="mb-3 rounded bg-blue-50 p-3 text-sm text-blue-800">Salve a avaliação para adicionar necessidades. Elas ficarão vinculadas a esta avaliação.</p>}
-            {assessment && assessment.care_needs.length === 0 && <p className="mb-3 text-sm text-gray-600">Nenhuma necessidade registrada nesta avaliação.</p>}
+            <p className="mb-3 text-sm text-ink">Registre os cuidados identificados nesta avaliação, como acompanhamento de enfermagem ou fisioterapia. Cada necessidade tem tipo, descrição e prioridade.</p>
+            {!assessment && <p className="mb-3 rounded bg-primary-light p-3 text-sm text-ink">Salve a avaliação para adicionar necessidades. Elas ficarão vinculadas a esta avaliação.</p>}
+            {assessment && assessment.care_needs.length === 0 && <p className="mb-3 text-sm text-ink">Nenhuma necessidade registrada nesta avaliação.</p>}
             {assessment && assessment.care_needs.length > 0 && (
               <ul className="mb-3 space-y-2">
                 {assessment.care_needs.map((n) => (
@@ -581,7 +581,7 @@ export function AssessmentForm({ mode }: { mode: "create" | "edit" }) {
                     {NEED_PRIORITIES.find((p) => p.value === n.priority)?.label ??
                       n.priority}{" "}
                     · {n.status === "IDENTIFIED" ? "Identificada" : n.status}
-                    <span className={`ml-2 rounded px-2 py-0.5 ${n.is_active ? "bg-green-100" : "bg-gray-200"}`}>{n.is_active ? "Ativa" : "Inativa"}</span>
+                    <span className={`ml-2 rounded px-2 py-0.5 ${n.is_active ? "bg-green-100" : "bg-line"}`}>{n.is_active ? "Ativa" : "Inativa"}</span>
                   </li>
                 ))}
               </ul>
@@ -590,7 +590,7 @@ export function AssessmentForm({ mode }: { mode: "create" | "edit" }) {
             {canAddNeeds ? <fieldset disabled={!assessment || addingNeed}>
             <legend className="mb-2 text-sm font-semibold">Adicionar necessidade</legend>
             {needCatalogError && <p role="alert" className="mb-2 text-sm text-red-600">Não foi possível carregar os tipos. Recarregue a página para tentar novamente.</p>}
-            {!needCatalogError && needTypes.length === 0 && <p className="mb-2 text-sm text-gray-600">Nenhum tipo ativo disponível para seleção.</p>}
+            {!needCatalogError && needTypes.length === 0 && <p className="mb-2 text-sm text-ink">Nenhum tipo ativo disponível para seleção.</p>}
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               <label className="block">
                 <span className="mb-1 block text-sm font-medium">Tipo *</span>
@@ -631,23 +631,23 @@ export function AssessmentForm({ mode }: { mode: "create" | "edit" }) {
               </label>
               <label className="block">
                 <span className="mb-1 block text-sm font-medium">Status inicial</span>
-                <input value="Identificada" readOnly className={`${inputClass} bg-gray-100`} />
+                <input value="Identificada" readOnly className={`${inputClass} bg-line`} />
               </label>
             </div>
             <button
               type="button"
               disabled={addingNeed || !needType || !needDesc.trim()}
               onClick={() => void handleAddNeed()}
-              className="mt-2 rounded border border-gray-300 px-4 py-2 text-sm disabled:opacity-50"
+              className="mt-2 rounded border border-line px-4 py-2 text-sm disabled:opacity-50"
             >
               {addingNeed ? "Adicionando…" : "Adicionar necessidade"}
             </button>
-            </fieldset> : <p className="text-sm text-gray-600">Seu perfil não tem permissão para adicionar necessidades.</p>}
-            {assessment && <Link to={`/avaliacoes/${assessment.id}`} className="mt-3 inline-block text-sm text-blue-600 underline">Ver necessidades e histórico da avaliação</Link>}
+            </fieldset> : <p className="text-sm text-ink">Seu perfil não tem permissão para adicionar necessidades.</p>}
+            {assessment && <Link to={`/avaliacoes/${assessment.id}`} className="mt-3 inline-block text-sm text-primary underline">Ver necessidades e histórico da avaliação</Link>}
       </section>
 
       {assessment && clinical && (
-          <section className="mt-4 rounded-lg bg-white p-4 shadow">
+          <section className="mt-4 rounded-lg bg-surface p-4 shadow">
             <h2 className="mb-3 text-sm font-semibold">
               Recursos ({assessment.assessment_resources.length})
             </h2>
@@ -703,7 +703,7 @@ export function AssessmentForm({ mode }: { mode: "create" | "edit" }) {
               type="button"
               disabled={addingResource || !resourceId}
               onClick={() => void handleAddResource()}
-              className="mt-2 rounded border border-gray-300 px-4 py-2 text-sm disabled:opacity-50"
+              className="mt-2 rounded border border-line px-4 py-2 text-sm disabled:opacity-50"
             >
               {addingResource ? "Associando…" : "Associar recurso"}
             </button>

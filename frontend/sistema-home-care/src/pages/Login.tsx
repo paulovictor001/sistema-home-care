@@ -36,35 +36,45 @@ export function Login() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
+    <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <form
         onSubmit={handleSubmit}
-        className="w-full max-w-sm rounded-lg bg-white p-6 shadow"
+        className="w-full max-w-sm rounded-xl border border-line bg-surface p-7 shadow-sm"
       >
-        <h1 className="mb-1 text-xl font-semibold">Sistema Home Care</h1>
-        <p className="mb-4 text-sm text-gray-600">Entre com seu CPF e senha.</p>
+        <div className="mb-5 flex items-center gap-3">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-accent text-base font-bold text-sidebar">
+            HC
+          </span>
+          <div className="min-w-0">
+            <h1 className="truncate text-xl font-semibold text-ink">
+              Sistema Home Care
+            </h1>
+            <p className="text-xs text-muted">Acesso à equipe</p>
+          </div>
+        </div>
+        <p className="mb-4 text-sm text-muted">Entre com seu CPF e senha.</p>
 
         <label className="mb-3 block">
-          <span className="mb-1 block text-sm font-medium">CPF</span>
+          <span className="mb-1 block text-sm font-medium text-ink">CPF</span>
           <input
             value={cpf}
             onChange={(e) => setCpf(formatCpf(e.target.value))}
             placeholder="000.000.000-00"
             inputMode="numeric"
             autoComplete="username"
-            className="w-full rounded border border-gray-300 px-3 py-2"
+            className="w-full rounded border border-line bg-surface px-3 py-2 text-ink transition-colors focus:border-primary"
             required
           />
         </label>
 
         <label className="mb-4 block">
-          <span className="mb-1 block text-sm font-medium">Senha</span>
+          <span className="mb-1 block text-sm font-medium text-ink">Senha</span>
           <input
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             autoComplete="current-password"
-            className="w-full rounded border border-gray-300 px-3 py-2"
+            className="w-full rounded border border-line bg-surface px-3 py-2 text-ink transition-colors focus:border-primary"
             required
           />
         </label>
@@ -78,7 +88,7 @@ export function Login() {
         <button
           type="submit"
           disabled={submitting}
-          className="w-full rounded bg-blue-600 px-3 py-2 font-medium text-white disabled:opacity-50"
+          className="w-full rounded bg-primary px-3 py-2 font-medium text-white transition-colors hover:bg-primary-dark disabled:opacity-50"
         >
           {submitting ? "Entrando…" : "Entrar"}
         </button>
