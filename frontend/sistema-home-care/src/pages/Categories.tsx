@@ -37,7 +37,7 @@ export function Categories() {
   }
 
   useEffect(() => {
-    refresh()
+    Promise.resolve().then(refresh)
       .catch((err) =>
         setError(err instanceof ApiError ? err.message : "Falha ao carregar."),
       )
@@ -96,11 +96,11 @@ export function Categories() {
     }
   }
 
-  if (loading) return <p className="text-sm text-slate-500">Carregando…</p>;
+  if (loading) return <p className="text-sm text-muted">Carregando…</p>;
 
   return (
     <div className="mx-auto max-w-6xl">
-      <h2 className="mb-4 text-lg font-semibold text-slate-900">Categorias e permissões</h2>
+      <h2 className="mb-4 text-lg font-semibold text-ink">Categorias e permissões</h2>
 
       {error && (
         <p role="alert" className="mb-3 text-sm text-red-600">
@@ -110,31 +110,31 @@ export function Categories() {
 
       <form
         onSubmit={handleCreate}
-        className="mb-4 flex flex-col gap-2 rounded-xl bg-white p-4 shadow sm:flex-row"
+        className="mb-4 flex flex-col gap-2 rounded-xl bg-surface p-4 shadow sm:flex-row"
       >
         <input
           value={newName}
           onChange={(e) => setNewName(e.target.value)}
           placeholder="Nova categoria (ex.: Fisioterapeuta)"
-          className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm"
+          className="flex-1 rounded-lg border border-line px-3 py-2 text-sm"
         />
         <button
           type="submit"
           disabled={saving || !newName.trim()}
-          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+          className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-dark disabled:opacity-50"
         >
           Criar categoria
         </button>
       </form>
-      <p className="mb-4 text-xs text-slate-500">
+      <p className="mb-4 text-xs text-muted">
         Categorias novas começam sem permissões. Categorias com usuários não podem ser
         excluídas.
       </p>
 
-      <div className="overflow-x-auto rounded-xl bg-white shadow">
+      <div className="overflow-x-auto rounded-xl bg-surface shadow">
         <table className="w-full min-w-[640px] text-left text-sm">
           <thead>
-            <tr className="border-b border-slate-200 text-xs tracking-wide text-slate-500 uppercase">
+            <tr className="border-b border-line text-xs tracking-wide text-muted uppercase">
               <th className="px-4 py-3 font-semibold">Nome</th>
               <th className="px-4 py-3 font-semibold">Usuários</th>
               <th className="px-4 py-3 font-semibold">Permissões</th>
@@ -143,12 +143,12 @@ export function Categories() {
           </thead>
           <tbody>
             {categories.map((c) => (
-              <tr key={c.id} className="border-b border-slate-100 last:border-0">
-                <td className="px-4 py-3 font-medium text-slate-900">{c.name}</td>
-                <td className="px-4 py-3 text-slate-600">{c.users_count ?? "—"}</td>
-                <td className="px-4 py-3 text-slate-600">
+              <tr key={c.id} className="border-b border-line last:border-0">
+                <td className="px-4 py-3 font-medium text-ink">{c.name}</td>
+                <td className="px-4 py-3 text-ink">{c.users_count ?? "—"}</td>
+                <td className="px-4 py-3 text-ink">
                   {c.permissions.length === 0 ? (
-                    <span className="text-slate-400">nenhuma</span>
+                    <span className="text-muted">nenhuma</span>
                   ) : (
                     `${c.permissions.length} configurada${c.permissions.length === 1 ? "" : "s"}`
                   )}
@@ -158,7 +158,7 @@ export function Categories() {
                     <button
                       type="button"
                       onClick={() => openEditor(c)}
-                      className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs hover:bg-slate-100"
+                      className="rounded-lg border border-line px-3 py-1.5 text-xs hover:bg-line"
                     >
                       Permissões
                     </button>
@@ -178,17 +178,17 @@ export function Categories() {
       </div>
 
       {editing && (
-        <div className="mt-4 rounded-xl bg-white p-5 shadow">
-          <h3 className="mb-1 text-sm font-semibold text-slate-900">
+        <div className="mt-4 rounded-xl bg-surface p-5 shadow">
+          <h3 className="mb-1 text-sm font-semibold text-ink">
             Permissões de “{editing.name}”
           </h3>
-          <p className="mb-3 text-xs text-slate-500">
+          <p className="mb-3 text-xs text-muted">
             Um gerente pode alterar inclusive as permissões da categoria de outro gerente.
           </p>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {groupByFeature(catalog).map(([feature, perms]) => (
-              <fieldset key={feature} className="rounded-lg border border-slate-200 p-3">
-                <legend className="px-1 text-xs font-semibold text-slate-700 uppercase">
+              <fieldset key={feature} className="rounded-lg border border-line p-3">
+                <legend className="px-1 text-xs font-semibold text-ink uppercase">
                   {feature}
                 </legend>
                 {perms.map((p) => (
@@ -200,9 +200,9 @@ export function Categories() {
                       className="mt-0.5"
                     />
                     <span>
-                      <span className="font-mono text-xs text-slate-800">{p.codename}</span>
+                      <span className="font-mono text-xs text-ink">{p.codename}</span>
                       {p.description && (
-                        <span className="block text-xs text-slate-500">{p.description}</span>
+                        <span className="block text-xs text-muted">{p.description}</span>
                       )}
                     </span>
                   </label>
@@ -215,14 +215,14 @@ export function Categories() {
               type="button"
               disabled={saving}
               onClick={() => void handleSavePermissions()}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+              className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-dark disabled:opacity-50"
             >
               {saving ? "Salvando…" : "Salvar permissões"}
             </button>
             <button
               type="button"
               onClick={() => setEditing(null)}
-              className="rounded-lg border border-slate-300 px-4 py-2 text-sm hover:bg-slate-100"
+              className="rounded-lg border border-line px-4 py-2 text-sm hover:bg-line"
             >
               Cancelar
             </button>

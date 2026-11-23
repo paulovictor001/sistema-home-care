@@ -1,8 +1,10 @@
 """Operações transacionais do plano; modelos mantêm registros históricos."""
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.db import transaction
+from django.utils import timezone
+from assessments.models import CareNeed
 from patients.models import Patient
-from .models import CarePlan, CarePlanNeed, CarePlanHistory
+from .models import CarePlan, CarePlanNeed, CarePlanHistory, CarePlanStatus, CarePlanNeedResource
 
 
 def require_role(actor, *roles):
@@ -16,14 +18,161 @@ def snapshot(plan):
         'start_date': plan.start_date.isoformat(),
         'end_date': plan.end_date.isoformat() if plan.end_date else None,
         'objective': plan.objective,
-        'needs': list(plan.need_links.order_by('pk').values('id', 'care_need_id',
-            'required_professional_id', 'frequency_quantity', 'frequency_period')),
+        'needs': [{
+            'id': link.pk, 'care_need_id': link.care_need_id,
+            'description': link.care_need.description, 'priority': link.care_need.priority,
+            'required_professional_id': link.required_professional_id,
+            'professional_name': link.required_professional.full_name if link.required_professional_id else None,
+            'profession_id': link.required_professional.profession_id if link.required_professional_id else None,
+            'frequency_quantity': link.frequency_quantity, 'frequency_period': link.frequency_period,
+            'removed_at': link.removed_at.isoformat() if link.removed_at else None,
+            'removal_reason': link.removal_reason, 'removed_by': link.removed_by_id,
+            'resources': list(link.resources.values('id', 'resource_id', 'resource__name', 'quantity', 'observation')),
+        } for link in plan.need_links.select_related('care_need', 'required_professional').order_by('pk')],
     }
 
 
-def record(plan, actor, description, previous):
+def record(plan, actor, description, previous, event_type='UPDATE'):
     CarePlanHistory.objects.create(care_plan=plan, changed_by=actor,
+        actor_name=actor.get_full_name() or f'Usuário #{actor.pk}', event_type=event_type,
         description=description, previous_data=previous, new_data=snapshot(plan))
+
+
+def lock_plan(plan):
+    # Serializa operações do mesmo paciente nos bancos com row locks.
+    # SQLite serializa escritas; a unicidade condicional protege a ativação.
+    Patient.objects.select_for_update().get(pk=plan.patient_id)
+    return CarePlan.objects.select_for_update().get(pk=plan.pk)
+
+
+def validate_need(plan, need):
+    if need.assessment.patient_id != plan.patient_id or not need.is_active or need.status != 'IDENTIFIED':
+        raise ValidationError({'care_need': 'Selecione uma necessidade identificada ativa do paciente.'})
+    if plan.status == 'ACTIVE' and CarePlanNeed.objects.filter(care_need=need,
+            removed_at__isnull=True, care_plan__status='ACTIVE').exclude(care_plan=plan).exists():
+        raise ValidationError({'care_need': 'A necessidade já está vinculada a outro plano ativo.'})
+
+
+@transaction.atomic
+def attach_need(*, actor, plan, need):
+    require_role(actor, 'MEDICO')
+    plan = lock_plan(plan)
+    need = CareNeed.objects.select_for_update().get(pk=need.pk)
+    validate_need(plan, need)
+    before = snapshot(plan)
+    link = CarePlanNeed.objects.create(care_plan=plan, care_need=need)
+    plan.updated_by = actor
+    plan.save(update_fields=['updated_by', 'updated_at'])
+    record(plan, actor, 'Inclusão de necessidade', before, 'ADD_NEED')
+    return link
+
+
+@transaction.atomic
+def change_status(*, actor, plan, target):
+    plan = lock_plan(plan)
+    transitions = {
+        (CarePlanStatus.DRAFT, CarePlanStatus.ACTIVE): ('MEDICO',),
+        (CarePlanStatus.ACTIVE, CarePlanStatus.CLOSED): ('MEDICO', 'ENFERMEIRO'),
+        (CarePlanStatus.CLOSED, CarePlanStatus.ACTIVE): ('MEDICO', 'ENFERMEIRO'),
+    }
+    roles = transitions.get((plan.status, target))
+    if roles is None:
+        raise ValidationError({'status': 'Transição de status inválida.'})
+    require_role(actor, *roles)
+    if target == CarePlanStatus.ACTIVE:
+        links = list(plan.need_links.filter(removed_at__isnull=True).select_related('care_need__assessment'))
+        if not links:
+            raise ValidationError({'needs': 'O plano precisa de ao menos uma necessidade.'})
+        for link in links:
+            validate_need(plan, link.care_need)
+            if not link.required_professional_id or not link.frequency_quantity or not link.frequency_period:
+                raise ValidationError({'needs': 'Configure profissional e frequência de todas as necessidades antes de ativar.'})
+    before = snapshot(plan)
+    plan.status = target
+    plan.updated_by = actor
+    plan.full_clean()
+    plan.save(update_fields=['status', 'updated_by', 'updated_at'])
+    record(plan, actor, f'Status: {before["status"]} → {target}', before, 'STATUS')
+    return plan
+
+
+def close_plan(*, actor, plan):
+    """Encerramento preserva datas informadas, vínculos e situação clínica."""
+    return change_status(actor=actor, plan=plan, target=CarePlanStatus.CLOSED)
+
+
+@transaction.atomic
+def remove_need(*, actor, link, reason):
+    require_role(actor, 'MEDICO')
+    reason = (reason or '').strip()
+    if not reason:
+        raise ValidationError({'reason': 'Informe o motivo da remoção.'})
+    plan = lock_plan(link.care_plan)
+    link = CarePlanNeed.objects.select_for_update().get(pk=link.pk, care_plan=plan)
+    if link.removed_at:
+        raise ValidationError({'need': 'Este vínculo já foi removido.'})
+    from care_scales.models import ScaleNeed
+    if ScaleNeed.objects.filter(plan_need=link, removed_at__isnull=True, scale__deleted_at__isnull=True).exists():
+        raise ValidationError({'need': 'Remova esta necessidade das escalas antes de retirá-la do plano.'})
+    before = snapshot(plan)
+    link.removed_at = timezone.now()
+    link.removal_reason = reason
+    link.removed_by = actor
+    link.save(update_fields=['removed_at', 'removal_reason', 'removed_by', 'updated_at'])
+    plan.updated_by = actor
+    plan.save(update_fields=['updated_by', 'updated_at'])
+    record(plan, actor, f'Remoção de necessidade: {reason}', before, 'REMOVE_NEED')
+    return link
+
+
+@transaction.atomic
+def update_plan(*, actor, plan, data):
+    require_role(actor, 'MEDICO')
+    if set(data) - {'start_date', 'end_date', 'objective'}:
+        raise ValidationError('Campos não editáveis nesta operação.')
+    plan = lock_plan(plan)
+    before = snapshot(plan)
+    for field, value in data.items():
+        setattr(plan, field, value)
+    plan.updated_by = actor
+    plan.full_clean()
+    plan.save()
+    record(plan, actor, 'Edição do plano', before)
+    return plan
+
+
+@transaction.atomic
+def configure_need(*, actor, link, data):
+    require_role(actor, 'MEDICO')
+    from .serializers import NeedConfigurationSerializer
+    # Revalida dentro da transação também para chamadas diretas do serviço.
+    payload = dict(data)
+    for field in ('required_professional',):
+        if hasattr(payload.get(field), 'pk'):
+            payload[field] = payload[field].pk
+    if 'resources' in payload:
+        payload['resources'] = [{**item, 'resource': getattr(item['resource'], 'pk', item['resource'])}
+                                for item in payload['resources']]
+    serializer = NeedConfigurationSerializer(data=payload)
+    serializer.is_valid(raise_exception=True)
+    data = dict(serializer.validated_data)
+    plan = lock_plan(link.care_plan)
+    link = CarePlanNeed.objects.select_for_update().get(pk=link.pk, care_plan=plan)
+    if link.removed_at:
+        raise ValidationError({'need': 'Não é possível configurar um vínculo removido.'})
+    before = snapshot(plan)
+    resources = data.pop('resources', None)
+    for field, value in data.items():
+        setattr(link, field, value)
+    link.save()
+    if resources is not None:
+        link.resources.all().delete()
+        for item in resources:
+            CarePlanNeedResource.objects.create(plan_need=link, **item)
+    plan.updated_by = actor
+    plan.save(update_fields=['updated_by', 'updated_at'])
+    record(plan, actor, 'Configuração da necessidade', before, 'CONFIGURE_NEED')
+    return link
 
 
 @transaction.atomic
@@ -51,5 +200,5 @@ def create_plan(*, actor, patient=None, start_date=None, needs=None, objective='
     plan.save()
     for need in needs:
         CarePlanNeed.objects.create(care_plan=plan, care_need=need)
-    record(plan, actor, 'Criação do plano', {})
+    record(plan, actor, 'Criação do plano', {}, 'CREATE')
     return plan

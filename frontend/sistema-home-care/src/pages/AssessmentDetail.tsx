@@ -22,7 +22,7 @@ import { getPatient } from "../lib/patients";
 function Field({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <dt className="text-xs font-medium text-gray-500 uppercase">{label}</dt>
+      <dt className="text-xs font-medium text-muted uppercase">{label}</dt>
       <dd className="mt-0.5 text-sm whitespace-pre-wrap">{value || "—"}</dd>
     </div>
   );
@@ -134,13 +134,13 @@ export function AssessmentDetail() {
   }, [id]);
 
   useEffect(() => {
-    void load();
+    void Promise.resolve().then(load);
   }, [load]);
 
   if (loading) {
     return (
       <div className="mx-auto max-w-3xl p-6">
-        <p className="text-sm text-gray-600">Carregando…</p>
+        <p className="text-sm text-ink">Carregando…</p>
       </div>
     );
   }
@@ -151,7 +151,7 @@ export function AssessmentDetail() {
         <p role="alert" className="mb-3 text-sm text-red-600">
           {error ?? "Avaliação não encontrada."}
         </p>
-        <Link to="/pacientes" className="text-sm text-blue-600 underline">
+        <Link to="/pacientes" className="text-sm text-primary underline">
           Voltar para pacientes
         </Link>
       </div>
@@ -167,7 +167,7 @@ export function AssessmentDetail() {
           <h1 className="text-2xl font-semibold">
             Avaliação #{assessment.id}
           </h1>
-          <p className="mt-1 text-sm text-gray-600">
+          <p className="mt-1 text-sm text-ink">
             {patientName} · {assessment.assessment_date ?? "—"} ·{" "}
             {(assessment.assessment_time ?? "").slice(0, 5)}
           </p>
@@ -175,14 +175,14 @@ export function AssessmentDetail() {
         <div className="flex shrink-0 gap-2">
           <Link
             to={`/pacientes/${assessment.patient}/avaliacoes`}
-            className="rounded border border-gray-300 px-3 py-1.5 text-sm"
+            className="rounded border border-line px-3 py-1.5 text-sm"
           >
             Histórico
           </Link>
           {editable && (
             <Link
               to={`/avaliacoes/${assessment.id}/editar`}
-              className="rounded border border-gray-300 px-3 py-1.5 text-sm"
+              className="rounded border border-line px-3 py-1.5 text-sm"
             >
               Editar
             </Link>
@@ -190,7 +190,7 @@ export function AssessmentDetail() {
         </div>
       </div>
 
-      <section className="mb-4 rounded-lg bg-white p-4 shadow">
+      <section className="mb-4 rounded-lg bg-surface p-4 shadow">
         <h2 className="mb-3 text-sm font-semibold">Dados da avaliação</h2>
         <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="Tipo" value={assessment.assessment_type} />
@@ -219,14 +219,14 @@ export function AssessmentDetail() {
         </dl>
       </section>
 
-      <section className="mb-4 rounded-lg bg-white p-4 shadow">
+      <section className="mb-4 rounded-lg bg-surface p-4 shadow">
         <h2 className="mb-3 text-sm font-semibold">
           Necessidades ({assessment.care_needs.length})
         </h2>
         {needError && <p role="alert" className="mb-2 text-sm text-red-600">{needError}</p>}
         {needMessage && <p role="status" className="mb-2 text-sm text-green-700">{needMessage}</p>}
         {assessment.care_needs.length === 0 ? (
-          <p className="text-sm text-gray-600">Nenhuma necessidade registrada.</p>
+          <p className="text-sm text-ink">Nenhuma necessidade registrada.</p>
         ) : (
           <ul className="space-y-2">
             {assessment.care_needs.map((n) => (
@@ -238,10 +238,10 @@ export function AssessmentDetail() {
                 {NEED_PRIORITIES.find((p) => p.value === n.priority)?.label ??
                   n.priority}{" "}
                 · {n.status === "IDENTIFIED" ? "Identificada" : n.status}
-                <span className={`ml-2 rounded px-2 py-0.5 ${n.is_active ? "bg-green-100" : "bg-gray-200"}`}>
+                <span className={`ml-2 rounded px-2 py-0.5 ${n.is_active ? "bg-green-100" : "bg-line"}`}>
                   {n.is_active ? "Ativa" : "Inativa"}
                 </span>
-                {n.inactivated_at && <p className="mt-1 text-gray-600">Inativada em {new Date(n.inactivated_at).toLocaleString("pt-BR")}</p>}
+                {n.inactivated_at && <p className="mt-1 text-ink">Inativada em {new Date(n.inactivated_at).toLocaleString("pt-BR")}</p>}
                 <div className="mt-2 flex gap-2">
                   {isClinical(user?.groups) && user?.permissions.includes("necessidades.update") && (
                     <button type="button" disabled={busyNeed !== null || editingNeed !== null} onClick={() => {
@@ -267,7 +267,7 @@ export function AssessmentDetail() {
                 </div>
                 {editingNeed === n.id && <NeedEditForm need={n} onSave={savedNeed} onCancel={() => setEditingNeed(null)} />}
                 {history[n.id] && busyNeed !== n.id && (
-                  <ul className="mt-2 space-y-1 text-gray-600">
+                  <ul className="mt-2 space-y-1 text-ink">
                     {history[n.id].length === 0 && <li>Nenhuma alteração de situação registrada.</li>}
                     {history[n.id].map((event) => <li key={event.id}>
                       {event.action === "REACTIVATE" ? "Reativada" : "Inativada"} por {event.actor_name} em {new Date(event.created_at).toLocaleString("pt-BR")} · {event.snapshot.description}
@@ -280,12 +280,12 @@ export function AssessmentDetail() {
         )}
       </section>
 
-      <section className="rounded-lg bg-white p-4 shadow">
+      <section className="rounded-lg bg-surface p-4 shadow">
         <h2 className="mb-3 text-sm font-semibold">
           Recursos ({assessment.assessment_resources.length})
         </h2>
         {assessment.assessment_resources.length === 0 ? (
-          <p className="text-sm text-gray-600">Nenhum recurso associado.</p>
+          <p className="text-sm text-ink">Nenhum recurso associado.</p>
         ) : (
           <ul className="space-y-2">
             {assessment.assessment_resources.map((r) => (
