@@ -143,3 +143,10 @@ class NeedTypeCatalogSerializer(serializers.ModelSerializer):
         model = NeedType
         fields = ("id", "name", "description", "status")
         read_only_fields = fields
+
+
+class NeedTypeManagementSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = NeedType
+        fields = ("id", "name", "description", "status")
+        read_only_fields = ("id", "status")

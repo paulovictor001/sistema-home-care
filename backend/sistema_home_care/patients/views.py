@@ -32,7 +32,7 @@ from accounts.permissions import (
 from accounts.validators import normalize_cpf
 
 from .models import HealthCondition, NeedType, NeedTypeStatus, Patient, PatientAuditAction, PatientStatus
-from .serializers import HealthConditionSerializer, NeedTypeCatalogSerializer, PatientSerializer
+from .serializers import HealthConditionSerializer, NeedTypeCatalogSerializer, NeedTypeManagementSerializer, PatientSerializer
 from .audit import log_patient_event
 
 # Gerente + equipe clinica (leitura e edicao clinica).
@@ -233,6 +233,21 @@ class NeedTypeCatalogViewSet(viewsets.ReadOnlyModelViewSet):
                 {"status": "Use 'ativo', 'inativo' ou 'todos'."}
             )
         return queryset
+class NeedTypeManagementViewSet(
+    mixins.ListModelMixin,
+    mixins.CreateModelMixin,
+    mixins.UpdateModelMixin,
+    viewsets.GenericViewSet,
+):
+    """Gerenciamento de tipos de necessidade exclusivo do gerente."""
+
+    serializer_class = NeedTypeManagementSerializer
+    queryset = NeedType.objects.all().order_by("name")
+    permission_classes = [
+        IsGerente,
+        RequirePermission("tipos_necessidade.manage"),
+    ]
+    pagination_class = None
 
 class NeedTypeStatusView(APIView):
     """Altera o status de um tipo de necessidade de forma idempotente (TA-78)."""
@@ -241,8 +256,10 @@ class NeedTypeStatusView(APIView):
     permission_classes = [IsCareTeam, RequirePermission("tipos_necessidade.manage")]
 
     def get_permissions(self):
-        from assessments.permissions import type_management_permissions
-        return type_management_permissions()
+        return [
+            IsGerente(),
+            RequirePermission("tipos_necessidade.manage")(),
+        ]
 
     def post(self, request, pk):
         need_type = get_object_or_404(NeedType, pk=pk)

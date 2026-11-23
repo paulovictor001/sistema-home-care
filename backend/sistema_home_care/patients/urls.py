@@ -4,6 +4,7 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     HealthConditionViewSet,
     NeedTypeCatalogViewSet,
+    NeedTypeManagementViewSet,
     NeedTypeInactivateView,
     NeedTypeReactivateView,
     PatientViewSet,
@@ -15,6 +16,13 @@ router.register(r"pacientes", PatientViewSet, basename="paciente")
 router.register(
     r"tipos-necessidade", NeedTypeCatalogViewSet, basename="tipo-necessidade"
 )
+
+router.register(
+    r"gerenciar-tipos-necessidade",
+    NeedTypeManagementViewSet,
+    basename="gerenciar-tipos-necessidade",
+)
+
 
 urlpatterns = router.urls + [
     path(
