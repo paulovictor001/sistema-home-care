@@ -223,7 +223,10 @@ export function Professions() {
           </thead>
           <tbody>
             {professions.map((p) => (
-              <tr key={p.id} className="border-b border-line last:border-0">
+              <tr
+                key={p.id}
+                className="border-b border-line transition-colors hover:bg-line/20 last:border-0"
+              >
                 <td className="px-4 py-3 font-medium text-ink">
                   {editingId === p.id ? (
                     <form

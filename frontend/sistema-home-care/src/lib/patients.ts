@@ -192,19 +192,39 @@ export function canManagePatientAssignments(user: PatientAccessUser | null | und
 
 /** Erros 400 por campo vindos do DRF (`{campo: [msgs]}` ou `{detail}`). */
 export function parseFieldErrors(message: string): Record<string, string[]> {
+  function extractMessages(value: unknown): string[] {
+    if (typeof value === "string" || typeof value === "number") {
+      return [String(value)];
+    }
+
+    if (Array.isArray(value)) {
+      return value.flatMap(extractMessages);
+    }
+
+    if (value && typeof value === "object") {
+      return Object.values(value).flatMap(extractMessages);
+    }
+
+    return [];
+  }
+
   try {
     const body = JSON.parse(message) as unknown;
+
     if (body && typeof body === "object" && !Array.isArray(body)) {
       const out: Record<string, string[]> = {};
+
       for (const [key, value] of Object.entries(
         body as Record<string, unknown>,
       )) {
-        out[key] = Array.isArray(value) ? value.map(String) : [String(value)];
+        out[key] = extractMessages(value);
       }
+
       return out;
     }
   } catch {
-    // Cai no retorno abaixo: mensagem genérica.
+    // Retorna a mensagem genérica abaixo.
   }
+
   return { detail: [message] };
 }

@@ -27,7 +27,11 @@ export function UserDetail() {
         if (!cancelled) setUser(data);
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof ApiError ? err.message : "Falha ao carregar usuário.");
+          setError(
+            err instanceof ApiError
+              ? err.message
+              : "Falha ao carregar usuário.",
+          );
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -65,38 +69,74 @@ export function UserDetail() {
     }
   }
 
-  if (loading) return <p className="text-sm text-muted">Carregando…</p>;
-  if (error && !user) return <p role="alert" className="text-sm text-red-600">{error}</p>;
+  if (loading) {
+    return (
+      <div className="rounded-xl border border-line bg-surface p-6 text-sm text-muted">
+        Carregando dados do usuário...
+      </div>
+    );
+  }
+
+  if (error && !user) {
+    return (
+      <div
+        role="alert"
+        className="rounded-xl border border-red-200 bg-red-50 p-5 text-sm text-red-700"
+      >
+        <p className="font-semibold">Não foi possível carregar o usuário</p>
+        <p className="mt-1">{error}</p>
+        <Link
+          to="/usuarios"
+          className="mt-3 inline-block font-medium underline"
+        >
+          Voltar para usuários
+        </Link>
+      </div>
+    );
+  }
+
   if (!user) return null;
 
   const fullName =
     `${user.first_name} ${user.last_name}`.trim() || `Usuário #${user.id}`;
 
   return (
-    <div className="mx-auto max-w-2xl">
-      <div className="mb-4 flex items-center justify-between">
-        <Link to="/usuarios" className="text-sm text-primary hover:underline">
-          ← Voltar
+    <div className="mx-auto max-w-4xl space-y-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Link
+          to="/usuarios"
+          className="text-sm font-medium text-primary hover:underline"
+        >
+          ← Voltar para usuários
         </Link>
+
         <Link
           to={`/usuarios/${user.id}/editar`}
-          className="rounded-lg border border-line bg-surface px-3 py-1.5 text-sm hover:bg-line"
+          className="rounded-lg border border-line bg-surface px-4 py-2 text-sm font-medium text-ink transition-colors hover:bg-background"
         >
-          Editar
+          Editar usuário
         </Link>
       </div>
 
       {error && (
-        <p role="alert" className="mb-3 text-sm text-red-600">
+        <div
+          role="alert"
+          className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+        >
           {error}
-        </p>
+        </div>
       )}
 
-      <div className="rounded-xl bg-surface p-5 shadow">
-        <div className="flex items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold text-ink">{fullName}</h2>
+      <section className="rounded-xl border border-line bg-surface p-5 shadow-sm sm:p-6">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <p className="text-sm text-muted">Detalhes do usuário</p>
+            <h2 className="mt-1 text-xl font-semibold text-ink">{fullName}</h2>
+            <p className="mt-1 text-sm text-muted">Cadastro #{user.id}</p>
+          </div>
+
           <span
-            className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
+            className={`rounded-full px-3 py-1 text-xs font-semibold ${
               user.is_active
                 ? "bg-green-100 text-green-800"
                 : "bg-line text-ink"
@@ -105,82 +145,152 @@ export function UserDetail() {
             {user.is_active ? "Ativo" : "Inativo"}
           </span>
         </div>
+      </section>
 
-        <dl className="mt-4 space-y-2 text-sm">
-          <div className="flex gap-2">
-            <dt className="w-28 shrink-0 text-muted">CPF</dt>
-            <dd className="text-ink">{formatCpf(user.cpf)}</dd>
+      <section className="rounded-xl border border-line bg-surface p-5 shadow-sm sm:p-6">
+        <div className="mb-5">
+          <h3 className="font-semibold text-ink">Dados de acesso</h3>
+          <p className="mt-1 text-sm text-muted">
+            Informações de identificação e acesso ao sistema.
+          </p>
+        </div>
+
+        <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+          <div>
+            <dt className="text-xs font-medium uppercase tracking-wide text-muted">
+              CPF
+            </dt>
+            <dd className="mt-1 break-words text-sm font-medium text-ink">
+              {formatCpf(user.cpf)}
+            </dd>
           </div>
-          <div className="flex gap-2">
-            <dt className="w-28 shrink-0 text-muted">E-mail</dt>
-            <dd className="text-ink">{user.email}</dd>
-          </div>
-          <div className="flex gap-2">
-            <dt className="w-28 shrink-0 text-muted">Categoria</dt>
-            <dd className="text-ink">{user.category_detail?.name ?? "—"}</dd>
-          </div>
-          <div className="flex gap-2">
-            <dt className="w-28 shrink-0 text-muted">Profissional</dt>
-            <dd className="text-ink">
-              {user.professional_detail
-                ? `${user.professional_detail.full_name} · ${user.professional_detail.profession.name}`
-                : "—"}
+
+          <div>
+            <dt className="text-xs font-medium uppercase tracking-wide text-muted">
+              E-mail
+            </dt>
+            <dd className="mt-1 break-words text-sm font-medium text-ink">
+              {user.email}
             </dd>
           </div>
         </dl>
+      </section>
 
-        <div className="mt-5 flex flex-wrap gap-2">
+      <section className="rounded-xl border border-line bg-surface p-5 shadow-sm sm:p-6">
+        <div className="mb-5">
+          <h3 className="font-semibold text-ink">Dados pessoais</h3>
+          <p className="mt-1 text-sm text-muted">
+            Categoria associada ao usuário.
+          </p>
+        </div>
+
+        <dl>
+          <div>
+            <dt className="text-xs font-medium uppercase tracking-wide text-muted">
+              Categoria
+            </dt>
+            <dd className="mt-1 text-sm font-medium text-ink">
+              {user.category_detail?.name ?? "—"}
+            </dd>
+          </div>
+        </dl>
+      </section>
+
+      <section className="rounded-xl border border-line bg-surface p-5 shadow-sm sm:p-6">
+        <div className="mb-5">
+          <h3 className="font-semibold text-ink">Vínculo profissional</h3>
+          <p className="mt-1 text-sm text-muted">
+            Informações do profissional associado ao cadastro.
+          </p>
+        </div>
+
+        <dl className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+          <div>
+            <dt className="text-xs font-medium uppercase tracking-wide text-muted">
+              Profissional
+            </dt>
+            <dd className="mt-1 break-words text-sm font-medium text-ink">
+              {user.professional_detail?.full_name ?? "—"}
+            </dd>
+          </div>
+
+          <div>
+            <dt className="text-xs font-medium uppercase tracking-wide text-muted">
+              Profissão
+            </dt>
+            <dd className="mt-1 break-words text-sm font-medium text-ink">
+              {user.professional_detail?.profession.name ?? "—"}
+            </dd>
+          </div>
+        </dl>
+      </section>
+
+      <section className="rounded-xl border border-line bg-surface p-5 shadow-sm sm:p-6">
+        <div className="mb-4">
+          <h3 className="font-semibold text-ink">Ações do usuário</h3>
+          <p className="mt-1 text-sm text-muted">
+            Gerencie a situação ou a exclusão deste cadastro.
+          </p>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
           {user.is_active ? (
             <button
               type="button"
               disabled={acting}
               onClick={() => void run(() => inativarUser(user.id))}
-              className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-1.5 text-sm text-amber-800 hover:bg-amber-100 disabled:opacity-50"
+              className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800 transition-colors hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Inativar (profissional junto)
+              Inativar usuário
             </button>
           ) : (
             <button
               type="button"
               disabled={acting}
               onClick={() => void run(() => reativarUser(user.id))}
-              className="rounded-lg border border-green-300 bg-green-50 px-3 py-1.5 text-sm text-green-800 hover:bg-green-100 disabled:opacity-50"
+              className="rounded-lg border border-green-300 bg-green-50 px-3 py-2 text-sm font-medium text-green-800 transition-colors hover:bg-green-100 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Reativar (profissional junto)
+              Reativar usuário
             </button>
           )}
+
           {!confirmDelete ? (
             <button
               type="button"
               disabled={acting}
               onClick={() => setConfirmDelete(true)}
-              className="rounded-lg border border-red-300 bg-red-50 px-3 py-1.5 text-sm text-red-700 hover:bg-red-100 disabled:opacity-50"
+              className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 transition-colors hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Excluir definitivamente
             </button>
           ) : (
-            <span className="flex flex-wrap items-center gap-2 rounded-lg border border-red-300 bg-red-50 px-3 py-1.5 text-sm text-red-700">
-              Exclui o usuário e o profissional. Confirmar?
+            <div className="flex w-full flex-wrap items-center gap-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+              <span className="flex-1">
+                Essa ação excluirá o usuário e o profissional associado. Deseja
+                continuar?
+              </span>
+
               <button
                 type="button"
                 disabled={acting}
                 onClick={() => void handleDelete()}
-                className="rounded bg-red-600 px-2 py-0.5 text-xs font-medium text-white hover:bg-red-700"
+                className="rounded-lg bg-red-600 px-3 py-2 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50"
               >
-                Sim, excluir
+                {acting ? "Excluindo..." : "Sim, excluir"}
               </button>
+
               <button
                 type="button"
                 disabled={acting}
                 onClick={() => setConfirmDelete(false)}
-                className="rounded border border-red-300 px-2 py-0.5 text-xs hover:bg-red-100"
+                className="rounded-lg border border-red-300 px-3 py-2 text-xs font-medium hover:bg-red-100 disabled:opacity-50"
               >
                 Cancelar
               </button>
-            </span>
+            </div>
           )}
         </div>
-      </div>
+      </section>
     </div>
   );
 }
