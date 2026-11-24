@@ -41,6 +41,56 @@ class NeedStatus(models.TextChoices):
     IDENTIFIED = "IDENTIFIED", "Identificada"
 
 
+class NeedTypeStatus(models.TextChoices):
+    ACTIVE = "ACTIVE", "Ativo"
+    INACTIVE = "INACTIVE", "Inativo"
+
+
+INITIAL_NEED_TYPES = [
+    "Enfermagem",
+    "Fisioterapia",
+    "Médico",
+    "Nutrição",
+    "Terapia Ocupacional",
+    "Fonoaudiologia",
+    "Psicologia",
+    "Outro",
+]
+
+
+class NeedType(models.Model):
+    """Catálogo de tipos da necessidade identificada (RF-NEC-004/013-015)."""
+
+    name = models.CharField(max_length=100, unique=True)
+    description = models.CharField(max_length=255, blank=True)
+    status = models.CharField(
+        max_length=10,
+        choices=NeedTypeStatus.choices,
+        default=NeedTypeStatus.ACTIVE,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "need_types"
+        ordering = ["name"]
+
+    def clean(self):
+        super().clean()
+        self.name = (self.name or "").strip()
+        self.description = (self.description or "").strip()
+        if not self.name:
+            raise ValidationError({"name": "Nome é obrigatório."})
+
+    def save(self, *args, **kwargs):
+        self.name = (self.name or "").strip()
+        self.description = (self.description or "").strip()
+        return super().save(*args, **kwargs)
+
+    def __str__(self):
+        return self.name
+
+
 class RequestOrigin(models.TextChoices):
     """Origem da solicitacao (TA-41/TASK-AVL-MOD-005, RN-AVL-004).
 
@@ -144,6 +194,32 @@ class PatientAssessment(models.Model):
         return f"Avaliação #{self.pk} de {self.patient_id}"
 
 
+class AssessmentAuditAction(models.TextChoices):
+    CREATE = "CREATE", "Criação"
+    UPDATE = "UPDATE", "Edição"
+    PROFESSIONAL_CHANGE = "PROFESSIONAL_CHANGE", "Troca de responsável"
+
+
+class PatientAssessmentAuditLog(models.Model):
+    assessment = models.ForeignKey(
+        PatientAssessment, on_delete=models.PROTECT, related_name="audit_logs"
+    )
+    actor = models.ForeignKey(
+        "accounts.User", null=True, blank=True, on_delete=models.SET_NULL
+    )
+    actor_name = models.CharField(max_length=255)
+    action = models.CharField(max_length=24, choices=AssessmentAuditAction.choices)
+    changes = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = "patient_assessment_audit_logs"
+        ordering = ["-created_at", "-pk"]
+
+    def __str__(self):
+        return f"PatientAssessmentAuditLog #{self.pk} {self.action}"
+
+
 class CareNeed(models.Model):
     """Necessidade identificada na avaliacao (TA-42/TASK-AVL-MOD-002).
 
@@ -158,7 +234,7 @@ class CareNeed(models.Model):
         related_name="care_needs",
     )
     need_type = models.ForeignKey(
-        "patients.NeedType",
+        "assessments.NeedType",
         on_delete=models.PROTECT,
         related_name="care_needs",
     )

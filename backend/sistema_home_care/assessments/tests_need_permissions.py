@@ -2,7 +2,7 @@
 from django.test import TestCase
 from rest_framework.test import APIClient
 from accounts.models import GranularPermission
-from patients.models import NeedType
+from assessments.models import NeedType
 from .models import CareNeed, PatientAssessment
 from .tests_api import make_api_users, make_patient, auth_client, GERENTE_CPF, MEDICO_CPF, ENFERMEIRO_CPF, SEM_GRUPO_CPF
 
@@ -124,3 +124,58 @@ class NeedAuthorizationTests(TestCase):
         request.user = self.users[MEDICO_CPF]
         request.user.category.permissions.remove(GranularPermission.objects.get(codename='tipos_necessidade.manage'))
         self.assertFalse(model_admin.has_change_permission(request))
+
+    def test_gerente_keeps_assessment_nested_need_visibility(self):
+        client = auth_client(self.users[GERENTE_CPF])
+        response = client.get(f"/api/avaliacoes/{self.assessment.pk}/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["care_needs"][0]["id"], self.need.pk)
+
+
+class NeedTypeManagementAPITests(TestCase):
+    def setUp(self):
+        self.users = make_api_users()
+        self.url = "/api/tipos-necessidade/"
+
+    def test_three_profiles_can_create_and_edit_types(self):
+        for cpf in (GERENTE_CPF, MEDICO_CPF, ENFERMEIRO_CPF):
+            with self.subTest(cpf=cpf):
+                client = auth_client(self.users[cpf])
+                response = client.post(self.url, {
+                    "name": f" Tipo de {cpf} ", "description": "  Descrição  ",
+                }, format="json")
+                self.assertEqual(response.status_code, 201)
+                self.assertEqual(response.data["name"], f"Tipo de {cpf}")
+                self.assertEqual(response.data["description"], "Descrição")
+                self.assertEqual(response.data["status"], "ACTIVE")
+                response = client.patch(f"{self.url}{response.data['id']}/", {
+                    "name": f"Atualizado {cpf}", "description": "Nova descrição",
+                }, format="json")
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.data["name"], f"Atualizado {cpf}")
+
+    def test_type_name_is_required_and_unique(self):
+        client = auth_client(self.users[MEDICO_CPF])
+        self.assertEqual(client.post(self.url, {"name": "   "}, format="json").status_code, 400)
+        self.assertEqual(client.post(self.url, {"name": "Enfermagem"}, format="json").status_code, 400)
+
+    def test_inactive_type_can_be_edited_without_becoming_active(self):
+        kind = NeedType.objects.get(name="Enfermagem")
+        kind.status = "INACTIVE"
+        kind.save()
+        client = auth_client(self.users[MEDICO_CPF])
+        response = client.patch(f"{self.url}{kind.pk}/", {"description": "Atualizada"}, format="json")
+        self.assertEqual(response.status_code, 200)
+        kind.refresh_from_db()
+        self.assertEqual(kind.description, "Atualizada")
+        self.assertEqual(kind.status, "INACTIVE")
+
+    def test_type_mutations_require_profile_and_manage_permission(self):
+        other = self.users[SEM_GRUPO_CPF]
+        other.category.permissions.add(*GranularPermission.objects.all())
+        payload = {"name": "Tipo sem grupo", "description": "Teste"}
+        self.assertEqual(auth_client(other).post(self.url, payload, format="json").status_code, 403)
+        self.assertEqual(APIClient().post(self.url, payload, format="json").status_code, 401)
+        manager = self.users[GERENTE_CPF]
+        manager.category.permissions.remove(GranularPermission.objects.get(codename="tipos_necessidade.manage"))
+        self.assertEqual(auth_client(manager).post(self.url, payload, format="json").status_code, 403)

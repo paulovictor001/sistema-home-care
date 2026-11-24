@@ -11,8 +11,7 @@ export function listHealthConditions(): Promise<HealthCondition[]> {
 
 export function createHealthCondition(name: string): Promise<HealthCondition> {
   return apiJson<HealthCondition>("/api/condicoes-saude/", {
-    method: "POST",
-    json: { name },
+    method: "POST", json: { name },
   });
 }
 
@@ -42,8 +41,10 @@ export interface Patient {
   gender: string;
   status: PatientStatus;
   responsible_doctor: number | null;
+  responsible_doctor_name: string | null;
   responsible_team: unknown;
   health_condition: number | null;
+  health_condition_name: string | null;
   address: PatientAddress | null;
   created_at: string;
   updated_at: string;
@@ -170,7 +171,26 @@ export function isGerente(groups: string[] | undefined): boolean {
   return groups?.includes("GERENTE") ?? false;
 }
 
-/** Erros 400 por campo vindos do DRF ({campo: [msgs]} ou {detail}). */
+export interface PatientAccessUser {
+  groups: string[];
+  permissions: string[];
+}
+
+export function canViewPatients(user: PatientAccessUser | null | undefined): boolean {
+  return !!user && user.groups.some((group) => ["GERENTE", "MEDICO", "ENFERMEIRO"].includes(group))
+    && user.permissions.includes("pacientes.view");
+}
+
+export function canUpdatePatientClinically(user: PatientAccessUser | null | undefined): boolean {
+  return !!user && user.groups.some((group) => ["GERENTE", "MEDICO", "ENFERMEIRO"].includes(group))
+    && user.permissions.includes("pacientes.update_clinical");
+}
+
+export function canManagePatientAssignments(user: PatientAccessUser | null | undefined): boolean {
+  return isGerente(user?.groups) && !!user?.permissions.includes("pacientes.update_manager");
+}
+
+/** Erros 400 por campo vindos do DRF (`{campo: [msgs]}` ou `{detail}`). */
 export function parseFieldErrors(message: string): Record<string, string[]> {
   function extractMessages(value: unknown): string[] {
     if (typeof value === "string" || typeof value === "number") {

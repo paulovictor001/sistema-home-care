@@ -1,6 +1,11 @@
 ﻿import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { apiJson } from "../lib/api";
+import {
+  changeNeedTypeStatus,
+  createNeedType,
+  updateNeedType,
+} from "../lib/assessments";
 
 interface NeedType {
   id: number;
@@ -20,7 +25,7 @@ export function NeedTypes() {
   async function loadTypes() {
     try {
       const data = await apiJson<NeedType[] | { results: NeedType[] }>(
-        "/api/gerenciar-tipos-necessidade/?page_size=100",
+        "/api/tipos-necessidade/?status=todos",
       );
 
       setTypes(Array.isArray(data) ? data : data.results);
@@ -66,21 +71,14 @@ export function NeedTypes() {
 
     try {
       if (editingId) {
-        await apiJson(`/api/gerenciar-tipos-necessidade/${editingId}/`, {
-          method: "PATCH",
-          json: {
-            name: name.trim(),
-            description: description.trim(),
-          },
+        await updateNeedType(editingId, {
+          name: name.trim(),
+          description: description.trim(),
         });
       } else {
-        await apiJson("/api/gerenciar-tipos-necessidade/", {
-          method: "POST",
-          json: {
-            name: name.trim(),
-            description: description.trim(),
-            status: "ACTIVE",
-          },
+        await createNeedType({
+          name: name.trim(),
+          description: description.trim(),
         });
       }
 
@@ -100,11 +98,7 @@ export function NeedTypes() {
     setError("");
 
     try {
-      const action = item.status === "ACTIVE" ? "inativar" : "reativar";
-
-      await apiJson(`/api/tipos-necessidade/${item.id}/${action}/`, {
-        method: "POST",
-      });
+      await changeNeedTypeStatus(item.id, item.status !== "ACTIVE");
 
       await loadTypes();
     } catch (err) {

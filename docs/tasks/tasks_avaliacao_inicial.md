@@ -89,15 +89,17 @@ Novo app `assessments` (`patient_assessments`, `care_needs`,
 - `PatientAssessment` (TA-40): FK `patient` PROTECT (histórico
   RN-AVL-006), `professional` FK PROTECT nullable (obrigatoriedade no
   endpoint, TASK-AVL-BE-002), `assessment_type` default "Avaliação
-  inicial" (TA-43), `request_origin` livre com `TODO(TA-41)` — domínio
-  configurado por outro responsável para não conflitar no merge; sem
-  campo status (RN-AVL-010).
+  inicial" (TA-43), `request_origin` padronizada em Família, Médico,
+  Hospital, Clínica e Outro (TA-41; `assessments/0002`); sem campo
+  status (RN-AVL-010).
 - `CareNeed` (TA-42): FK `assessment` CASCADE + `need_type` FK PROTECT
   p/ `NeedType` (histórico preservado), `description`/`priority`
   obrigatórias, `status` default `Identificada` (TA-46).
 - `Resource` stub mínimo + `AssessmentResource` (TA-44):
   `resource` FK PROTECT + `quantity` ≥ 1 + `observation`.
 - `NeedPriority` Baixa/Média/Alta/Urgente (TA-45).
+- Recursos mantêm modelo mínimo (`name` + timestamps); Gerente administra pela API e tela Recursos. Estoque/logística permanecem fora do escopo.
+- `PatientAssessmentAuditLog` registra CREATE, UPDATE e PROFESSIONAL_CHANGE com ator e valores anteriores/novos; gravação transacional e consulta administrativa somente leitura.
 - Cobertura `assessments/tests.py` (18 testes). Regressão:
   `python manage.py test assessments patients accounts --noinput`.
 

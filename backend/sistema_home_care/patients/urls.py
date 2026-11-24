@@ -1,38 +1,8 @@
-from django.urls import path
 from rest_framework.routers import DefaultRouter
 
-from .views import (
-    HealthConditionViewSet,
-    NeedTypeCatalogViewSet,
-    NeedTypeManagementViewSet,
-    NeedTypeInactivateView,
-    NeedTypeReactivateView,
-    PatientViewSet,
-)
+from .views import HealthConditionViewSet, PatientViewSet
 
 router = DefaultRouter()
 router.register(r"condicoes-saude", HealthConditionViewSet, basename="condicao-saude")
 router.register(r"pacientes", PatientViewSet, basename="paciente")
-router.register(
-    r"tipos-necessidade", NeedTypeCatalogViewSet, basename="tipo-necessidade"
-)
-
-router.register(
-    r"gerenciar-tipos-necessidade",
-    NeedTypeManagementViewSet,
-    basename="gerenciar-tipos-necessidade",
-)
-
-
-urlpatterns = router.urls + [
-    path(
-        "tipos-necessidade/<int:pk>/inativar/",
-        NeedTypeInactivateView.as_view(),
-        name="need-type-inactivate",
-    ),
-    path(
-        "tipos-necessidade/<int:pk>/reativar/",
-        NeedTypeReactivateView.as_view(),
-        name="need-type-reactivate",
-    ),
-]
+urlpatterns = router.urls

@@ -18,7 +18,7 @@ from rest_framework import serializers
 from professionals.models import Professional
 
 from .models import Category, GranularPermission, Profession, UserAuditAction
-from .services import create_managed_user, log_user_event
+from .services import create_managed_user, log_user_event, save_profession
 from .validators import is_valid_cpf, normalize_cpf
 
 User = get_user_model()
@@ -40,6 +40,7 @@ class CategorySerializer(serializers.ModelSerializer):
         required=False,
     )
     users_count = serializers.IntegerField(read_only=True)
+    profession_name = serializers.CharField(source="profession.name", read_only=True)
 
     class Meta:
         model = Category
@@ -49,12 +50,17 @@ class CategorySerializer(serializers.ModelSerializer):
             "permissions",
             "permission_ids",
             "users_count",
+            "profession_name",
             "created_at",
             "updated_at",
         )
         read_only_fields = ("id", "created_at", "updated_at")
 
     def update(self, instance, validated_data):
+        if Profession.objects.filter(category=instance).exists() and "name" in validated_data:
+            raise serializers.ValidationError(
+                {"name": "O nome desta categoria acompanha a profissão associada."}
+            )
         permission_ids = validated_data.pop("permission_ids", None)
         instance = super().update(instance, validated_data)
         if permission_ids is not None:
@@ -64,6 +70,16 @@ class CategorySerializer(serializers.ModelSerializer):
 
 class ProfessionSerializer(serializers.ModelSerializer):
     professionals_count = serializers.IntegerField(read_only=True)
+
+    def validate_name(self, value):
+        categories = Category.objects.filter(name=value)
+        if self.instance is not None:
+            categories = categories.exclude(pk=self.instance.category_id)
+        if categories.exists():
+            raise serializers.ValidationError(
+                "Já existe uma categoria avulsa com esse nome."
+            )
+        return value
 
     class Meta:
         model = Profession
@@ -76,7 +92,18 @@ class ProfessionSerializer(serializers.ModelSerializer):
             "updated_at",
         )
         read_only_fields = ("id", "created_at", "updated_at")
-    # Categoria espelho e criada em `Profession.save()` (sem permissoes).
+
+    def create(self, validated_data):
+        try:
+            return save_profession(**validated_data)
+        except ValueError as exc:
+            raise serializers.ValidationError({"name": str(exc)})
+
+    def update(self, instance, validated_data):
+        try:
+            return save_profession(profession=instance, **validated_data)
+        except ValueError as exc:
+            raise serializers.ValidationError({"name": str(exc)})
 
 
 class ProfessionalReadSerializer(serializers.ModelSerializer):

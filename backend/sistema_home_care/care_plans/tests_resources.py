@@ -6,7 +6,7 @@ from django.db.models import ProtectedError
 from django.utils import timezone
 from assessments.models import CareNeed, PatientAssessment, Resource
 from assessments.tests_api import make_patient
-from patients.models import NeedType
+from assessments.models import NeedType
 from .models import CarePlan, CarePlanNeed, CarePlanNeedResource
 
 

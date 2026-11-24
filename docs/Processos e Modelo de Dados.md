@@ -43,7 +43,7 @@ Atendimento
 Evolução
 ```
 
-Nesta versão, o detalhamento está concentrado nos processos entre **cadastro do paciente** e **plano de cuidados**. A escala/agendamento e a visita aparecem como continuidade do fluxo e serão aprofundadas nas próximas etapas da documentação.
+O detalhamento implementado inclui cadastro do paciente, avaliação, necessidades, plano de cuidados, escala e Agendamento. Agendamento persiste a ocorrência como `Visit`; as ações específicas de Visita e o Registro do Atendimento ainda estão em consolidação/implementação.
 
 ---
 
@@ -559,6 +559,8 @@ O plano responde à pergunta:
 
 > **Como a empresa vai atender as necessidades identificadas?**
 
+A aprovação do plano ocorre quando o Médico ativa o rascunho. O paciente deve possuir plano ativo antes da criação de uma escala; essa verificação pertence ao processo de Escala.
+
 ---
 
 ## 7.2 O que inicia um plano de cuidados?
@@ -592,25 +594,23 @@ Equipamento → necessário
 
 ## 7.3 Entidade principal — `care_plans`
 
-`care_plans` representa o plano inteiro criado para organizar o atendimento do paciente.
+`care_plans` representa o plano inteiro criado para organizar o atendimento do paciente. O modelo implementado vincula o plano diretamente ao paciente; não armazena avaliação de origem nem responsável separado. Os status são Rascunho, Ativo e Encerrado. Planos encerrados continuam editáveis e aceitam alterações de vínculos por Médico ou Enfermeiro.
 
 | Campo | Função |
 |---|---|
 | `id` | Identificador |
 | `patient_id` | Paciente |
-| `assessment_id` | Avaliação que originou o plano |
-| `responsible_professional_id` | Responsável pelo plano |
 | `start_date` | Início |
 | `end_date` | Término |
-| `status` | Rascunho / ativo / suspenso / encerrado |
+| `status` | Rascunho / ativo / encerrado |
 | `objective` | Objetivo geral |
-| `observations` | Observações |
 | `created_at` | Data de criação |
 | `updated_at` | Data de atualização |
+| `created_by` / `updated_by` | Usuários que criaram e atualizaram o plano |
 
 ---
 
-## 7.4 Cuidados do plano — `care_plan_items`
+## 7.4 Necessidades do plano — `care_plan_needs`
 
 É importante separar o plano inteiro de cada cuidado existente dentro dele.
 
@@ -622,20 +622,16 @@ Plano #001
 └── Acompanhamento médico
 ```
 
-O `care_plan` representa o conjunto. O `care_plan_item` representa cada cuidado individual.
+O `CarePlan` representa o conjunto. Cada `CarePlanNeed` associa uma necessidade identificada existente ao plano, mantém seu histórico de remoção lógica e guarda a configuração específica daquela necessidade. Um plano deve manter ao menos uma necessidade vigente; Médico e Enfermeiro podem vincular, configurar e remover necessidades, inclusive em plano encerrado.
 
 | Campo | Função |
 |---|---|
 | `id` | Identificador |
 | `care_plan_id` | Plano de cuidados |
 | `care_need_id` | Necessidade relacionada |
-| `name` | Nome do cuidado |
-| `description` | Descrição |
-| `frequency` | Frequência |
-| `start_date` | Início |
-| `end_date` | Término |
-| `status` | Ativo / encerrado |
-| `observations` | Observações |
+| `required_professional_id` | Profissional específico e ativo necessário |
+| `frequency_quantity` / `frequency_period` | Quantidade e período (dia, semana ou mês) |
+| `removed_at` / `removal_reason` / `removed_by` | Remoção lógica, motivo e autor |
 
 ### Exemplo
 
@@ -657,9 +653,9 @@ Frequência: conforme necessidade
 
 ---
 
-## 7.5 Profissionais necessários — `care_plan_professionals`
+## 7.5 Recursos da necessidade — `care_plan_need_resources`
 
-Essa entidade registra quais tipos de profissionais são necessários para executar o plano e, quando fizer sentido, pode registrar um profissional específico.
+Essa entidade registra zero ou mais recursos necessários por vínculo de necessidade. O catálogo de recursos é gerenciado pela interface e API do sistema.
 
 É importante não confundir **profissional necessário** com **profissional agendado**.
 
@@ -675,39 +671,14 @@ São informações de momentos diferentes do processo.
 
 | Campo | Função |
 |---|---|
-| `id` | Identificador |
-| `care_plan_id` | Plano |
-| `professional_type` | Tipo de profissional |
-| `professional_id` | Profissional específico, se já definido |
-| `frequency` | Frequência |
-| `observations` | Observações |
-
----
-
-## 7.6 Recursos necessários — `care_plan_resources`
-
-Representa os recursos necessários para que o atendimento previsto no plano possa ser realizado.
-
-Pode envolver:
-
-- Medicamentos
-- Materiais
-- Equipamentos
-- Kits
-
-| Campo | Função |
-|---|---|
-| `id` | Identificador |
-| `care_plan_id` | Plano |
-| `resource_type` | Medicamento / material / equipamento |
+| `plan_need_id` | Vínculo da necessidade no plano |
 | `resource_id` | Recurso cadastrado |
 | `quantity` | Quantidade |
-| `frequency` | Frequência de utilização, quando aplicável |
-| `observations` | Observações |
+| `observation` | Observação |
 
 ---
 
-## 7.7 Histórico de alterações do plano
+## 7.6 Histórico de alterações do plano
 
 Como o plano pode ser atualizado ao longo do acompanhamento, alterações relevantes devem ser registradas para preservar o histórico.
 
@@ -853,7 +824,7 @@ Esta versão da documentação detalha principalmente:
 - Recursos do plano
 - Histórico de alterações do plano
 
-Os processos abaixo serão detalhados em documentos ou seções seguintes:
+Os processos abaixo ainda precisam de detalhamento completo ou implementação:
 
 - Escala
 - Agendamento
@@ -863,7 +834,7 @@ Os processos abaixo serão detalhados em documentos ou seções seguintes:
 - Reavaliação
 - Atualização do plano
 
-A escala/agendamento já possui uma definição conceitual inicial, mas ainda não está detalhada neste documento porque depende da definição completa das regras de disponibilidade dos profissionais, conflitos de agenda, frequência dos cuidados e organização das visitas.
+O processo Escala está detalhado em `docs/regras-de-negocio/regras_negocio_escala.md`, `docs/requisitos-do-sistema/requisitos_funcionais_escala.md` e `docs/tasks/tasks_escala.md`. A Escala responde quem realizará as necessidades do Plano de Cuidados; Agendamento define quando e onde. A implementação de Agendamento já valida datas, horários, disponibilidade semanal, conflitos e origem em Escala/Plano, preservando snapshot de endereço e histórico. A operação da Visita e o Registro do Atendimento permanecem como etapas pendentes.
 
 ---
 
@@ -887,20 +858,19 @@ O modelo apresentado deve servir como base para desenvolvimento, mas alguns pont
 
 ### Plano de cuidados
 
-- Quem pode criar e alterar o plano.
-- Como o plano é aprovado.
+- Confirmados: Médico cria e edita o plano; a ativação pelo Médico representa sua aprovação. Médico e Enfermeiro gerenciam vínculos de necessidades.
 - Como as mudanças são registradas.
-- Quais tipos de frequência serão utilizados.
-- Quais recursos precisam de controle de estoque ou logística.
+- Frequências confirmadas: quantidade por dia, semana ou mês.
+- Controle de estoque e logística dos recursos permanece fora do escopo deste processo.
 
 ### Escala e agendamento
 
-- Horários de disponibilidade dos profissionais.
-- Regras para conflitos de agenda.
-- Regra de organização por região.
-- Duração padrão dos atendimentos.
-- Como substituições de profissionais serão tratadas.
-- Diferença entre escala e agendamento na operação real.
+- **Definido na Escala:** disponibilidade/região exibidas na Escala não bloqueiam a seleção do profissional. Substituições preservam o profissional anterior no histórico. A Escala define quem realizará cada necessidade e sua frequência; não cria visitas nem horários.
+- **Definido para Agendamento:** disponibilidade semanal estruturada por profissional (dias e uma ou mais janelas por dia) é bloqueante; sem configuração não há horário disponível. Usa-se horário local `America/Sao_Paulo`.
+- Conflitos de paciente e profissional usam intervalos `[início, fim)`: qualquer sobreposição conflita; visitas canceladas e não realizadas não bloqueiam.
+- Uma série recebe datas explicitamente selecionadas. A frequência da Escala determina a quantidade exata por semana (segunda a domingo) ou mês civil representado; cada ocorrência é validada separadamente e só as válidas são criadas.
+- A data de cada ocorrência deve estar dentro dos períodos do Plano e da Escala, com limites inclusivos. Não há antecedência mínima nem bloqueio especial para alteração/cancelamento próximos do horário.
+- O contrato que impede novos agendamentos quando a escala não está ativa está preparado no domínio Escala; sua efetivação ponta a ponta depende do consumidor no módulo Agendamento.
 
 ---
 
@@ -1083,7 +1053,7 @@ EVOLUÇÃO
 
 # 15. Estado atual da modelagem
 
-Até a etapa de plano de cuidados, as principais entidades levantadas são:
+As principais entidades dos processos implementados incluem:
 
 ```text
 patients
@@ -1091,12 +1061,68 @@ patient_addresses
 patient_assessments
 care_needs
 care_plans
-care_plan_items
-care_plan_professionals
-care_plan_resources
+care_plan_needs
+care_plan_need_resources
 care_plan_history
+care_scales
+care_scale_needs
+care_scale_assignments
+care_scale_audit_events
+care_scale_substitutions
+professional_planning_info
 ```
 
-Essas entidades representam a base inicial do domínio. A modelagem deve continuar sendo refinada conforme os processos forem validados e as próximas etapas — especialmente escala, agendamento, visita, atendimento e evolução — forem documentadas.
+`care_scales` representa a escala vinculada a paciente e plano; `care_scale_needs` registra os itens do plano e a frequência definida na escala; `care_scale_assignments` mantém os profissionais por necessidade. `care_scale_audit_events` guarda autor, data e snapshots das alterações, enquanto `care_scale_substitutions` preserva substituições. `professional_planning_info` mantém informações de região e disponibilidade usadas como apoio informativo pela Escala.
 
-> Este documento representa uma base funcional para o desenvolvimento. As decisões finais de campos, relacionamentos, regras de negócio e nomenclaturas devem ser confirmadas conforme a validação do processo real e a arquitetura técnica escolhida para o projeto.
+### Modelo implementado para Agendamento/Visit e decisões para Visita/Atendimento
+
+`Visit` é a própria ocorrência agendada e está persistida em `visits`, relacionada a paciente, Plano, `CarePlanNeed`, item da Escala e profissional herdado da atribuição vigente. Guarda data, início/fim programados, tipo único inicial (`Atendimento domiciliar`), status, observação, motivo de cancelamento, confirmação (autor/data), criação/atualização e autoria. O endereço usado é um snapshot integral por visita; corrigir o snapshot de uma visita não altera o cadastro nem outras visitas. `VisitHistory` preserva alterações relevantes com ator, instante e valores anterior/novo. As tarefas de Agendamento foram concluídas em 23/11/2026; início/fim operacionais e autoria de início/conclusão serão adicionados no processo Visita.
+
+`ProfessionalWeeklyAvailability` (ou estrutura equivalente) registra um ou mais intervalos locais por dia da semana para cada profissional. Agenda ausente bloqueia o agendamento. Intervalos são `[início, fim)`; canceladas e não realizadas não bloqueiam conflitos. Séries recebem datas explícitas, confrontadas com a frequência da Escala por período de calendário e validadas individualmente; ocorrências válidas persistem mesmo se outras falharem.
+
+Os estados são `AGENDADA`, `CONFIRMADA`, `EM_ATENDIMENTO`, `REALIZADA`, `CANCELADA` e `NÃO_REALIZADA`. Fluxo: `AGENDADA → CONFIRMADA → EM_ATENDIMENTO → REALIZADA`; de `AGENDADA` ou `CONFIRMADA` também se pode ir para `CANCELADA` ou `NÃO_REALIZADA`. Canceladas/não realizadas são terminais e preservadas. `REALIZADA` e o registro clínico pertencem à fronteira do processo Atendimento. Não há exclusão física ou lógica: retirar da agenda significa cancelar com motivo.
+
+Permissões de Agendamento: `agendamentos.create`, `view`, `update`, `delete` e `status`; no MVP são concedidas inicialmente ao Gerente e podem ser atribuídas às demais categorias pelo gerenciamento de permissões. A permissão `delete` não apaga visitas; cancelamento é a operação de retirada preservando histórico. Ações próprias da Visita terão permissões granulares `visitas.view`, `update`, `confirm`, `cancel`, `start`, `finish` e `not_realized`, concedidas inicialmente ao Gerente. Confirmação, cancelamento e não realização aceitam Gerente ou usuário com a permissão da ação. Início e conclusão são restritos ao profissional responsável pela ocorrência; conclusão só é feita pelo fluxo de Atendimento após o registro exigido.
+
+### Registro do Atendimento (decisão consolidada)
+
+O Atendimento é um registro separado e obrigatório para concluir uma visita como `REALIZADA`. O registro pertence a uma única `Visit` e deve manter paciente e profissional coerentes com ela. O mínimo necessário é uma descrição obrigatória dos cuidados/procedimentos efetivamente realizados; observações adicionais são opcionais. O profissional responsável registra o atendimento e conclui sua própria visita. O Atendimento preserva autor e data/hora e não incorpora evolução ou interpretação clínica automática. Registros não são apagados; alterações relevantes mantêm histórico.
+
+> Para Plano de Cuidados, o modelo descrito na seção 7 e as regras específicas em `docs/regras-de-negocio/regras_negocio_plano_cuidados.md` prevalecem sobre versões anteriores desta seção. As regras finais refletem decisões de processo validadas.
+
+---
+
+# 16. Processo — Gerenciamento de Usuários
+
+## 16.1 Objetivo e fonte de regras
+
+O processo controla contas de acesso, suas categorias, permissões e o vínculo com profissionais. As regras detalhadas são mantidas em `docs/regras-de-negocio/regras_usuarios.md` (referência por seção, sem IDs formais) e os requisitos em `docs/requisitos-do-sistema/requisitos_usuarios.md`.
+
+O cadastro e a autenticação de usuário não substituem o cadastro oficial de profissionais. Até a implementação desse módulo, o sistema usa a entidade mínima `Professional` descrita abaixo.
+
+## 16.2 Fluxo e regras consolidadas
+
+O Gerente cria uma conta por CPF e senha, e-mail, categoria e profissional. Pode associar um profissional livre ou criar o vínculo profissional no mesmo fluxo. O login usa CPF e senha; a sessão usa cookies HttpOnly. A categoria determina as permissões granulares, que são administradas pelo Gerente.
+
+- Cada usuário deve ter exatamente um profissional vinculado; profissionais sem usuário continuam permitidos.
+- O usuário não troca o profissional associado. A exclusão definitiva remove a conta e seu profissional quando não há referências protegidas. Se existirem referências, a operação é bloqueada com explicação; não se apagam registros clínicos ou operacionais para forçar a exclusão.
+- Cada profissão possui exatamente uma categoria correspondente. Criar profissão cria sua categoria sem permissões; renomear profissão renomeia a categoria na mesma transação. A categoria conserva suas permissões. Categorias correspondentes a profissões não podem ser excluídas independentemente.
+- Mudança de profissão transfere a categoria do usuário associado para a categoria da profissão de destino. Profissões com profissionais vinculados não podem ser inativadas ou excluídas; a transferência deve ocorrer antes.
+- Inativar/reativar usuário sincroniza o status do profissional sem apagar o vínculo.
+- Recuperação de senha por e-mail faz parte do MVP e requer SMTP configurável por ambiente; credenciais não pertencem ao repositório.
+- A auditoria permanece mínima, sem tela de histórico nesta etapa.
+
+## 16.3 Entidades e relações
+
+```text
+User (accounts_user) ── 1:1 obrigatório ── Professional (professionals)
+     └── FK obrigatória ── Category ── M2M ── GranularPermission
+Professional ── FK obrigatória ── Profession ── 1:1 ── Category
+UserAuditLog ── referências opcionais ao usuário/ator, preservadas após exclusão
+```
+
+`Professional` contém apenas nome, profissão e status enquanto o módulo oficial não estiver disponível. O vínculo permite profissionais livres sem conta, mas toda conta de usuário deve estar vinculada a um profissional. A exclusão de conta com referências protegidas é bloqueada e explicada.
+
+## 16.4 Limites
+
+Política de senha além dos validadores vigentes, MFA, expiração de sessão, retenção detalhada de auditoria e campos completos de profissionais permanecem fora das decisões deste processo. Agendamento, visita, atendimento e evolução são tratados em seus próprios processos.

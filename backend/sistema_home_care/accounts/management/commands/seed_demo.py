@@ -9,13 +9,14 @@ from django.db import transaction
 from django.utils import timezone
 
 from accounts.models import Category, GranularPermission, Profession, User
-from accounts.services import create_managed_user, set_user_status
+from accounts.services import create_managed_user, save_profession, set_user_status
 from assessments.models import AssessmentResource, CareNeed, PatientAssessment, Resource
 from care_plans import services as plans
 from care_plans.models import CarePlan
 from care_scales import services as scales
 from care_scales.models import CareScale, ProfessionalPlanningInfo
-from patients.models import HealthCondition, NeedType, Patient, PatientAuditLog
+from assessments.models import NeedType
+from patients.models import HealthCondition, Patient, PatientAuditLog
 from patients.serializers import PatientSerializer
 from professionals.models import Professional
 
@@ -92,8 +93,10 @@ class Command(BaseCommand):
         users, professionals = {}, {}
         created_users = 0
         for index, (key, name, profession_name) in enumerate(PROFILES, 1):
-            profession, _ = Profession.objects.get_or_create(name=profession_name)
-            category = Category.objects.get(name=profession_name)
+            profession = Profession.objects.filter(name=profession_name).first()
+            if profession is None:
+                profession = save_profession(name=profession_name)
+            category = profession.category
             if key == 'coordenador':
                 category.permissions.add(*GranularPermission.objects.filter(feature='escalas'))
             user = User.objects.filter(cpf=demo_cpf(index)).first()
@@ -180,10 +183,9 @@ class Command(BaseCommand):
                         plans.configure_need(actor=users['medico'], link=link,
                             data={'required_professional': professionals[key], 'frequency_quantity': 2,
                                 'frequency_period': 'WEEK', 'resources': [{'resource': resource, 'quantity': 1, 'observation': 'Exemplo de recurso planejado'}]})
-                    if plan_status != 'DRAFT':
-                        plans.change_status(actor=users['medico'], plan=plan, target='ACTIVE')
-                    if plan_status == 'CLOSED':
-                        plans.close_plan(actor=users['enfermeiro'], plan=plan)
+                    # Toda escala nasce vinculada a um plano ativo. O status final
+                    # demonstrativo do plano é aplicado depois da criação da escala.
+                    plans.change_status(actor=users['medico'], plan=plan, target='ACTIVE')
                     scale = scales.create_scale(actor=users['gerente'], patient=patient, care_plan=plan,
                         start_date=start, end_date=end, observation='Escala fictícia para apresentação; sem visitas ou horários agendados.')
                     items = []
@@ -207,6 +209,11 @@ class Command(BaseCommand):
                         scales.change_status(actor=users['gerente'], scale=scale, status='ACTIVE')
                     if scale_status in ('SUSPENDED', 'CLOSED'):
                         scales.change_status(actor=users['gerente'], scale=scale, status=scale_status)
+                    if plan_status == 'CLOSED':
+                        plans.close_plan(actor=users['enfermeiro'], plan=plan)
+                    elif plan_status == 'DRAFT':
+                        plan.status = 'DRAFT'
+                        plan.save(update_fields=['status', 'updated_at'])
             patient_report.append({'id': patient.pk, 'name': patient.full_name, 'cpf': patient.cpf,
                 'status': patient.status, 'plans': list(CarePlan.objects.filter(patient=patient).values('id', 'status')),
                 'scales': list(CareScale.objects.filter(patient=patient, deleted_at__isnull=True).values('id', 'status'))})

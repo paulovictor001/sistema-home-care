@@ -11,6 +11,7 @@
 - Sincronizar inativação/reativação com o profissional.
 - Permitir exclusão definitiva somente ao Gerente.
 - Excluir definitivamente o profissional vinculado junto com o usuário.
+- Bloquear exclusão definitiva se referências protegidas impedirem a operação e explicar o motivo ao gerente.
 
 ## 2. Autenticação
 - Implementar login por CPF e senha.
@@ -18,11 +19,13 @@
 - Impedir e-mail duplicado.
 - Exigir e-mail.
 - Disponibilizar recuperação de senha por e-mail.
+- Usar envio de e-mail configurável por ambiente; credenciais SMTP não são armazenadas no repositório.
 
 ## 3. Categorias
 - Criar categorias.
 - Permitir categorias sem usuários.
 - Garantir exatamente uma categoria por usuário.
+- Garantir relação 1:1 entre profissão e categoria correspondente; renomear ambas em conjunto e preservar as permissões da categoria.
 - Manter correspondência entre categoria e profissão.
 - Criar automaticamente uma categoria ao criar profissão.
 - Criar a nova categoria sem permissões.
@@ -47,4 +50,4 @@
 O cadastro e os campos específicos do profissional devem ser tratados pelo módulo oficial de Profissionais.
 
 ## 7. Pontos ainda não definidos
-Não foram definidos neste processo: política de senha, expiração de sessão, MFA, detalhes técnicos de recuperação de senha, auditoria detalhada e regras completas do cadastro de profissionais.
+Não foram definidos neste processo: política de senha além dos validadores existentes, expiração de sessão, MFA, retenção detalhada da auditoria e regras completas do cadastro de profissionais. Recuperação de senha integra o MVP; solicitar e confirmar a troca usa token de uso único com validade limitada, resposta que não revela se o e-mail existe e envio configurável por ambiente. As regras correspondentes estão em `docs/regras-de-negocio/regras_usuarios.md`, seções 2–8; o resumo e as relações do processo ficam na seção 16 de `docs/Processos e Modelo de Dados.md`.

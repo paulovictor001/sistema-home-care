@@ -12,6 +12,9 @@ import {
 export function Professions() {
   const [professions, setProfessions] = useState<Profession[]>([]);
   const [newName, setNewName] = useState("");
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingName, setEditingName] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
   const [transferFrom, setTransferFrom] = useState("");
   const [transferTo, setTransferTo] = useState("");
   const [loading, setLoading] = useState(true);
@@ -25,8 +28,7 @@ export function Professions() {
   }
 
   useEffect(() => {
-    Promise.resolve()
-      .then(refresh)
+    Promise.resolve().then(refresh)
       .catch((err) =>
         setError(err instanceof ApiError ? err.message : "Falha ao carregar."),
       )
@@ -45,9 +47,7 @@ export function Professions() {
       await refresh();
       setNotice("Profissão criada (categoria correspondente sem permissões).");
     } catch (err) {
-      setError(
-        err instanceof ApiError ? err.message : "Falha ao criar profissão.",
-      );
+      setError(err instanceof ApiError ? err.message : "Falha ao criar profissão.");
     } finally {
       setSaving(false);
     }
@@ -65,6 +65,35 @@ export function Professions() {
           ? err.message
           : "Falha ao alterar status. Transfira os profissionais antes.",
       );
+    }
+  }
+
+  function startEditing(p: Profession) {
+    setEditingId(p.id);
+    setEditingName(p.name);
+    setError(null);
+    setNotice(null);
+  }
+
+  async function handleRename(e: React.FormEvent, p: Profession) {
+    e.preventDefault();
+    const name = editingName.trim();
+    if (!name) {
+      setError("Informe o nome da profissão.");
+      return;
+    }
+    setSavingEdit(true);
+    setError(null);
+    setNotice(null);
+    try {
+      await updateProfession(p.id, { name });
+      await refresh();
+      setEditingId(null);
+      setNotice("Profissão e categoria correspondente atualizadas.");
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Falha ao atualizar profissão.");
+    } finally {
+      setSavingEdit(false);
     }
   }
 
@@ -91,10 +120,7 @@ export function Professions() {
     setError(null);
     setNotice(null);
     try {
-      const result = await transferProfession(
-        Number(transferFrom),
-        Number(transferTo),
-      );
+      const result = await transferProfession(Number(transferFrom), Number(transferTo));
       setTransferFrom("");
       setTransferTo("");
       await refresh();
@@ -102,36 +128,17 @@ export function Professions() {
         `${result.transferidos} profissional(is) transferido(s). As categorias dos usuários foram atualizadas.`,
       );
     } catch (err) {
-      setError(
-        err instanceof ApiError ? err.message : "Falha na transferência.",
-      );
+      setError(err instanceof ApiError ? err.message : "Falha na transferência.");
     } finally {
       setSaving(false);
     }
   }
 
-  if (loading) {
-    return (
-      <div className="mx-auto max-w-6xl rounded-xl border border-line bg-surface p-6 shadow-sm">
-        <p className="text-sm font-semibold text-ink">
-          Carregando profissões...
-        </p>
-        <p className="mt-1 text-sm text-muted">
-          Aguarde enquanto buscamos os dados cadastrados.
-        </p>
-      </div>
-    );
-  }
+  if (loading) return <p className="text-sm text-muted">Carregando…</p>;
 
   return (
     <div className="mx-auto max-w-6xl">
-      <div className="mb-6">
-        <h2 className="text-xl font-semibold text-ink">Profissões</h2>
-        <p className="mt-1 text-sm text-muted">
-          Gerencie as profissões cadastradas e organize os vínculos dos
-          profissionais.
-        </p>
-      </div>
+      <h2 className="mb-4 text-lg font-semibold text-ink">Profissões</h2>
 
       {error && (
         <p role="alert" className="mb-3 text-sm text-red-600">
@@ -142,13 +149,13 @@ export function Professions() {
 
       <form
         onSubmit={handleCreate}
-        className="mb-5 flex flex-col gap-4 rounded-xl border border-line bg-surface p-5 shadow-sm sm:flex-row sm:items-end"
+        className="mb-4 flex flex-col gap-2 rounded-xl bg-surface p-4 shadow sm:flex-row"
       >
         <input
           value={newName}
           onChange={(e) => setNewName(e.target.value)}
           placeholder="Nova profissão (ex.: Fisioterapeuta)"
-          className="w-full flex-1 rounded-lg border border-line bg-white px-3 py-2.5 text-sm text-ink outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+          className="flex-1 rounded-lg border border-line px-3 py-2 text-sm"
         />
         <button
           type="submit"
@@ -161,7 +168,7 @@ export function Professions() {
 
       <form
         onSubmit={handleTransfer}
-        className="mb-5 grid grid-cols-1 gap-4 rounded-xl border border-line bg-surface p-5 shadow-sm sm:grid-cols-4 sm:items-end"
+        className="mb-4 grid grid-cols-1 gap-2 rounded-xl bg-surface p-4 shadow sm:grid-cols-4"
       >
         <label className="block">
           <span className="mb-1 block text-sm font-medium text-ink">De</span>
@@ -204,10 +211,10 @@ export function Professions() {
         </div>
       </form>
 
-      <div className="overflow-x-auto rounded-xl border border-line bg-surface shadow-sm">
+      <div className="overflow-x-auto rounded-xl bg-surface shadow">
         <table className="w-full min-w-[640px] text-left text-sm">
           <thead>
-            <tr className="border-b border-line bg-line/30 text-xs tracking-wide text-muted uppercase">
+            <tr className="border-b border-line text-xs tracking-wide text-muted uppercase">
               <th className="px-4 py-3 font-semibold">Nome</th>
               <th className="px-4 py-3 font-semibold">Profissionais</th>
               <th className="px-4 py-3 font-semibold">Status</th>
@@ -220,10 +227,39 @@ export function Professions() {
                 key={p.id}
                 className="border-b border-line transition-colors hover:bg-line/20 last:border-0"
               >
-                <td className="px-4 py-3 font-medium text-ink">{p.name}</td>
-                <td className="px-4 py-3 text-ink">
-                  {p.professionals_count ?? "—"}
+                <td className="px-4 py-3 font-medium text-ink">
+                  {editingId === p.id ? (
+                    <form
+                      onSubmit={(e) => void handleRename(e, p)}
+                      className="flex flex-wrap items-center gap-2"
+                    >
+                      <input
+                        aria-label={`Nome da profissão ${p.name}`}
+                        autoFocus
+                        maxLength={100}
+                        value={editingName}
+                        onChange={(e) => setEditingName(e.target.value)}
+                        className="min-w-40 rounded-lg border border-line px-3 py-1.5 text-sm"
+                      />
+                      <button
+                        type="submit"
+                        disabled={savingEdit || !editingName.trim()}
+                        className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
+                      >
+                        {savingEdit ? "Salvando…" : "Salvar"}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={savingEdit}
+                        onClick={() => setEditingId(null)}
+                        className="rounded-lg border border-line px-3 py-1.5 text-xs disabled:opacity-50"
+                      >
+                        Cancelar
+                      </button>
+                    </form>
+                  ) : p.name}
                 </td>
+                <td className="px-4 py-3 text-ink">{p.professionals_count ?? "—"}</td>
                 <td className="px-4 py-3">
                   <span
                     className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
@@ -239,15 +275,23 @@ export function Professions() {
                   <div className="flex justify-end gap-2">
                     <button
                       type="button"
+                      onClick={() => startEditing(p)}
+                      disabled={savingEdit}
+                      className="rounded-lg border border-line px-3 py-1.5 text-xs hover:bg-line disabled:opacity-50"
+                    >
+                      Editar nome
+                    </button>
+                    <button
+                      type="button"
                       onClick={() => void handleToggleActive(p)}
-                      className="rounded-lg border border-line px-3 py-2 text-xs font-medium text-ink transition hover:bg-line/50"
+                      className="rounded-lg border border-line px-3 py-1.5 text-xs hover:bg-line"
                     >
                       {p.is_active ? "Inativar" : "Reativar"}
                     </button>
                     <button
                       type="button"
                       onClick={() => void handleDelete(p)}
-                      className="rounded-lg border border-red-200 px-3 py-2 text-xs font-medium text-red-700 transition hover:bg-red-50"
+                      className="rounded-lg border border-red-300 px-3 py-1.5 text-xs text-red-700 hover:bg-red-50"
                     >
                       Excluir
                     </button>
@@ -259,9 +303,8 @@ export function Professions() {
         </table>
       </div>
       <p className="mt-3 text-xs text-muted">
-        Profissão com profissionais vinculados não pode ser inativada nem
-        excluída: transfira-os antes. Profissionais transferidos permanecem
-        ativos.
+        Profissão com profissionais vinculados não pode ser inativada nem excluída:
+        transfira-os antes. Profissionais transferidos permanecem ativos.
       </p>
     </div>
   );

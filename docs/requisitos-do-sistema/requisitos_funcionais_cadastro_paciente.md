@@ -64,11 +64,13 @@ O cadastro deve solicitar os dados definidos para esta etapa:
 -   idade;
 -   telefone;
 -   sexo;
--   status;
 -   médico responsável;
--   equipe responsável;
 -   doença/estado de saúde;
 -   endereço.
+
+O status inicial é definido pelo sistema como **Ativo**. A alteração do
+status é feita pelas operações de inativação e reativação. A equipe
+responsável é opcional nesta etapa.
 
 ------------------------------------------------------------------------
 
@@ -86,11 +88,12 @@ Os campos obrigatórios são:
 -   idade;
 -   telefone;
 -   sexo;
--   status;
 -   médico responsável;
--   equipe responsável;
 -   doença/estado de saúde;
 -   endereço.
+
+O status inicial é definido pelo sistema como **Ativo** e não é informado
+no formulário. A equipe responsável é opcional nesta etapa.
 
 ------------------------------------------------------------------------
 
@@ -328,7 +331,6 @@ definidos.
 Os seguintes pontos não devem ser tratados como requisitos fechados até
 que haja uma decisão:
 
--   valores permitidos para sexo;
 -   atualização automática da idade;
 -   possibilidade de múltiplas doenças/estados de saúde;
 -   estrutura completa da entidade doença/estado de saúde;

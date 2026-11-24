@@ -1,4 +1,4 @@
-import { Outlet, Route, Routes } from "react-router-dom";
+import { Navigate, Outlet, Route, Routes } from "react-router-dom";
 import { AppLayout } from "./components/AppLayout";
 import { RequireAuth } from "./components/RequireAuth";
 import { RequireGerente } from "./components/RequireGerente";
@@ -13,6 +13,7 @@ import { PatientDetail } from "./pages/PatientDetail";
 import { PatientForm } from "./pages/PatientForm";
 import { PatientsList } from "./pages/PatientsList";
 import { Professions } from "./pages/Professions";
+import { Resources } from "./pages/Resources";
 import { UserDetail } from "./pages/UserDetail";
 import { UserForm } from "./pages/UserForm";
 import { UsersList } from "./pages/UsersList";
@@ -20,6 +21,9 @@ import { CarePlans } from './pages/CarePlans';
 import { CarePlanDetail } from './pages/CarePlanDetail';
 import { CareScales } from './pages/CareScales';
 import { CareScaleDetail } from './pages/CareScaleDetail';
+import { useAuth } from "./contexts/useAuth";
+import { canManageNeedTypes } from "./lib/assessments";
+import { Visits } from "./pages/Visits";
 
 function ProtectedLayout() {
   return (
@@ -35,6 +39,11 @@ function GerenteOnly() {
       <Outlet />
     </RequireGerente>
   );
+}
+
+function NeedTypesOnly() {
+  const { user } = useAuth();
+  return canManageNeedTypes(user) ? <NeedTypes /> : <Navigate to="/" replace />;
 }
 
 function App() {
@@ -56,6 +65,8 @@ function App() {
         <Route path="/escalas" element={<CareScales />} />
         <Route path="/pacientes/:patientId/escalas" element={<CareScales />} />
         <Route path="/escalas/:id" element={<CareScaleDetail />} />
+        <Route path="/agendamentos" element={<Visits />} />
+        <Route path="/agendamentos/:id" element={<Visits />} />
         <Route
           path="/pacientes/:id/editar"
           element={<PatientForm mode="edit" />}
@@ -77,14 +88,15 @@ function App() {
           <Route path="/usuarios" element={<UsersList />} />
           <Route path="/usuarios/novo" element={<UserForm mode="create" />} />
           <Route path="/usuarios/:id" element={<UserDetail />} />
-          <Route path="/tipos" element={<NeedTypes />} />
           <Route
             path="/usuarios/:id/editar"
             element={<UserForm mode="edit" />}
           />
           <Route path="/categorias" element={<Categories />} />
           <Route path="/profissoes" element={<Professions />} />
+          <Route path="/recursos" element={<Resources />} />
         </Route>
+        <Route path="/tipos" element={<NeedTypesOnly />} />
       </Route>
     </Routes>
   );

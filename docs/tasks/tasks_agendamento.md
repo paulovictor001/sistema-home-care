@@ -1,157 +1,61 @@
 # Tasks — Agendamento
 
-## 1. Modelagem
+As etapas abaixo devem ser executadas sequencialmente. Cada etapa tem critérios de teste próprios; ao concluí-la, registrar os comandos e resultados e aguardar autorização para iniciar a próxima.
 
-- [ ] Revisar/implementar a entidade `visits` conforme o modelo definido.
-- [ ] Relacionar `visits` com paciente.
-- [ ] Relacionar `visits` com Plano de Cuidados.
-- [ ] Relacionar `visits` com item do Plano.
-- [ ] Relacionar `visits` com Escala.
-- [ ] Relacionar `visits` com profissional.
-- [ ] Relacionar `visits` com endereço do paciente.
-- [ ] Implementar data, horário inicial e horário final.
-- [ ] Implementar tipo de visita.
-- [ ] Implementar status.
-- [ ] Implementar observações.
-- [ ] Implementar datas de criação e atualização.
-- [ ] Criar estrutura simples para histórico de alterações relevantes.
+## Etapa 1 — Fundação de dados e disponibilidade
 
-## 2. Permissões
+- [x] Criar o app `visits`, modelos, constraints e migrations para `Visit`, `VisitHistory` e agenda semanal profissional.
+- [x] Modelar `Visit` como ocorrência agendada relacionada a paciente, plano, item do plano, escala e profissional herdado.
+- [x] Persistir endereço integral em snapshot, data, início/fim, tipo único, status, observação, cancelamento, confirmação, autoria e timestamps.
+- [x] Modelar uma ou mais janelas por dia da semana para cada profissional; ausência de configuração significa indisponível.
+- [x] Registrar permissões granulares `agendamentos.create`, `view`, `update`, `delete`, `status`; concedê-las inicialmente à categoria Gerente.
+- [x] Registrar app e rotas base no projeto sem ainda expor fluxos incompletos.
+- [x] Testar constraints, relações, snapshots, disponibilidade semanal e seed reversível das permissões; executar checks/migrations do Django.
 
-- [ ] Implementar permissão para criar agendamento.
-- [ ] Implementar permissão para editar agendamento.
-- [ ] Implementar permissão para visualizar agendamento.
-- [ ] Implementar permissão para excluir agendamento.
-- [ ] Implementar permissão para alterar status.
-- [ ] Respeitar o modelo de permissões granulares já utilizado no sistema.
+**Etapa 1 concluída em 23/11/2026.** Verificações: `python manage.py check`, `python manage.py makemigrations --check --dry-run`, `python manage.py test visits.tests_models --verbosity 2` (6 testes aprovados) e `python manage.py migrate` (migrations aplicadas). O teste também confirmou reversão e reaplicação do seed de permissões.
 
-## 3. Criação do agendamento
+## Etapa 2 — Serviços e regras de criação
 
-- [ ] Criar fluxo para selecionar Escala ativa.
-- [ ] Carregar dados relacionados da Escala.
-- [ ] Permitir informar data.
-- [ ] Permitir informar horário inicial.
-- [ ] Permitir informar horário final.
-- [ ] Permitir selecionar o endereço utilizado.
-- [ ] Informar o tipo de visita.
-- [ ] Permitir observação opcional.
-- [ ] Criar a visita com status `AGENDADA`.
+- [x] Consumir `care_scales.contracts.scheduling_requirement` e rejeitar escala inativa, plano encerrado ou vínculos sem profissional vigente.
+- [x] Validar datas dentro dos períodos do Plano e Escala, limites inclusivos.
+- [x] Validar início anterior ao fim e contenção integral na janela semanal do profissional, em `America/Sao_Paulo`.
+- [x] Validar conflitos de paciente e profissional com intervalos `[início, fim)`; ignorar somente visitas canceladas/não realizadas.
+- [x] Exigir endereço do paciente e inicializar snapshot; tipo inicial `Atendimento domiciliar`; observação opcional.
+- [x] Criar visita individual com estado `AGENDADA` e histórico/autoria.
+- [x] Testar limites temporais, escala/plano inválidos, disponibilidade, fronteiras de intervalo, conflitos, snapshot e permissões.
 
-## 4. Validações
+**Etapa 2 concluída em 23/11/2026.** Verificações: `python manage.py test visits --verbosity 1` (15 testes aprovados), `python manage.py check` e `python manage.py makemigrations --check --dry-run` sem problemas. O serviço valida período, agenda semanal, conflitos, autorização, endereço e grava histórico/autoria.
 
-- [ ] Validar se a Escala está ativa.
-- [ ] Validar se a data está dentro do período permitido pelo Plano.
-- [ ] Validar se a data está dentro do período da Escala.
-- [ ] Validar disponibilidade do profissional.
-- [ ] Impedir conflito de horário do profissional.
-- [ ] Impedir conflito de horário do paciente.
-- [ ] Validar horário inicial e final.
-- [ ] Validar existência de paciente, plano, escala e profissional.
-- [ ] Impedir agendamento para Escala encerrada.
-- [ ] Impedir agendamento para Escala suspensa.
-- [ ] Impedir agendamento para Plano encerrado.
+## Etapa 3 — Séries, edição e ciclo de estado
 
-## 5. Geração de agendamentos
+- [x] Receber datas explícitas para geração da série e exigir a quantidade exata da frequência em cada semana (segunda a domingo) ou mês civil representado.
+- [x] Validar cada ocorrência independentemente, criar as válidas e devolver erros por data para as inválidas, sem rollback das válidas.
+- [x] Permitir edição individual de data, horário, snapshot de endereço, tipo e observação; revalidar horário/disponibilidade/conflitos.
+- [x] Manter profissional herdado da atribuição vigente da Escala, sem alteração direta pela visita.
+- [x] Implementar transições: `AGENDADA → CONFIRMADA → EM_ATENDIMENTO`; também de `AGENDADA`/`CONFIRMADA` para `CANCELADA` ou `NÃO_REALIZADA`.
+- [x] Exigir motivo para cancelamento; registrar autor/data da confirmação; preservar terminais; `REALIZADA` pertence à integração com Atendimento.
+- [x] Não implementar exclusão física ou lógica; `delete` não apaga registros.
+- [x] Testar série parcial, quantidade por período, transições, motivo, autoria, edição e bloqueio de exclusão.
 
-- [ ] Implementar criação de um agendamento individual.
-- [ ] Implementar geração de múltiplos agendamentos a partir da frequência da Escala.
-- [ ] Aplicar as mesmas validações em cada ocorrência.
-- [ ] Permitir editar individualmente uma ocorrência gerada.
-- [ ] Evitar criação de ocorrências conflitantes.
+**Etapa 3 concluída em 23/11/2026.** Verificações: `python manage.py test visits --verbosity 1` (30 testes aprovados) e teste mensal adicional (1 aprovado); `python manage.py check` e `python manage.py makemigrations --check --dry-run` sem problemas.
 
-## 6. Edição
+## Etapa 4 — API e interface
 
-- [ ] Permitir editar data.
-- [ ] Permitir editar horário.
-- [ ] Permitir editar endereço utilizado.
-- [ ] Permitir editar tipo de visita.
-- [ ] Permitir editar observação.
-- [ ] Reexecutar validações após alteração de data/horário.
-- [ ] Não permitir alteração direta do profissional pelo Agendamento.
+- [x] Criar API para listar, filtrar, consultar, criar visita individual/série, editar, confirmar, iniciar, cancelar e marcar não realizada.
+- [x] Aplicar permissões granulares e serializar os dados herdados e o snapshot.
+- [x] Criar cliente frontend, rotas, listagem/filtros, formulário individual/série e detalhe da visita.
+- [x] Criar configuração de agenda semanal e exibir indisponibilidade para orientar o agendamento.
+- [x] Exibir ações conforme permissões e estados; pedir motivo no cancelamento; não oferecer exclusão.
+- [x] Testar endpoints, controles de acesso, fluxo integrado e build/lint do frontend.
 
-## 7. Status
+**Etapa 4 concluída em 23/11/2026.** API e interface implementadas. Verificações: `python manage.py test visits --verbosity 1` (36 testes aprovados), `python manage.py check`, `python manage.py makemigrations --check --dry-run`, `npm run build` e `npm run lint` (sem erros; aviso preexistente em `Resources.tsx`).
 
-- [ ] Implementar status `AGENDADA`.
-- [ ] Implementar status `CONFIRMADA`.
-- [ ] Implementar status `EM_ATENDIMENTO`.
-- [ ] Implementar status `REALIZADA`.
-- [ ] Implementar status `CANCELADA`.
-- [ ] Implementar status `NÃO_REALIZADA`.
-- [ ] Implementar regras de transição de status.
-- [ ] Registrar usuário e data/hora das alterações de status.
+## Etapa 5 — Integração e fechamento
 
-## 8. Cancelamento e não realização
+- [x] Verificar integração com Escala, Plano, Paciente/endereço e fronteira com Atendimento.
+- [x] Revisar histórico completo de alterações relevantes e resultados parciais da série.
+- [x] Executar a suíte de testes de Agendamento e os testes existentes impactados; corrigir regressões.
+- [x] Atualizar documentação/auditoria com evidências de implementação e execução.
+- [x] Confirmar que canceladas/não realizadas não são contadas como atendimentos realizados: não existe módulo nem consulta agregada de Atendimento implementada; os estados permanecem distintos e `REALIZADA` não pode ser definida pelo Agendamento.
 
-- [ ] Criar ação de cancelamento.
-- [ ] Exigir motivo do cancelamento.
-- [ ] Preservar a visita cancelada.
-- [ ] Criar ação para marcar visita como `NÃO_REALIZADA`.
-- [ ] Garantir que visitas canceladas/não realizadas não sejam tratadas como realizadas.
-
-## 9. Histórico
-
-- [ ] Registrar alterações relevantes.
-- [ ] Registrar usuário responsável pela alteração.
-- [ ] Registrar data/hora da alteração.
-- [ ] Registrar alterações de data.
-- [ ] Registrar alterações de horário.
-- [ ] Registrar alterações de endereço.
-- [ ] Registrar alterações de tipo.
-- [ ] Registrar alterações de status.
-- [ ] Registrar cancelamento.
-
-## 10. Interface
-
-- [ ] Criar listagem de agendamentos.
-- [ ] Criar filtros básicos de agendamento.
-- [ ] Criar formulário de criação.
-- [ ] Criar formulário de edição.
-- [ ] Exibir paciente.
-- [ ] Exibir profissional.
-- [ ] Exibir escala.
-- [ ] Exibir plano.
-- [ ] Exibir data e horário.
-- [ ] Exibir endereço.
-- [ ] Exibir tipo.
-- [ ] Exibir status.
-- [ ] Exibir observação.
-- [ ] Exibir ações conforme as permissões do usuário.
-- [ ] Criar tela/ação de confirmação.
-- [ ] Criar tela/ação de cancelamento.
-- [ ] Solicitar motivo ao cancelar.
-
-## 11. Testes
-
-- [ ] Testar permissões de criação.
-- [ ] Testar permissões de edição.
-- [ ] Testar permissões de visualização.
-- [ ] Testar permissões de exclusão.
-- [ ] Testar permissões de alteração de status.
-- [ ] Testar criação somente a partir de Escala ativa.
-- [ ] Testar data fora do período permitido.
-- [ ] Testar horário fora da disponibilidade.
-- [ ] Testar conflito do profissional.
-- [ ] Testar conflito do paciente.
-- [ ] Testar endereço preservado no histórico.
-- [ ] Testar geração individual.
-- [ ] Testar geração múltipla.
-- [ ] Testar edição de ocorrência individual.
-- [ ] Testar substituição de profissional somente pela Escala.
-- [ ] Testar transições de status.
-- [ ] Testar cancelamento com motivo obrigatório.
-- [ ] Testar visita não realizada.
-- [ ] Testar Escala suspensa.
-- [ ] Testar Escala encerrada.
-- [ ] Testar Plano encerrado.
-- [ ] Testar registro de histórico.
-- [ ] Testar confirmação.
-- [ ] Testar que visita cancelada/não realizada não seja considerada realizada.
-
-## 12. Integração
-
-- [ ] Integrar Agendamento com Escala.
-- [ ] Integrar Agendamento com Plano de Cuidados.
-- [ ] Integrar Agendamento com Paciente e endereço.
-- [ ] Integrar Agendamento com disponibilidade do profissional.
-- [ ] Preparar a saída do Agendamento para o processo de Visita.
-- [ ] Garantir que o Agendamento não implemente regras pertencentes ao Atendimento ou à Evolução.
+**Etapa 5 concluída em 23/11/2026.** Verificação integrada: `python manage.py test visits care_scales care_plans patients --verbosity 1` — 210 testes aprovados em 894s; `manage.py check` e `makemigrations --check --dry-run` sem problemas; frontend `npm run build` aprovado e `npm run lint` sem erros (um aviso preexistente em `Resources.tsx`). O código não contém contagem/agregação de atendimentos; a validação de `REALIZADA` fica para a integração futura com Atendimento, conforme a fronteira funcional estabelecida.

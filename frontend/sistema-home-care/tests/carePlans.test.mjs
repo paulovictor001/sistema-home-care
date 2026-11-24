@@ -23,6 +23,15 @@ test('plan access requires the permitted profile even with all granular permissi
   }
 });
 
+test('doctor and nurse can manage needs with the dedicated granular permission', () => {
+  const permission = ['view', 'manage_needs'];
+  for (const group of ['MEDICO', 'ENFERMEIRO']) {
+    assert.equal(plans.canManagePlanNeeds(user(group, permission)), true);
+    assert.equal(plans.canManagePlanNeeds(user(group, ['view'])), false);
+  }
+  assert.equal(plans.canManagePlanNeeds(user('GERENTE', permission)), false);
+});
+
 test('draft creation retains multiple selected needs and optional end date', async () => {
   const payload = { patient: 7, start_date: '2026-10-08', end_date: null, objective: '', needs: [2, 3] };
   await plans.createPlan(payload);

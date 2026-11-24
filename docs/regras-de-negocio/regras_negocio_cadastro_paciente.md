@@ -69,11 +69,15 @@ O cadastro deverá possuir os seguintes dados definidos para esta etapa:
 -   Idade;
 -   Telefone;
 -   Sexo;
--   Status;
 -   Médico responsável;
--   Equipe responsável;
 -   Doença/estado de saúde;
 -   Endereço.
+
+O status inicial será **Ativo**, definido pelo sistema. A alteração do
+status ocorre somente pelas operações de inativação e reativação.
+
+A equipe responsável é opcional nesta etapa, enquanto a entidade Equipe
+não estiver definida pelo módulo de profissionais.
 
 A documentação de processos também prevê e-mail e foto no modelo
 conceitual do paciente. Esses campos não foram definidos nas decisões de
@@ -323,9 +327,9 @@ Esses pontos pertencem a processos ainda não detalhados.
 
 O campo sexo faz parte do cadastro obrigatório.
 
-A lista exata de valores permitidos ainda não foi definida.
-
-**Status:** pendência de definição.
+Os valores permitidos são **Masculino**, **Feminino** e **Prefiro não
+dizer**. Registros legados com outros valores podem ser mantidos durante
+a edição, mas novos valores livres não são aceitos.
 
 ------------------------------------------------------------------------
 
@@ -361,18 +365,17 @@ Permanecem abertas as seguintes decisões:
 
 1.  Como a idade será atualizada automaticamente a partir da data de
     nascimento.
-2.  Quais valores o campo sexo aceitará.
-3.  Se um paciente poderá possuir mais de uma doença/estado de saúde.
-4.  Estrutura detalhada da entidade de doença/estado de saúde.
-5.  Quais campos de paciente podem ser editados por médicos e
+2.  Se um paciente poderá possuir mais de uma doença/estado de saúde.
+3.  Estrutura detalhada da entidade de doença/estado de saúde.
+4.  Quais campos de paciente podem ser editados por médicos e
     enfermeiros, além da restrição já definida para médico/equipe
     responsável.
-6.  Se todos os membros da equipe possuem exatamente o mesmo nível de
+5.  Se todos os membros da equipe possuem exatamente o mesmo nível de
     visualização.
-7.  Estrutura definitiva da entidade equipe.
-8.  Regras de bairro → região.
-9.  Se e-mail e foto farão parte do cadastro desta versão.
-10. Regras de auditoria específicas do cadastro.
+6.  Estrutura definitiva da entidade equipe.
+7.  Regras de bairro → região.
+8.  Se e-mail e foto farão parte do cadastro desta versão.
+9.  Regras de auditoria específicas do cadastro.
 
 ------------------------------------------------------------------------
 

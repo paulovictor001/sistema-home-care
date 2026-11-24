@@ -11,12 +11,12 @@ Definir as regras para o cadastro e gerenciamento das necessidades identificadas
 
 ## 3. Permissões
 - **Criar:** Médico e Enfermeiro.
-- **Visualizar:** Médico e Enfermeiro.
+- **Visualizar:** Médico e Enfermeiro no acesso direto às necessidades. O Gerente também visualiza as necessidades incluídas em avaliações que pode consultar (`avaliacoes.view`).
 - **Editar:** Médico e Enfermeiro.
 - **Excluir:** Médico e Enfermeiro.
 - **Inativar:** Gerente, Médico e Enfermeiro.
 
-A permissão de visualização do Gerente não foi definida neste escopo.
+O acesso direto do Gerente à lista, detalhe e histórico de necessidades não é concedido por esta regra.
 
 ## 4. Dados da Necessidade
 A necessidade possui:
@@ -48,6 +48,8 @@ Tipos iniciais:
 
 A administração dos tipos pode ser realizada por Gerente, Médico e Enfermeiro.
 
+A administração inclui criar e editar nome e descrição, além de ativar e inativar. O nome é obrigatório e único.
+
 O tipo possui situação ativa/inativa. Tipos inativos não podem ser selecionados para novas necessidades, mas seus vínculos históricos devem ser preservados.
 
 ## 6. Status
@@ -57,7 +59,8 @@ Os demais status e suas transições serão definidos posteriormente junto ao Pl
 
 ## 7. Exclusão e Inativação
 Exclusão e inativação são operações distintas.
-- A exclusão remove a necessidade conforme a persistência definida na implementação.
+- A necessidade pode ser excluída fisicamente quando não possuir histórico de situação nem vínculo com plano de cuidados.
+- Se houver histórico ou vínculo com plano, a exclusão deve ser recusada com mensagem clara. O usuário pode inativar o registro quando desejar preservá-lo.
 - A inativação mantém o registro e preserva seu histórico.
 - Uma necessidade inativada não deve ser tratada como ativa.
 
@@ -65,6 +68,8 @@ Exclusão e inativação são operações distintas.
 As necessidades identificadas serão utilizadas como base para o futuro Plano de Cuidados.
 
 Este documento não define criação, aprovação, execução ou alteração do Plano de Cuidados.
+
+Decisão complementar registrada em 22/11/2026: a edição de tipo, descrição ou prioridade continua permitida após vinculação a plano, mas deve apresentar aviso e solicitar confirmação antes de salvar. O plano passa a consultar os dados atualizados da necessidade.
 
 ## 9. Fora do escopo
 Não são definidas aqui regras de:

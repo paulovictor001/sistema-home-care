@@ -13,7 +13,7 @@ class ResourceConfigurationSerializer(serializers.Serializer):
 
 class NeedConfigurationSerializer(serializers.Serializer):
     """Configuração exige um profissional específico, inclusive sem usuário."""
-    required_professional = serializers.PrimaryKeyRelatedField(queryset=Professional.objects.all())
+    required_professional = serializers.PrimaryKeyRelatedField(queryset=Professional.objects.filter(is_active=True))
     frequency_quantity = serializers.IntegerField(min_value=1)
     frequency_period = serializers.ChoiceField(choices=FrequencyPeriod.choices)
     resources = ResourceConfigurationSerializer(many=True, required=False)
@@ -45,12 +45,15 @@ class PlanNeedSerializer(serializers.ModelSerializer):
 
 class PlanSerializer(serializers.ModelSerializer):
     patient_name = serializers.CharField(source='patient.full_name', read_only=True)
+    created_by_name = serializers.CharField(source='created_by.get_full_name', read_only=True, default=None)
+    updated_by_name = serializers.CharField(source='updated_by.get_full_name', read_only=True, default=None)
     need_links = PlanNeedSerializer(many=True, read_only=True)
 
     class Meta:
         model = CarePlan
         fields = ('id', 'patient', 'patient_name', 'status', 'start_date', 'end_date',
-            'objective', 'created_by', 'updated_by', 'created_at', 'updated_at', 'need_links')
+            'objective', 'created_by', 'created_by_name', 'updated_by', 'updated_by_name',
+            'created_at', 'updated_at', 'need_links')
         read_only_fields = fields
 
 

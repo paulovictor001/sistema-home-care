@@ -16,7 +16,8 @@ from django.test import TestCase
 from rest_framework.test import APIClient
 
 from accounts.models import Category, GranularPermission
-from patients.models import NeedType, Patient
+from assessments.models import NeedType
+from patients.models import Patient
 
 from .models import (
     AssessmentResource,
@@ -109,6 +110,10 @@ class AssessmentCreateAPITests(TestCase):
         assessment = PatientAssessment.objects.get()
         self.assertEqual(assessment.assessment_type, AssessmentType.INITIAL)
         self.assertEqual(assessment.patient_id, self.patient.pk)
+        event = assessment.audit_logs.get()
+        self.assertEqual(event.action, "CREATE")
+        self.assertEqual(event.actor, self.users[MEDICO_CPF])
+        self.assertEqual(event.changes["new"]["patient_id"], self.patient.pk)
 
     def test_enfermeiro_creates_assessment(self):
         client = auth_client(self.users[ENFERMEIRO_CPF])
@@ -180,7 +185,6 @@ class AssessmentCreateAPITests(TestCase):
         client = auth_client(self.users[MEDICO_CPF])
         for origin in ("Família", "Médico", "Hospital", "Clínica", "Outro"):
             with self.subTest(origin=origin):
-                PatientAssessment.objects.all().delete()
                 payload = self._payload(request_origin=origin)
                 response = client.post(
                     "/api/avaliacoes/", payload, format="json"
@@ -295,6 +299,9 @@ class AssessmentUpdateAPITests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assessment.refresh_from_db()
         self.assertEqual(self.assessment.chief_complaint, "Dor atualizada")
+        event = self.assessment.audit_logs.get()
+        self.assertEqual(event.action, "UPDATE")
+        self.assertEqual(event.changes["chief_complaint"], {"old": "Dor lombar", "new": "Dor atualizada"})
 
     def test_enfermeiro_can_edit(self):
         client = auth_client(self.users[ENFERMEIRO_CPF])
@@ -305,6 +312,25 @@ class AssessmentUpdateAPITests(TestCase):
         )
         self.assertEqual(response.status_code, 200)
 
+    def test_edit_cannot_clear_required_fields(self):
+        client = auth_client(self.users[MEDICO_CPF])
+        for field, value in (
+            ("request_reason", "   "),
+            ("chief_complaint", ""),
+            ("assessment_date", None),
+            ("assessment_time", None),
+            ("professional", None),
+            ("assessment_type", ""),
+        ):
+            with self.subTest(field=field):
+                response = client.patch(
+                    f"/api/avaliacoes/{self.assessment.pk}/",
+                    {field: value},
+                    format="json",
+                )
+                self.assertEqual(response.status_code, 400)
+                self.assertIn(field, response.data)
+
     def test_gerente_can_change_professional(self):
         client = auth_client(self.users[GERENTE_CPF])
         response = client.patch(
@@ -313,10 +339,18 @@ class AssessmentUpdateAPITests(TestCase):
             format="json",
         )
         self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response.data["professional_name"],
+            self.users[ENFERMEIRO_CPF].get_full_name()
+            or self.users[ENFERMEIRO_CPF].email,
+        )
         self.assessment.refresh_from_db()
         self.assertEqual(
             self.assessment.professional_id, self.users[ENFERMEIRO_CPF].pk
         )
+        event = self.assessment.audit_logs.get()
+        self.assertEqual(event.action, "PROFESSIONAL_CHANGE")
+        self.assertEqual(event.changes["professional_id"]["new"], self.users[ENFERMEIRO_CPF].pk)
 
     def test_gerente_cannot_edit_clinical_fields(self):
         client = auth_client(self.users[GERENTE_CPF])
@@ -490,11 +524,11 @@ class AssessmentResourceAPITests(TestCase):
 
 
 class CatalogAPITests(TestCase):
-    """Catálogos read-only p/ os selects do frontend (TA-61/63)."""
+    """Catálogos de leitura e manutenção de recursos pelo gerente."""
 
     def setUp(self):
         self.users = make_api_users()
-        Resource.objects.get_or_create(name="Oxímetro")
+        self.resource, _ = Resource.objects.get_or_create(name="Oxímetro")
 
     def test_care_team_can_list_need_types_and_resources(self):
         for cpf in (GERENTE_CPF, MEDICO_CPF, ENFERMEIRO_CPF):
@@ -532,6 +566,29 @@ class CatalogAPITests(TestCase):
         self.assertTrue(
             any(item["name"] == "Enfermagem" for item in all_types.data)
         )
+
+    def test_manager_can_create_and_update_resources(self):
+        client = auth_client(self.users[GERENTE_CPF])
+        response = client.post("/api/recursos/", {"name": "Cadeira de rodas"}, format="json")
+        self.assertEqual(response.status_code, 201)
+        resource_id = response.data["id"]
+        updated = client.patch(f"/api/recursos/{resource_id}/", {"name": "Cadeira"}, format="json")
+        self.assertEqual(updated.status_code, 200)
+        self.assertEqual(updated.data["name"], "Cadeira")
+
+    def test_only_manager_can_manage_resources(self):
+        for cpf in (MEDICO_CPF, ENFERMEIRO_CPF):
+            with self.subTest(cpf=cpf):
+                client = auth_client(self.users[cpf])
+                self.assertEqual(client.post("/api/recursos/", {"name": "Recurso"}, format="json").status_code, 403)
+                self.assertEqual(client.patch(f"/api/recursos/{self.resource.pk}/", {"name": "Recurso"}, format="json").status_code, 403)
+
+    def test_resource_linked_to_assessment_cannot_be_deleted(self):
+        assessment = PatientAssessment.objects.create(patient=make_patient())
+        AssessmentResource.objects.create(assessment=assessment, resource=self.resource, quantity=1)
+        response = auth_client(self.users[GERENTE_CPF]).delete(f"/api/recursos/{self.resource.pk}/")
+        self.assertEqual(response.status_code, 400)
+        self.assertTrue(Resource.objects.filter(pk=self.resource.pk).exists())
 
     def test_sem_grupo_cannot_list_catalogs(self):
         client = auth_client(self.users[SEM_GRUPO_CPF])

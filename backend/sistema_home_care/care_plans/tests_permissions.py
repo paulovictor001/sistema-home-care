@@ -15,7 +15,8 @@ class PlanPermissionMatrixTests(TestCase):
             'retrieve': {MEDICO_CPF, ENFERMEIRO_CPF, GERENTE_CPF},
             'historico': {MEDICO_CPF, ENFERMEIRO_CPF, GERENTE_CPF},
             'create': {MEDICO_CPF}, 'update': {MEDICO_CPF}, 'partial_update': {MEDICO_CPF},
-            'vincular': {MEDICO_CPF}, 'configurar': {MEDICO_CPF}, 'remover': {MEDICO_CPF},
+            'vincular': {MEDICO_CPF, ENFERMEIRO_CPF}, 'configurar': {MEDICO_CPF, ENFERMEIRO_CPF},
+            'remover': {MEDICO_CPF, ENFERMEIRO_CPF},
             'ativar': {MEDICO_CPF}, 'encerrar': {MEDICO_CPF, ENFERMEIRO_CPF},
             'reativar': {MEDICO_CPF, ENFERMEIRO_CPF}, 'unknown': set(),
         }
@@ -40,7 +41,7 @@ class PlanPermissionMatrixTests(TestCase):
     def test_each_write_requires_its_granular_permission(self):
         user = self.users[MEDICO_CPF]
         request = type('Request', (), {'user': user})()
-        for action, codename in (('create', 'create'), ('configurar', 'update'), ('ativar', 'activate'),
+        for action, codename in (('create', 'create'), ('configurar', 'manage_needs'), ('ativar', 'activate'),
                                 ('encerrar', 'close'), ('reativar', 'reactivate')):
             permission = GranularPermission.objects.get(codename=f'planos_cuidados.{codename}')
             user.category.permissions.remove(permission)

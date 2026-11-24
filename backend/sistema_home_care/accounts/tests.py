@@ -1,6 +1,7 @@
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
-from django.test import TestCase
+from django.core import mail
+from django.test import TestCase, override_settings
 from rest_framework.test import APIClient
 
 from accounts.models import Category
@@ -41,6 +42,7 @@ class AuthCookieFlowTests(TestCase):
         self.assertEqual(response.status_code, 200)
         body = response.json()
         self.assertEqual(body["user"]["cpf"], user.cpf)
+        self.assertFalse(body["user"]["is_superuser"])
         self.assertNotIn("access", body)
         self.assertNotIn("refresh", body)
         self.assertIn("access_token", response.cookies)
@@ -71,6 +73,7 @@ class AuthCookieFlowTests(TestCase):
         )
         me = self.client.get("/api/auth/me/")
         self.assertEqual(me.status_code, 200)
+        self.assertFalse(me.json()["user"]["is_superuser"])
 
         refresh = self.client.post("/api/auth/refresh/")
         self.assertEqual(refresh.status_code, 200)
@@ -79,6 +82,71 @@ class AuthCookieFlowTests(TestCase):
         self.assertEqual(logout.status_code, 200)
         me_after = self.client.get("/api/auth/me/")
         self.assertEqual(me_after.status_code, 401)
+
+
+@override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+class PasswordResetTests(TestCase):
+    def setUp(self):
+        self.user, self.password = make_cpf_user()
+        self.client = APIClient()
+
+    def test_request_sends_link_for_active_account(self):
+        response = self.client.post("/api/auth/password-reset/", {"email": self.user.email}, format="json")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn("/login?uid=", mail.outbox[0].body)
+        self.assertIn("&token=", mail.outbox[0].body)
+
+    def test_request_response_does_not_enumerate_accounts(self):
+        existing = self.client.post("/api/auth/password-reset/", {"email": self.user.email}, format="json")
+        missing = self.client.post("/api/auth/password-reset/", {"email": "ausente@example.test"}, format="json")
+        self.assertEqual(existing.status_code, missing.status_code)
+        self.assertEqual(existing.json(), missing.json())
+        self.assertEqual(len(mail.outbox), 1)
+
+    def test_inactive_account_does_not_receive_email(self):
+        self.user.is_active = False
+        self.user.save(update_fields=["is_active"])
+        response = self.client.post("/api/auth/password-reset/", {"email": self.user.email}, format="json")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_valid_token_resets_password_and_cannot_be_reused(self):
+        self.client.post("/api/auth/password-reset/", {"email": self.user.email}, format="json")
+        import re
+        match = re.search(r"/login\?uid=([^&]+)&token=([^\s]+)", mail.outbox[0].body)
+        self.assertIsNotNone(match)
+        uid, token = match.groups()
+        response = self.client.post("/api/auth/password-reset/confirm/", {
+            "uid": uid, "token": token, "password": "NovaSenha123!",
+        }, format="json")
+        self.assertEqual(response.status_code, 200)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password("NovaSenha123!"))
+        reused = self.client.post("/api/auth/password-reset/confirm/", {
+            "uid": uid, "token": token, "password": "OutraSenha123!",
+        }, format="json")
+        self.assertEqual(reused.status_code, 400)
+
+    def test_invalid_expired_and_inactive_tokens_are_rejected(self):
+        self.client.post("/api/auth/password-reset/", {"email": self.user.email}, format="json")
+        import re
+        uid, token = re.search(r"/login\?uid=([^&]+)&token=([^\s]+)", mail.outbox[0].body).groups()
+        invalid = self.client.post("/api/auth/password-reset/confirm/", {
+            "uid": uid, "token": "invalid", "password": "NovaSenha123!",
+        }, format="json")
+        self.assertEqual(invalid.status_code, 400)
+        with override_settings(PASSWORD_RESET_TIMEOUT=-1):
+            expired = self.client.post("/api/auth/password-reset/confirm/", {
+                "uid": uid, "token": token, "password": "NovaSenha123!",
+            }, format="json")
+        self.assertEqual(expired.status_code, 400)
+        self.user.is_active = False
+        self.user.save(update_fields=["is_active"])
+        inactive = self.client.post("/api/auth/password-reset/confirm/", {
+            "uid": uid, "token": token, "password": "NovaSenha123!",
+        }, format="json")
+        self.assertEqual(inactive.status_code, 400)
 
 
 class MedicoListTests(TestCase):

@@ -13,7 +13,7 @@ Pendencias registradas (nao implementar por inferencia):
 - Obrigatoriedade de `responsible_doctor`/`health_condition` no endpoint:
   TASK-CAD-PAC-008/031 (aqui sao nullable para a fase de modelagem).
 - Estrutura detalhada de `HealthCondition`: pendente (RN-CAD-PAC-005).
-- Atualizacao automatica de `age`, valores de `gender`, regra bairro->`region`.
+- Atualizacao automatica de `age` e regra bairro->`region`.
 """
 
 from django.core.exceptions import ValidationError
@@ -105,8 +105,14 @@ class Patient(models.Model):
     rg = models.CharField(max_length=20)
     age = models.PositiveIntegerField()
     phone = models.CharField(max_length=20)
-    # Valores permitidos pendentes de definicao: CharField livre (RN pendente).
-    gender = models.CharField(max_length=50)
+    gender = models.CharField(
+        max_length=50,
+        choices=[
+            ("Masculino", "Masculino"),
+            ("Feminino", "Feminino"),
+            ("Prefiro não dizer", "Prefiro não dizer"),
+        ],
+    )
     status = models.CharField(
         max_length=10,
         choices=PatientStatus.choices,
@@ -189,57 +195,3 @@ class PatientAddress(models.Model):
 
     def __str__(self):
         return f"{self.street}, {self.number} - {self.city}"
-
-class NeedTypeStatus(models.TextChoices):
-    ACTIVE = "ACTIVE", "Ativo"
-    INACTIVE = "INACTIVE", "Inativo"
-
-
-INITIAL_NEED_TYPES = [
-    "Enfermagem",
-    "Fisioterapia",
-    "Médico",
-    "Nutrição",
-    "Terapia Ocupacional",
-    "Fonoaudiologia",
-    "Psicologia",
-    "Outro",
-]
-
-
-class NeedType(models.Model):
-    """Tipo de necessidade identificada (TA-73, RF-NEC-004/013-015).
-
-    Entidade própria administrável por Gerente/Médico/Enfermeiro.
-    Tipos inativos não podem ser usados em novas necessidades, mas
-    vínculos históricos são preservados (FK PROTECT no CareNeed).
-    """
-
-    name = models.CharField(max_length=100, unique=True)
-    description = models.CharField(max_length=255, blank=True)
-    status = models.CharField(
-        max_length=10,
-        choices=NeedTypeStatus.choices,
-        default=NeedTypeStatus.ACTIVE,
-    )
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        db_table = "need_types"
-        ordering = ["name"]
-
-    def clean(self):
-        super().clean()
-        self.name = (self.name or "").strip()
-        self.description = (self.description or "").strip()
-        if not self.name:
-            raise ValidationError({"name": "Nome é obrigatório."})
-
-    def save(self, *args, **kwargs):
-        self.name = (self.name or "").strip()
-        self.description = (self.description or "").strip()
-        return super().save(*args, **kwargs)
-
-    def __str__(self):
-        return self.name

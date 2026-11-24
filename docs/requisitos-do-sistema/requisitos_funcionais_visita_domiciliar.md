@@ -83,3 +83,12 @@ Os horários operacionais de início e a justificativa de não realização deve
 - Alteração direta do profissional.
 - Registro clínico completo dentro da Visita.
 - Interpretação clínica automática.
+
+## 13. Decisões consolidadas para implementação
+- A ocorrência criada pelo Agendamento é a própria entidade `Visit`; não haverá entidade duplicada.
+- A relação do Plano será com `CarePlanNeed`; a relação de atribuição da Escala permanece registrada separadamente.
+- Ações terão permissões granulares `visitas.view`, `visitas.update`, `visitas.confirm`, `visitas.cancel`, `visitas.start`, `visitas.finish` e `visitas.not_realized`. Gerente recebe todas inicialmente; demais categorias podem recebê-las via administração.
+- Confirmação, cancelamento e não realização exigem a permissão granular correspondente. Iniciar e concluir são permitidos somente ao profissional responsável da própria visita, com a permissão da ação.
+- Início e conclusão guardam timestamp e profissional responsável; conclusão ocorre somente após Atendimento válido.
+- O Atendimento mínimo exige descrição dos cuidados/procedimentos efetivamente realizados; observações adicionais são opcionais. Ele é vinculado à visita e mantém paciente/profissional coerentes.
+- Alterações relevantes preservam ator, instante, evento e valores anterior/novo. Registros históricos não são apagados.

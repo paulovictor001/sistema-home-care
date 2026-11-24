@@ -12,6 +12,13 @@ export function Login() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const query = new URLSearchParams(location.search);
+  const resetUid = query.get("uid");
+  const resetToken = query.get("token");
+  const [resetMode, setResetMode] = useState(Boolean(resetUid && resetToken));
+  const [resetEmail, setResetEmail] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [resetMessage, setResetMessage] = useState<string | null>(null);
 
   if (!loading && user) {
     return <Navigate to="/" replace />;
@@ -35,6 +42,50 @@ export function Login() {
     }
   }
 
+  async function handleReset(event: FormEvent) {
+    event.preventDefault();
+    setError(null);
+    setResetMessage(null);
+    setSubmitting(true);
+    try {
+      const endpoint = resetUid && resetToken
+        ? "/api/auth/password-reset/confirm/"
+        : "/api/auth/password-reset/";
+      const json = resetUid && resetToken
+        ? { uid: resetUid, token: resetToken, password: newPassword }
+        : { email: resetEmail };
+      const response = await fetch(`${import.meta.env.VITE_API_URL ?? "http://localhost:8000"}${endpoint}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(json),
+      });
+      const body = await response.json();
+      if (!response.ok) {
+        throw new Error(body.password?.join(" ") ?? body.detail ?? "Não foi possível redefinir a senha.");
+      }
+      setResetMessage(body.detail);
+      if (resetUid) {
+        setResetMode(false);
+        navigate("/login", { replace: true });
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Falha de conexão.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  const pageTitle = resetMode
+    ? resetUid
+      ? "Defina uma nova senha"
+      : "Recupere seu acesso"
+    : "Acesse sua conta";
+  const pageDescription = resetMode
+    ? resetUid
+      ? "Escolha uma nova senha para sua conta."
+      : "Informe o e-mail cadastrado para receber o link de redefinição."
+    : "Entre com seu CPF e senha para continuar.";
+
   return (
     <main className="flex min-h-screen items-center justify-center bg-background px-4 py-8 text-ink sm:px-6 lg:px-8">
       <div className="grid w-full max-w-5xl overflow-hidden rounded-3xl border border-line bg-white shadow-[0_24px_70px_-38px_rgba(23,59,58,0.32)] md:min-h-[570px] md:grid-cols-[0.92fr_1.08fr]">
@@ -49,7 +100,7 @@ export function Login() {
             <div className="mt-24 max-w-sm">
               <p className="mb-4 text-xs font-semibold uppercase tracking-[0.2em] text-[#BBD8CA]">Sistema Home Care</p>
               <h1 className="text-3xl font-semibold leading-tight tracking-[-0.03em] lg:text-4xl">Cuidado próximo, gestão segura.</h1>
-              <p className="mt-5 text-sm leading-6 text-white/70">Acesse o ambiente de trabalho da sua equipe com suas credenciais.</p>
+              <p className="mt-5 text-sm leading-6 text-white/70">Acesse o ambiente de trabalho da sua equipe com segurança.</p>
             </div>
           </div>
           <p className="relative text-xs text-white/50">Acesso destinado a usuários autorizados.</p>
@@ -64,41 +115,75 @@ export function Login() {
           </div>
 
           <div className="mb-8">
-            <p className="mb-2 text-sm font-medium text-primary">Bem-vindo</p>
-            <h2 className="text-2xl font-semibold tracking-[-0.03em] text-ink">Acesse sua conta</h2>
-            <p className="mt-2 text-sm leading-6 text-muted">Entre com seu CPF e senha para continuar.</p>
+            <p className="mb-2 text-sm font-medium text-primary">{resetMode ? "Recuperação de acesso" : "Bem-vindo"}</p>
+            <h2 className="text-2xl font-semibold tracking-[-0.03em] text-ink">{pageTitle}</h2>
+            <p className="mt-2 text-sm leading-6 text-muted">{pageDescription}</p>
           </div>
 
-          <form onSubmit={handleSubmit} className="w-full">
-            <label className="mb-5 block">
-              <span className="mb-2 block text-sm font-medium text-ink">CPF</span>
-              <input
-                value={cpf}
-                onChange={(e) => setCpf(formatCpf(e.target.value))}
-                placeholder="000.000.000-00"
-                inputMode="numeric"
-                autoComplete="username"
-                aria-invalid={Boolean(error)}
-                aria-describedby={error ? "login-error" : undefined}
-                className="h-12 w-full rounded-xl border border-line bg-white px-4 text-sm text-ink outline-none transition placeholder:text-[#A4AEA9] hover:border-primary-light focus:border-primary focus:ring-4 focus:ring-primary/10"
-                required
-              />
-            </label>
+          <form onSubmit={resetMode ? handleReset : handleSubmit} className="w-full">
+            {resetMode ? (
+              resetUid ? (
+                <label className="mb-5 block">
+                  <span className="mb-2 block text-sm font-medium text-ink">Nova senha</span>
+                  <input
+                    type="password"
+                    value={newPassword}
+                    onChange={(event) => setNewPassword(event.target.value)}
+                    autoComplete="new-password"
+                    className="h-12 w-full rounded-xl border border-line bg-white px-4 text-sm text-ink outline-none transition placeholder:text-[#A4AEA9] hover:border-primary-light focus:border-primary focus:ring-4 focus:ring-primary/10"
+                    required
+                  />
+                </label>
+              ) : (
+                <label className="mb-5 block">
+                  <span className="mb-2 block text-sm font-medium text-ink">E-mail</span>
+                  <input
+                    type="email"
+                    value={resetEmail}
+                    onChange={(event) => setResetEmail(event.target.value)}
+                    autoComplete="email"
+                    className="h-12 w-full rounded-xl border border-line bg-white px-4 text-sm text-ink outline-none transition placeholder:text-[#A4AEA9] hover:border-primary-light focus:border-primary focus:ring-4 focus:ring-primary/10"
+                    required
+                  />
+                </label>
+              )
+            ) : (
+              <>
+                <label className="mb-5 block">
+                  <span className="mb-2 block text-sm font-medium text-ink">CPF</span>
+                  <input
+                    value={cpf}
+                    onChange={(event) => setCpf(formatCpf(event.target.value))}
+                    placeholder="000.000.000-00"
+                    inputMode="numeric"
+                    autoComplete="username"
+                    aria-invalid={Boolean(error)}
+                    aria-describedby={error ? "login-error" : undefined}
+                    className="h-12 w-full rounded-xl border border-line bg-white px-4 text-sm text-ink outline-none transition placeholder:text-[#A4AEA9] hover:border-primary-light focus:border-primary focus:ring-4 focus:ring-primary/10"
+                    required
+                  />
+                </label>
+                <label className="mb-5 block">
+                  <span className="mb-2 block text-sm font-medium text-ink">Senha</span>
+                  <input
+                    type="password"
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    autoComplete="current-password"
+                    aria-invalid={Boolean(error)}
+                    aria-describedby={error ? "login-error" : undefined}
+                    className="h-12 w-full rounded-xl border border-line bg-white px-4 text-sm text-ink outline-none transition placeholder:text-[#A4AEA9] hover:border-primary-light focus:border-primary focus:ring-4 focus:ring-primary/10"
+                    required
+                  />
+                </label>
+              </>
+            )}
 
-            <label className="mb-5 block">
-              <span className="mb-2 block text-sm font-medium text-ink">Senha</span>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                autoComplete="current-password"
-                aria-invalid={Boolean(error)}
-                aria-describedby={error ? "login-error" : undefined}
-                className="h-12 w-full rounded-xl border border-line bg-white px-4 text-sm text-ink outline-none transition placeholder:text-[#A4AEA9] hover:border-primary-light focus:border-primary focus:ring-4 focus:ring-primary/10"
-                required
-              />
-            </label>
-
+            {resetMessage && (
+              <p role="status" className="mb-5 rounded-xl border border-[#D7E9DE] bg-[#F1F8F3] px-4 py-3 text-sm text-[#286343]">
+                {resetMessage}
+              </p>
+            )}
             {error && (
               <p id="login-error" role="alert" className="mb-5 rounded-xl border border-[#F0D9D3] bg-[#FBF1EE] px-4 py-3 text-sm text-[#9A493B]">
                 {error}
@@ -111,7 +196,24 @@ export function Login() {
               className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-dark focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/20 disabled:cursor-wait disabled:opacity-70"
             >
               {submitting && <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4 animate-spin" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" strokeOpacity=".3" strokeWidth="3" /><path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" strokeWidth="3" strokeLinecap="round" /></svg>}
-              {submitting ? "Entrando…" : "Entrar"}
+              {submitting
+                ? "Aguarde…"
+                : resetMode
+                  ? resetUid
+                    ? "Redefinir senha"
+                    : "Enviar link"
+                  : "Entrar"}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setError(null);
+                setResetMessage(null);
+                setResetMode(!resetMode);
+              }}
+              className="mt-4 w-full text-sm font-medium text-primary underline-offset-4 hover:underline"
+            >
+              {resetMode ? "Voltar ao login" : "Esqueci minha senha"}
             </button>
           </form>
 

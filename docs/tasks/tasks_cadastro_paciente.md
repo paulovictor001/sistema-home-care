@@ -498,13 +498,77 @@ Cobrir:
 
 ------------------------------------------------------------------------
 
+## TASK-CAD-PAC-037 — Definir equipe responsável como opcional
+
+**Concluída em 22/11/2026.** RN/RF esclarecem que a equipe é opcional
+enquanto a entidade de equipe não estiver definida; formulário e API
+aceitam cadastro sem equipe.
+
+------------------------------------------------------------------------
+
+## TASK-CAD-PAC-038 — Exigir permissão granular para alterar responsáveis
+
+**Concluída em 22/11/2026.** Alterar médico/equipe exige GERENTE e
+`pacientes.update_manager`, além da permissão de edição clínica.
+
+------------------------------------------------------------------------
+
+## TASK-CAD-PAC-039 — Exibir nomes das relações no detalhe
+
+**Concluída em 22/11/2026.** API e detalhe exibem o nome do médico e da
+condição de saúde, com fallback identificável para registros sem nome.
+
+------------------------------------------------------------------------
+
+## TASK-CAD-PAC-040 — Formalizar valores de sexo
+
+**Concluída em 22/11/2026.** Valores permitidos: Masculino, Feminino e
+Prefiro não dizer. Valores legados são preservados ao editar.
+
+------------------------------------------------------------------------
+
+## TASK-CAD-PAC-041 — Definir status como estado gerenciado
+
+**Concluída em 22/11/2026.** Status inicial Ativo; o formulário não o
+solicita e as mudanças usam as ações de inativação/reativação.
+
+------------------------------------------------------------------------
+
+## TASK-CAD-PAC-042 — Testes frontend do cadastro
+
+**Concluída em 22/11/2026.** `tests/patients.test.mjs` cobre acesso,
+filtros/página, payloads de cadastro/edição e ações de status.
+
+------------------------------------------------------------------------
+
+## TASK-CAD-PAC-043 — Ocultar menu sem permissão de leitura
+
+**Concluída em 22/11/2026.** Item Pacientes só aparece a perfis clínicos
+com `pacientes.view`.
+
+------------------------------------------------------------------------
+
+## TASK-CAD-PAC-044 — Executar suíte backend
+
+**Concluída em 22/11/2026.** `python manage.py test patients accounts
+--noinput`: 110 testes passaram.
+
+------------------------------------------------------------------------
+
+## TASK-CAD-PAC-045 — Mover NeedType para o app de necessidades
+
+**Concluída em 22/11/2026.** Modelo, catálogo, administração e imports
+foram movidos para `assessments`; a migração preserva a tabela
+`need_types`, os IDs e vínculos existentes.
+
+------------------------------------------------------------------------
+
 # 10. Pendências que não devem virar implementação ainda
 
 As seguintes questões permanecem abertas e não devem ser resolvidas por
 inferência nas tasks:
 
 -   atualização automática da idade;
--   valores permitidos para sexo;
 -   múltiplas doenças/estados de saúde;
 -   estrutura completa de `HealthCondition`;
 -   estrutura completa de `Team`;

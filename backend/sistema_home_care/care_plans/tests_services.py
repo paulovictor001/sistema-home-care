@@ -2,7 +2,7 @@ from datetime import date
 from unittest.mock import patch
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.test import TestCase
-from patients.models import NeedType
+from assessments.models import NeedType
 from assessments.models import CareNeed, PatientAssessment
 from assessments.tests_api import make_api_users, make_patient, MEDICO_CPF, GERENTE_CPF, ENFERMEIRO_CPF, SEM_GRUPO_CPF
 from .models import CarePlan
