@@ -27,10 +27,10 @@ Toda nova necessidade deve ser criada com status **Identificada**.
 Médico e Enfermeiro podem editar necessidades.
 
 ## RF-NEC-009 — Visualizar
-Médico e Enfermeiro podem visualizar necessidades. A visualização pelo Gerente não foi definida neste escopo.
+Médico e Enfermeiro podem consultar diretamente necessidades e histórico. O Gerente pode visualizar necessidades aninhadas nas avaliações às quais tem acesso, mas não pode consultar a lista, detalhe ou histórico pelo endpoint direto.
 
 ## RF-NEC-010 — Excluir
-Médico e Enfermeiro podem excluir necessidades, conforme a regra de persistência adotada na implementação.
+Médico e Enfermeiro podem excluir fisicamente uma necessidade sem histórico de situação e sem vínculo com plano. A API deve recusar com erro claro a exclusão de necessidades com histórico ou vínculo protegido por plano. A interface deve ocultar a ação quando o vínculo com plano for conhecido; se houver histórico, deve exibir a mensagem de bloqueio retornada pela API.
 
 ## RF-NEC-011 — Inativar
 Gerente, Médico e Enfermeiro podem inativar necessidades.
@@ -39,7 +39,7 @@ Gerente, Médico e Enfermeiro podem inativar necessidades.
 A inativação deve preservar o registro e seu histórico.
 
 ## RF-NEC-013 — Administrar tipos
-Gerente, Médico e Enfermeiro podem administrar os tipos de necessidade.
+Gerente, Médico e Enfermeiro com `tipos_necessidade.manage` podem criar, editar, ativar e inativar tipos. Criação e edição mantêm nome obrigatório e único e descrição opcional.
 
 ## RF-NEC-014 — Ativar/inativar tipos
 O sistema deve permitir ativar e inativar tipos. Tipos inativos não podem ser usados em novos cadastros.
@@ -58,7 +58,8 @@ A estrutura da necessidade deve permitir sua utilização posterior como base do
 | Ação | Gerente | Médico | Enfermeiro |
 |---|---|---|---|
 | Criar necessidade | Não definido | Sim | Sim |
-| Visualizar necessidade | Não definido | Sim | Sim |
+| Visualizar diretamente (lista, detalhe e histórico) | Não | Sim | Sim |
+| Visualizar dentro da avaliação | Sim, com `avaliacoes.view` | Sim | Sim |
 | Editar necessidade | Não definido | Sim | Sim |
 | Excluir necessidade | Não definido | Sim | Sim |
 | Inativar necessidade | Sim | Sim | Sim |

@@ -2,7 +2,7 @@ from unittest.mock import patch
 from django.test import TestCase
 from rest_framework.test import APIClient
 from accounts.models import GranularPermission
-from patients.models import NeedType
+from assessments.models import NeedType
 from .models import CareNeed, CareNeedHistory, PatientAssessment
 from .tests_api import make_api_users, make_patient, auth_client, GERENTE_CPF, MEDICO_CPF, ENFERMEIRO_CPF, SEM_GRUPO_CPF
 
@@ -83,7 +83,7 @@ class NeedInactivationTests(TestCase):
         self.users[MEDICO_CPF].category.permissions.add(permission)
         self.assertEqual(self.client.post('/api/necessidades/999999/inativar/').status_code, 404)
 
-    def test_history_access_and_preservation_after_deletions(self):
+    def test_history_access_and_physical_deletion_is_rejected(self):
         manager = self.users[GERENTE_CPF]
         auth_client(manager).post(self.url)
         url = f'/api/necessidades/{self.need.pk}/historico/'
@@ -94,9 +94,10 @@ class NeedInactivationTests(TestCase):
         event.refresh_from_db()
         self.assertIsNone(event.actor)
         self.assertTrue(event.actor_name)
-        self.assertEqual(self.client.delete(f'/api/necessidades/{self.need.pk}/').status_code, 204)
+        response = self.client.delete(f'/api/necessidades/{self.need.pk}/')
+        self.assertEqual(response.status_code, 400)
         event.refresh_from_db()
-        self.assertIsNone(event.need)
+        self.assertEqual(event.need_id, self.need.pk)
         self.assertEqual(event.snapshot['id'], self.need.pk)
 
     def test_log_failure_rolls_back_inactivation(self):

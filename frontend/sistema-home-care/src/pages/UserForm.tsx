@@ -16,11 +16,28 @@ import {
 } from "../lib/users";
 
 const inputClasses =
-  "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm disabled:bg-slate-100";
+  "w-full rounded-lg border border-line bg-white px-3 py-2.5 text-sm text-ink outline-none transition-colors placeholder:text-muted focus:border-primary focus:ring-2 focus:ring-primary/15 disabled:bg-background disabled:cursor-not-allowed";
 
-function FieldError({ messages }: { messages?: string[] }) {
-  if (!messages?.length) return null;
-  return <p className="mt-1 text-xs text-red-600">{messages.join(" ")}</p>;
+function getErrorMessages(value: unknown): string[] {
+  if (typeof value === "string") return [value];
+
+  if (Array.isArray(value)) {
+    return value.flatMap(getErrorMessages);
+  }
+
+  if (value && typeof value === "object") {
+    return Object.values(value).flatMap(getErrorMessages);
+  }
+
+  return [];
+}
+
+function FieldError({ messages }: { messages?: unknown }) {
+  const text = getErrorMessages(messages).join(" ");
+
+  if (!text) return null;
+
+  return <p className="mt-1 text-xs text-red-600">{text}</p>;
 }
 
 export function UserForm({ mode }: { mode: "create" | "edit" }) {
@@ -42,7 +59,9 @@ export function UserForm({ mode }: { mode: "create" | "edit" }) {
   const [categories, setCategories] = useState<Category[]>([]);
   const [professions, setProfessions] = useState<Profession[]>([]);
   const [freePros, setFreePros] = useState<FreeProfessional[]>([]);
-  const [lockedProfessional, setLockedProfessional] = useState<string | null>(null);
+  const [lockedProfessional, setLockedProfessional] = useState<string | null>(
+    null,
+  );
   const [lockedCategory, setLockedCategory] = useState<string | null>(null);
   const [loading, setLoading] = useState(!isCreate);
   const [saving, setSaving] = useState(false);
@@ -78,7 +97,9 @@ export function UserForm({ mode }: { mode: "create" | "edit" }) {
         }
       } catch (err) {
         if (!cancelled) {
-          setError(err instanceof ApiError ? err.message : "Falha ao carregar dados.");
+          setError(
+            err instanceof ApiError ? err.message : "Falha ao carregar dados.",
+          );
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -151,18 +172,31 @@ export function UserForm({ mode }: { mode: "create" | "edit" }) {
   }
 
   if (loading) {
-    return <p className="text-sm text-slate-500">Carregando…</p>;
+    return <p className="text-sm text-muted">Carregando…</p>;
   }
 
   return (
     <div className="mx-auto max-w-2xl">
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-slate-900">
-          {isCreate ? "Novo usuário" : "Editar usuário"}
-        </h2>
-        <Link to="/usuarios" className="text-sm text-blue-600 hover:underline">
-          ← Voltar
+      <div className="mb-6">
+        <Link
+          to="/usuarios"
+          className="mb-4 inline-flex items-center gap-2 text-sm text-muted transition-colors hover:text-primary"
+        >
+          <span aria-hidden="true">←</span>
+          Voltar para usuários
         </Link>
+
+        <div>
+          <h2 className="text-2xl font-semibold tracking-tight text-ink">
+            {isCreate ? "Novo usuário" : "Editar usuário"}
+          </h2>
+
+          <p className="mt-1 text-sm text-muted">
+            {isCreate
+              ? "Preencha os dados abaixo para cadastrar um novo usuário no sistema."
+              : "Atualize as informações de acesso e identificação do usuário."}
+          </p>
+        </div>
       </div>
 
       {error && (
@@ -171,176 +205,252 @@ export function UserForm({ mode }: { mode: "create" | "edit" }) {
         </p>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-4 rounded-xl bg-white p-5 shadow">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <form
+        onSubmit={handleSubmit}
+        className="space-y-7 rounded-2xl border border-line bg-surface p-5 shadow-sm sm:p-6"
+      >
+        {/* DADOS DE ACESSO */}
+        <section className="space-y-4">
+          <div>
+            <h3 className="text-sm font-semibold text-ink">Dados de acesso</h3>
+            <p className="mt-1 text-xs text-muted">
+              Informações utilizadas para acessar o sistema.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <label className="block">
+              <span className="mb-1.5 block text-sm font-medium text-ink">
+                CPF *
+              </span>
+              <input
+                value={cpf}
+                onChange={(e) => setCpf(formatCpf(e.target.value))}
+                placeholder="000.000.000-00"
+                inputMode="numeric"
+                disabled={!isCreate}
+                className={inputClasses}
+              />
+              <FieldError messages={errors.cpf} />
+            </label>
+
+            <label className="block">
+              <span className="mb-1.5 block text-sm font-medium text-ink">
+                {isCreate ? "Senha *" : "Nova senha (opcional)"}
+              </span>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className={inputClasses}
+              />
+              <FieldError messages={errors.password} />
+            </label>
+          </div>
+
           <label className="block">
-            <span className="mb-1 block text-sm font-medium text-slate-700">CPF *</span>
-            <input
-              value={cpf}
-              onChange={(e) => setCpf(formatCpf(e.target.value))}
-              placeholder="000.000.000-00"
-              inputMode="numeric"
-              disabled={!isCreate}
-              className={inputClasses}
-            />
-            <FieldError messages={errors.cpf} />
-          </label>
-          <label className="block">
-            <span className="mb-1 block text-sm font-medium text-slate-700">
-              {isCreate ? "Senha *" : "Nova senha (opcional)"}
+            <span className="mb-1.5 block text-sm font-medium text-ink">
+              E-mail *
             </span>
             <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               className={inputClasses}
             />
-            <FieldError messages={errors.password} />
+            <FieldError messages={errors.email} />
           </label>
-        </div>
+        </section>
 
-        <label className="block">
-          <span className="mb-1 block text-sm font-medium text-slate-700">E-mail *</span>
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className={inputClasses}
-          />
-          <FieldError messages={errors.email} />
-        </label>
+        {/* DADOS PESSOAIS */}
+        <section className="space-y-4 border-t border-line pt-6">
+          <div>
+            <h3 className="text-sm font-semibold text-ink">Dados pessoais</h3>
+            <p className="mt-1 text-xs text-muted">
+              Informações de identificação do usuário.
+            </p>
+          </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <label className="block">
-            <span className="mb-1 block text-sm font-medium text-slate-700">Nome</span>
-            <input
-              value={firstName}
-              onChange={(e) => setFirstName(e.target.value)}
-              className={inputClasses}
-            />
-          </label>
-          <label className="block">
-            <span className="mb-1 block text-sm font-medium text-slate-700">Sobrenome</span>
-            <input
-              value={lastName}
-              onChange={(e) => setLastName(e.target.value)}
-              className={inputClasses}
-            />
-          </label>
-        </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <label className="block">
+              <span className="mb-1.5 block text-sm font-medium text-ink">
+                Nome
+              </span>
+              <input
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                className={inputClasses}
+              />
+            </label>
 
-        {isCreate ? (
-          <label className="block">
-            <span className="mb-1 block text-sm font-medium text-slate-700">Categoria *</span>
-            <select
-              value={categoryId}
-              onChange={(e) => setCategoryId(e.target.value)}
-              className={inputClasses}
-            >
-              <option value="">Selecione…</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-            <FieldError messages={errors.category} />
-          </label>
-        ) : (
-          <p className="rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">
-            Categoria: <strong>{lockedCategory ?? "—"}</strong> (acompanha a profissão;
-            use a transferência de profissão para alterar)
-          </p>
-        )}
+            <label className="block">
+              <span className="mb-1.5 block text-sm font-medium text-ink">
+                Sobrenome
+              </span>
+              <input
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                className={inputClasses}
+              />
+            </label>
+          </div>
+        </section>
 
-        {isCreate ? (
-          <fieldset className="rounded-lg border border-slate-200 p-4">
-            <legend className="px-1 text-sm font-medium text-slate-700">
-              Profissional vinculado *
-            </legend>
-            <div className="mb-3 flex gap-4 text-sm">
-              <label className="flex items-center gap-1.5">
-                <input
-                  type="radio"
-                  checked={proMode === "novo"}
-                  onChange={() => setProMode("novo")}
-                />
-                Cadastrar novo
-              </label>
-              <label className="flex items-center gap-1.5">
-                <input
-                  type="radio"
-                  checked={proMode === "existente"}
-                  onChange={() => setProMode("existente")}
-                />
-                Vincular existente
-              </label>
-            </div>
-            {proMode === "novo" ? (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <label className="block">
-                  <span className="mb-1 block text-sm font-medium text-slate-700">
-                    Nome do profissional *
-                  </span>
+        {/* VÍNCULO PROFISSIONAL */}
+        <section className="space-y-4 border-t border-line pt-6">
+          <div>
+            <h3 className="text-sm font-semibold text-ink">
+              Vínculo profissional
+            </h3>
+            <p className="mt-1 text-xs text-muted">
+              Defina a categoria e o profissional associado ao usuário.
+            </p>
+          </div>
+
+          {isCreate ? (
+            <label className="block">
+              <span className="mb-1.5 block text-sm font-medium text-ink">
+                Categoria *
+              </span>
+              <select
+                value={categoryId}
+                onChange={(e) => setCategoryId(e.target.value)}
+                className={inputClasses}
+              >
+                <option value="">Selecione…</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+              <FieldError messages={errors.category} />
+            </label>
+          ) : (
+            <p className="rounded-lg border border-line bg-background px-3 py-3 text-sm text-ink">
+              Categoria: <strong>{lockedCategory ?? "—"}</strong>
+              <span className="text-muted">
+                {" "}
+                (acompanha a profissão; use a transferência de profissão para
+                alterar)
+              </span>
+            </p>
+          )}
+
+          {isCreate ? (
+            <fieldset className="space-y-4 rounded-xl border border-line p-4">
+              <legend className="px-2 text-sm font-medium text-ink">
+                Profissional vinculado *
+              </legend>
+
+              <div className="flex flex-wrap gap-x-5 gap-y-3 text-sm">
+                <label className="flex cursor-pointer items-center gap-2 text-ink">
                   <input
-                    value={proFullName}
-                    onChange={(e) => setProFullName(e.target.value)}
-                    className={inputClasses}
+                    type="radio"
+                    checked={proMode === "novo"}
+                    onChange={() => setProMode("novo")}
+                    className="accent-primary"
                   />
+                  Cadastrar novo
                 </label>
+
+                <label className="flex cursor-pointer items-center gap-2 text-ink">
+                  <input
+                    type="radio"
+                    checked={proMode === "existente"}
+                    onChange={() => setProMode("existente")}
+                    className="accent-primary"
+                  />
+                  Vincular existente
+                </label>
+              </div>
+
+              {proMode === "novo" ? (
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <label className="block">
+                    <span className="mb-1.5 block text-sm font-medium text-ink">
+                      Nome do profissional *
+                    </span>
+                    <input
+                      value={proFullName}
+                      onChange={(e) => setProFullName(e.target.value)}
+                      className={inputClasses}
+                    />
+                  </label>
+
+                  <label className="block">
+                    <span className="mb-1.5 block text-sm font-medium text-ink">
+                      Profissão *
+                    </span>
+                    <select
+                      value={professionId}
+                      onChange={(e) => handleProfessionChange(e.target.value)}
+                      className={inputClasses}
+                    >
+                      <option value="">Selecione…</option>
+                      {professions.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+              ) : (
                 <label className="block">
-                  <span className="mb-1 block text-sm font-medium text-slate-700">
-                    Profissão *
+                  <span className="mb-1.5 block text-sm font-medium text-ink">
+                    Profissional sem acesso *
                   </span>
                   <select
-                    value={professionId}
-                    onChange={(e) => handleProfessionChange(e.target.value)}
+                    value={freeProId}
+                    onChange={(e) => setFreeProId(e.target.value)}
                     className={inputClasses}
                   >
                     <option value="">Selecione…</option>
-                    {professions.map((p) => (
+                    {freePros.map((p) => (
                       <option key={p.id} value={p.id}>
-                        {p.name}
+                        {p.full_name} · {p.profession__name}
                       </option>
                     ))}
                   </select>
                 </label>
-              </div>
-            ) : (
-              <label className="block">
-                <span className="mb-1 block text-sm font-medium text-slate-700">
-                  Profissional sem acesso *
-                </span>
-                <select
-                  value={freeProId}
-                  onChange={(e) => setFreeProId(e.target.value)}
-                  className={inputClasses}
-                >
-                  <option value="">Selecione…</option>
-                  {freePros.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.full_name} · {p.profession__name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            )}
-            <FieldError messages={errors.professional} />
-          </fieldset>
-        ) : (
-          <p className="rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600">
-            Profissional: <strong>{lockedProfessional ?? "—"}</strong> (não pode ser
-            trocado; para outro profissional ter acesso, crie outro usuário)
-          </p>
-        )}
+              )}
 
-        <button
-          type="submit"
-          disabled={saving}
-          className="w-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
-        >
-          {saving ? "Salvando…" : isCreate ? "Criar usuário" : "Salvar alterações"}
-        </button>
+              <FieldError messages={errors.professional} />
+            </fieldset>
+          ) : (
+            <p className="rounded-lg border border-line bg-background px-3 py-3 text-sm text-ink">
+              Profissional: <strong>{lockedProfessional ?? "—"}</strong>
+              <span className="text-muted">
+                {" "}
+                (não pode ser trocado; para outro profissional ter acesso, crie
+                outro usuário)
+              </span>
+            </p>
+          )}
+        </section>
+
+        {/* AÇÕES */}
+        <div className="flex flex-col-reverse gap-3 border-t border-line pt-5 sm:flex-row sm:justify-end">
+          <Link
+            to="/usuarios"
+            className="inline-flex items-center justify-center rounded-lg border border-line px-5 py-2.5 text-sm font-medium text-ink transition-colors hover:bg-background"
+          >
+            Cancelar
+          </Link>
+
+          <button
+            type="submit"
+            disabled={saving}
+            className="rounded-lg bg-primary px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-dark disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {saving
+              ? "Salvando…"
+              : isCreate
+                ? "Criar usuário"
+                : "Salvar alterações"}
+          </button>
+        </div>
       </form>
     </div>
   );

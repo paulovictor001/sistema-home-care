@@ -139,10 +139,24 @@ O sistema deve aplicar as seguintes permissões:
 | Visualizar avaliação | Gerente, Médico, Enfermeiro |
 | Editar avaliação | Médico, Enfermeiro |
 | Alterar profissional responsável | Médico, Enfermeiro, Gerente |
+| Criar necessidades e associar recursos | Médico, Enfermeiro |
+| Administrar catálogo de recursos | Gerente |
 
 ## RF-AVL-020 — Manter compatibilidade com histórico
 
 As alterações realizadas em uma avaliação não devem eliminar o registro histórico de avaliações anteriores do paciente.
+
+## RF-AVL-021 — Administrar recursos
+
+O sistema deve permitir que o Gerente cadastre e edite os nomes dos recursos disponíveis para associação às avaliações. A administração não controla estoque, farmácia ou logística.
+
+## RF-AVL-022 — Auditar avaliações
+
+O sistema deve registrar a criação e as alterações de uma avaliação, incluindo a troca do profissional responsável, com ator, data/hora, ação e campos alterados.
+
+## RF-AVL-023 — Preservar necessidades vinculadas a planos
+
+O sistema deve recusar a exclusão física de necessidades e orientar sua inativação. A edição de uma necessidade vinculada a plano é permitida após aviso e confirmação explícita.
 
 ## Pendências funcionais
 

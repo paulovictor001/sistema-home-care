@@ -5,14 +5,17 @@ import { ApiError } from "../lib/api";
 import { NeedEditForm } from "../components/NeedEditForm";
 import {
   canEditAssessment,
+  canUpdateNeed,
+  canDeleteNeed,
+  canChangeNeedStatus,
+  canViewNeedHistory,
+  canViewAssessments,
   getAssessment,
   inactivateNeed,
   reactivateNeed,
   deleteNeed,
   type CareNeed,
   getNeedHistory,
-  isCareTeam,
-  isClinical,
   type NeedHistoryEvent,
   NEED_PRIORITIES,
   type PatientAssessment,
@@ -135,13 +138,17 @@ export function AssessmentDetail() {
   }, [id]);
 
   useEffect(() => {
-    void load();
+    void Promise.resolve().then(load);
   }, [load]);
 
   if (loading) {
     return (
       <div className="mx-auto max-w-5xl"><LoadingState label="Carregando avaliação…" /></div>
     );
+  }
+
+  if (!canViewAssessments(user)) {
+    return <div className="mx-auto max-w-5xl"><ErrorState>Você não tem permissão para visualizar avaliações.</ErrorState></div>;
   }
 
   if (error || !assessment) {
@@ -160,7 +167,7 @@ export function AssessmentDetail() {
         <h2 className="mb-5 text-lg font-semibold text-care-forest">Dados da avaliação</h2>
         <dl className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2">
           <Field label="Tipo" value={assessment.assessment_type} />
-          <Field label="Profissional responsável" value={assessment.professional ? `Profissional #${assessment.professional}` : ""} />
+          <Field label="Profissional responsável" value={assessment.professional_name ?? (assessment.professional ? `Profissional #${assessment.professional}` : "")} />
           <Field label="Origem da solicitação" value={assessment.request_origin} />
           <Field label="Motivo da solicitação" value={assessment.request_reason} />
           <Field label="Queixa principal" value={assessment.chief_complaint} />
@@ -210,25 +217,26 @@ export function AssessmentDetail() {
                 </span>
                 {n.inactivated_at && <p className="mt-1 text-gray-600">Inativada em {new Date(n.inactivated_at).toLocaleString("pt-BR")}</p>}
                 <div className="mt-2 flex gap-2">
-                  {isClinical(user?.groups) && user?.permissions.includes("necessidades.update") && (
+                  {canUpdateNeed(user) && (
                     <button type="button" disabled={busyNeed !== null || editingNeed !== null} onClick={() => {
                       setNeedError(null); setNeedMessage(null); setEditingNeed(n.id);
                     }} className="rounded border px-2 py-1 disabled:opacity-50">Editar necessidade</button>
                   )}
-                  {isClinical(user?.groups) && user?.permissions.includes("necessidades.delete") && (
+                  {canDeleteNeed(user) && (
+                    n.has_plan_links ? <span className="self-center text-xs text-care-muted">Vinculada a plano; exclusão bloqueada.</span> :
                     <button type="button" disabled={busyNeed !== null || editingNeed !== null} onClick={() => void removeNeed(n)} className="rounded border border-red-300 px-2 py-1 text-red-700 disabled:opacity-50">Excluir</button>
                   )}
-                  {n.is_active && isCareTeam(user?.groups) && user?.permissions.includes("necessidades.inactivate") && (
+                  {n.is_active && canChangeNeedStatus(user, false) && (
                     <button type="button" disabled={busyNeed !== null || editingNeed !== null} onClick={() => void changeNeedState(n.id, false)} className="rounded border px-2 py-1 disabled:opacity-50">
                       {busyNeed === n.id ? "Inativando…" : "Inativar"}
                     </button>
                   )}
-                  {!n.is_active && isCareTeam(user?.groups) && user?.permissions.includes("necessidades.reactivate") && (
+                  {!n.is_active && canChangeNeedStatus(user, true) && (
                     <button type="button" disabled={busyNeed !== null || editingNeed !== null} onClick={() => void changeNeedState(n.id, true)} className="rounded border px-2 py-1 disabled:opacity-50">
                       {busyNeed === n.id ? "Reativando…" : "Reativar"}
                     </button>
                   )}
-                  {isClinical(user?.groups) && user?.permissions.includes("necessidades.view") && (
+                  {canViewNeedHistory(user) && (
                     <button type="button" disabled={busyNeed !== null || editingNeed !== null} onClick={() => void showHistory(n.id)} className="rounded border px-2 py-1 disabled:opacity-50">Histórico</button>
                   )}
                 </div>

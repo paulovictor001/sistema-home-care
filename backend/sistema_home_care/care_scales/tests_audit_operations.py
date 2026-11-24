@@ -24,6 +24,7 @@ class AuditOperationsTests(ScaleFixture):
         self.assertTrue(event.actor_name)
         self.assertEqual(auth_client(self.manager).get(f'/api/escalas/{scale.pk}/historico/').status_code, 200)
         self.assertEqual(scale.substitutions.count(), 1)
+        services.change_status(actor=self.manager, scale=scale, status='CLOSED')
         services.delete_scale(actor=self.manager, scale=scale)
         self.assertTrue(scale.audit_events.filter(action='DELETE').exists())
 

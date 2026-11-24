@@ -119,7 +119,7 @@ class CarePlanViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets
 
     @action(detail=False, methods=['get'], url_path='profissionais')
     def profissionais(self, request):
-        return Response(list(Professional.objects.order_by('full_name').values('id', 'full_name', 'profession__name', 'is_active')))
+        return Response(list(Professional.objects.filter(is_active=True).order_by('full_name').values('id', 'full_name', 'profession__name', 'is_active')))
 
     @action(detail=False, methods=['get'], url_path='recursos')
     def recursos(self, request):

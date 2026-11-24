@@ -15,16 +15,22 @@ export interface PlanNeed {
 export interface CarePlan {
   id: number; patient: number; patient_name: string; status: PlanStatus;
   start_date: string; end_date: string | null; objective: string;
+  created_by: number | null; created_by_name: string | null;
+  updated_by: number | null; updated_by_name: string | null;
   created_at: string; updated_at: string; need_links: PlanNeed[];
 }
 export interface AvailableNeed { id: number; description: string; priority: string; assessment_id: number; need_type__name: string }
-export interface PlanHistory { id: number; changed_by: number | null; changed_at: string; description: string }
+export interface PlanHistory {
+  id: number; changed_by: number | null; actor_name: string; event_type: string;
+  changed_at: string; description: string; previous_data: Record<string, unknown>; new_data: Record<string, unknown>;
+}
 export function canPlan(user: SessionUser | null, action: string): boolean {
-  if (!['view', 'create', 'update', 'activate', 'close', 'reactivate'].includes(action)) return false;
+  if (!['view', 'create', 'update', 'manage_needs', 'activate', 'close', 'reactivate'].includes(action)) return false;
   const roles = action === 'view' ? ['GERENTE', 'MEDICO', 'ENFERMEIRO']
-    : ['close', 'reactivate'].includes(action) ? ['MEDICO', 'ENFERMEIRO'] : ['MEDICO'];
+    : ['close', 'reactivate', 'manage_needs'].includes(action) ? ['MEDICO', 'ENFERMEIRO'] : ['MEDICO'];
   return !!user && user.groups.some(group => roles.includes(group)) && user.permissions.includes(`planos_cuidados.${action}`);
 }
+export const canManagePlanNeeds = (user: SessionUser | null) => canPlan(user, 'manage_needs');
 const base = '/api/planos-cuidados/';
 export const getPlan = (id: number) => apiJson<CarePlan>(`${base}${id}/`);
 export const listPlans = (patient: number, page = 1) => apiJson<{ count: number; next: string | null; results: CarePlan[] }>(`${base}?patient=${patient}&page=${page}`);

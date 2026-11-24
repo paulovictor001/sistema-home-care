@@ -1,12 +1,13 @@
 from django.test import TestCase
 from accounts.models import Profession
+from accounts.services import save_profession
 from professionals.models import Professional
 from .serializers import NeedConfigurationSerializer
 
 
 class ProfessionalConfigurationTests(TestCase):
     def test_only_existing_specific_professional_and_not_user_or_profession(self):
-        profession = Profession.objects.create(name='Profissão de teste')
+        profession = save_profession(name='Profissão de teste')
         professional = Professional.objects.create(full_name='João', profession=profession)
         serializer = NeedConfigurationSerializer(data={'required_professional': professional.pk,
             'frequency_quantity': 2, 'frequency_period': 'WEEK'})
@@ -19,10 +20,18 @@ class ProfessionalConfigurationTests(TestCase):
             self.assertFalse(serializer.is_valid())
             self.assertIn('required_professional', serializer.errors)
 
+    def test_inactive_professional_is_not_eligible(self):
+        profession = save_profession(name='Inativa teste')
+        professional = Professional.objects.create(full_name='João', profession=profession, is_active=False)
+        serializer = NeedConfigurationSerializer(data={'required_professional': professional.pk,
+            'frequency_quantity': 1, 'frequency_period': 'DAY'})
+        self.assertFalse(serializer.is_valid())
+        self.assertIn('required_professional', serializer.errors)
+
 
 class FrequencyConfigurationTests(TestCase):
     def setUp(self):
-        profession = Profession.objects.create(name='Frequência teste')
+        profession = save_profession(name='Frequência teste')
         professional = Professional.objects.create(full_name='João', profession=profession)
         self.payload = {'required_professional': professional.pk, 'frequency_quantity': 2, 'frequency_period': 'DAY'}
 

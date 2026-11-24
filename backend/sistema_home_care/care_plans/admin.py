@@ -9,7 +9,7 @@ class CarePlanAdmin(admin.ModelAdmin):
     search_fields = ('patient__full_name', 'patient__cpf')
     readonly_fields = ('created_at', 'updated_at', 'created_by', 'updated_by')
 
-    # O fluxo de edição e auditoria será implementado nas tasks de API.
+    # Edição e auditoria são feitas pelos serviços e endpoints clínicos.
     def has_add_permission(self, request):
         return False
 

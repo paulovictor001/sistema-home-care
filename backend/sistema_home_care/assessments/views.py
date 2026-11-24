@@ -16,6 +16,7 @@ também liberada ao gerente (bloqueio fino no serializer, 403).
 
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
+from django.db.models.deletion import ProtectedError
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import mixins, status, viewsets
@@ -23,6 +24,7 @@ from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError as DRFValidationError
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from accounts.permissions import (
     IsClinicalStaff,
@@ -32,18 +34,81 @@ from accounts.permissions import (
     RequirePermission,
 )
 
-from .models import CareNeed, CareNeedHistory, PatientAssessment, Resource
+from .models import (
+    AssessmentAuditAction,
+    CareNeed,
+    CareNeedHistory,
+    NeedType,
+    NeedTypeStatus,
+    PatientAssessment,
+    Resource,
+)
+from .audit import assessment_snapshot, log_assessment_creation, log_assessment_event
 from .permissions import need_permissions
 from .serializers import (
     AssessmentResourceSerializer,
     CareNeedSerializer,
     CareNeedHistorySerializer,
+    NeedTypeCatalogSerializer,
+    NeedTypeManageSerializer,
     PatientAssessmentSerializer,
     ResourceCatalogSerializer,
 )
 
 # Gerente + equipe clínica (leitura e troca de responsável).
 IsCareTeam = IsGerente | IsMedico | IsEnfermeiro
+
+
+class NeedTypeCatalogViewSet(viewsets.ModelViewSet):
+    serializer_class = NeedTypeManageSerializer
+    pagination_class = None
+    http_method_names = ["get", "post", "put", "patch", "head", "options"]
+
+    def get_serializer_class(self):
+        if self.action in ("create", "update", "partial_update"):
+            return NeedTypeManageSerializer
+        return NeedTypeCatalogSerializer
+
+    def get_permissions(self):
+        if self.action in ("create", "update", "partial_update"):
+            from .permissions import type_management_permissions
+            return type_management_permissions()
+        return [IsCareTeam(), RequirePermission("avaliacoes.view")()]
+
+    def get_queryset(self):
+        queryset = NeedType.objects.order_by("name")
+        if self.action != "list":
+            return queryset
+        status_param = (self.request.query_params.get("status") or "ativo").lower()
+        if status_param == "ativo":
+            return queryset.filter(status=NeedTypeStatus.ACTIVE)
+        if status_param == "inativo":
+            return queryset.filter(status=NeedTypeStatus.INACTIVE)
+        if status_param == "todos":
+            return queryset
+        raise DRFValidationError({"status": "Use 'ativo', 'inativo' ou 'todos'."})
+
+
+class NeedTypeStatusView(APIView):
+    target_status = None
+
+    def get_permissions(self):
+        from .permissions import type_management_permissions
+        return type_management_permissions()
+
+    def post(self, request, pk):
+        need_type = get_object_or_404(NeedType, pk=pk)
+        need_type.status = self.target_status
+        need_type.save(update_fields=["status", "updated_at"])
+        return Response(NeedTypeCatalogSerializer(need_type).data, status=status.HTTP_200_OK)
+
+
+class NeedTypeInactivateView(NeedTypeStatusView):
+    target_status = NeedTypeStatus.INACTIVE
+
+
+class NeedTypeReactivateView(NeedTypeStatusView):
+    target_status = NeedTypeStatus.ACTIVE
 
 
 class AssessmentPagination(PageNumberPagination):
@@ -108,7 +173,9 @@ class AssessmentViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         try:
-            serializer.save()
+            with transaction.atomic():
+                assessment = serializer.save()
+                log_assessment_creation(assessment=assessment, actor=self.request.user)
         except DjangoValidationError as exc:
             raise DRFValidationError(
                 exc.message_dict if hasattr(exc, "message_dict") else str(exc)
@@ -116,7 +183,24 @@ class AssessmentViewSet(viewsets.ModelViewSet):
 
     def perform_update(self, serializer):
         try:
-            serializer.save()
+            with transaction.atomic():
+                previous = assessment_snapshot(serializer.instance)
+                assessment = serializer.save()
+                current = assessment_snapshot(assessment)
+                changes = {
+                    key: {"old": previous[key], "new": current[key]}
+                    for key in current if previous[key] != current[key]
+                }
+                if changes:
+                    action = (
+                        AssessmentAuditAction.PROFESSIONAL_CHANGE
+                        if "professional_id" in changes
+                        else AssessmentAuditAction.UPDATE
+                    )
+                    log_assessment_event(
+                        assessment=assessment, actor=self.request.user,
+                        action=action, changes=changes,
+                    )
         except DjangoValidationError as exc:
             raise DRFValidationError(
                 exc.message_dict if hasattr(exc, "message_dict") else str(exc)
@@ -160,10 +244,9 @@ class CareNeedViewSet(
     mixins.ListModelMixin,
     mixins.RetrieveModelMixin,
     mixins.UpdateModelMixin,
-    mixins.DestroyModelMixin,
     viewsets.GenericViewSet,
 ):
-    """Consulta, edição e exclusão física (RF-NEC-008/009/010).
+    """Consulta e edição; registros são preservados por inativação.
 
     Criação permanece em POST /api/avaliacoes/<id>/necessidades/.
     A avaliação de origem e o status são imutáveis nesta API.
@@ -179,6 +262,22 @@ class CareNeedViewSet(
     def get_permissions(self):
         # Métodos sem rota mapeada continuam retornando 405 após autenticação.
         return need_permissions(self.action or "metadata")
+
+    def destroy(self, request, *args, **kwargs):
+        need = self.get_object()
+        if need.history.exists():
+            return Response(
+                {"detail": "Esta necessidade possui histórico de situação e não pode ser excluída."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            need.delete()
+        except ProtectedError:
+            return Response(
+                {"detail": "Esta necessidade está vinculada a um plano de cuidados e não pode ser excluída."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     def filter_queryset(self, queryset):
         queryset = super().filter_queryset(queryset)
@@ -231,17 +330,28 @@ class CareNeedViewSet(
         return Response(CareNeedHistorySerializer(need.history.all(), many=True).data)
 
 
-class ResourceCatalogViewSet(viewsets.ReadOnlyModelViewSet):
-    """Catálogo de recursos p/ a avaliação (TA-63/TASK-AVL-FE-006).
-
-    GET /api/recursos/ — gerente+médico+enfermeiro com `avaliacoes.view`.
-    Sem paginação (lista curta); ordenado por nome.
-    """
+class ResourceCatalogViewSet(viewsets.ModelViewSet):
+    """Catálogo de consulta da equipe clínica e manutenção pelo gerente."""
 
     serializer_class = ResourceCatalogSerializer
     pagination_class = None
-    http_method_names = ["get", "head", "options"]
-    permission_classes = [IsCareTeam, RequirePermission("avaliacoes.view")]
+    http_method_names = ["get", "post", "patch", "put", "delete", "head", "options"]
+
+    def get_permissions(self):
+        if self.action in ("create", "update", "partial_update", "destroy"):
+            return [IsGerente(), RequirePermission("avaliacoes.manage_resources")()]
+        return [IsCareTeam(), RequirePermission("avaliacoes.view")()]
 
     def get_queryset(self):
         return Resource.objects.order_by("name")
+
+    def destroy(self, request, *args, **kwargs):
+        resource = self.get_object()
+        try:
+            resource.delete()
+        except ProtectedError:
+            return Response(
+                {"detail": "Este recurso já está associado a uma avaliação e não pode ser excluído."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return Response(status=status.HTTP_204_NO_CONTENT)

@@ -22,7 +22,10 @@ export interface ApiOptions extends RequestInit {
   json?: unknown;
 }
 
-export async function api(path: string, options: ApiOptions = {}): Promise<Response> {
+export async function api(
+  path: string,
+  options: ApiOptions = {},
+): Promise<Response> {
   const { json, headers, ...init } = options;
   const doFetch = () =>
     fetch(`${API_URL}${path}`, {
@@ -47,7 +50,10 @@ export async function api(path: string, options: ApiOptions = {}): Promise<Respo
   return res;
 }
 
-export async function apiJson<T>(path: string, options: ApiOptions = {}): Promise<T> {
+export async function apiJson<T>(
+  path: string,
+  options: ApiOptions = {},
+): Promise<T> {
   const res = await api(path, options);
   if (!res.ok) {
     const detail = await res
@@ -56,6 +62,10 @@ export async function apiJson<T>(path: string, options: ApiOptions = {}): Promis
       .catch(() => res.statusText);
     throw new ApiError(res.status, String(detail));
   }
+  if (res.status === 204) {
+    return undefined as T;
+  }
+
   return res.json() as Promise<T>;
 }
 

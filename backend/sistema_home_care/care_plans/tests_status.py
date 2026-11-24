@@ -6,7 +6,7 @@ from accounts.models import Profession
 from professionals.models import Professional
 from assessments.models import CareNeed, PatientAssessment
 from assessments.tests_api import make_api_users, make_patient, MEDICO_CPF, ENFERMEIRO_CPF, GERENTE_CPF
-from patients.models import NeedType
+from assessments.models import NeedType
 from .models import CarePlan
 from .services import create_plan, change_status
 

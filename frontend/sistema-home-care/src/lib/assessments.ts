@@ -6,6 +6,7 @@ export interface CareNeed {
   id: number;
   need_type: number;
   need_type_name?: string;
+  has_plan_links?: boolean;
   description: string;
   priority: string;
   status: string;
@@ -27,6 +28,7 @@ export interface PatientAssessment {
   id: number;
   patient: number;
   professional: number | null;
+  professional_name?: string | null;
   assessment_type: string;
   assessment_date: string | null;
   assessment_time: string | null;
@@ -54,6 +56,11 @@ export interface NeedType {
   name: string;
   description: string;
   status: string;
+}
+
+export interface NeedTypeInput {
+  name: string;
+  description: string;
 }
 
 export interface ResourceCatalog {
@@ -126,27 +133,48 @@ export function isCareTeam(groups: string[] | undefined): boolean {
   return inGroups(groups, "GERENTE", "MEDICO", "ENFERMEIRO");
 }
 
+export function canManageNeedTypes(user: SessionUser | null | undefined): boolean {
+  return !!user && isCareTeam(user.groups) && hasPerm(user, "tipos_necessidade.manage");
+}
+
+export function canCreateNeed(user: SessionUser | null | undefined): boolean {
+  return !!user && isClinical(user.groups) && hasPerm(user, "necessidades.create") && hasPerm(user, "avaliacoes.add_need");
+}
+
+export function canUpdateNeed(user: SessionUser | null | undefined): boolean {
+  return !!user && isClinical(user.groups) && hasPerm(user, "necessidades.update");
+}
+
+export function canDeleteNeed(user: SessionUser | null | undefined): boolean {
+  return !!user && isClinical(user.groups) && hasPerm(user, "necessidades.delete");
+}
+
+export function canChangeNeedStatus(user: SessionUser | null | undefined, active: boolean): boolean {
+  return !!user && isCareTeam(user.groups) && hasPerm(user, active ? "necessidades.reactivate" : "necessidades.inactivate");
+}
+
+export function canViewNeedHistory(user: SessionUser | null | undefined): boolean {
+  return !!user && isClinical(user.groups) && hasPerm(user, "necessidades.view");
+}
+
 /** Criação: só Médico/Enfermeiro (RN-AVL-002). Checa grupo OU granular. */
 export function canCreateAssessment(user: SessionUser | null | undefined): boolean {
-  if (!user) return false;
-  return isClinical(user.groups) || hasPerm(user, "avaliacoes.create");
+  return !!user && isClinical(user.groups) && hasPerm(user, "avaliacoes.create");
 }
 
 /** Edição clínica: Médico/Enfermeiro (RN-AVL-007). Gerente edita só responsável. */
 export function canEditAssessment(user: SessionUser | null | undefined): boolean {
   if (!user) return false;
   return (
-    isClinical(user.groups) ||
-    inGroups(user.groups, "GERENTE") ||
-    hasPerm(user, "avaliacoes.update") ||
-    hasPerm(user, "avaliacoes.change_professional")
+    (isClinical(user.groups) && hasPerm(user, "avaliacoes.update")) ||
+    (inGroups(user.groups, "GERENTE") && hasPerm(user, "avaliacoes.update") && hasPerm(user, "avaliacoes.change_professional"))
   );
 }
 
 /** Visualização: Gerente+Médico+Enfermeiro (RN-AVL-009). */
 export function canViewAssessments(user: SessionUser | null | undefined): boolean {
   if (!user) return false;
-  return isCareTeam(user.groups) || hasPerm(user, "avaliacoes.view");
+  return isCareTeam(user.groups) && hasPerm(user, "avaliacoes.view");
 }
 
 export function canChangeProfessional(
@@ -154,8 +182,12 @@ export function canChangeProfessional(
 ): boolean {
   if (!user) return false;
   return (
-    isCareTeam(user.groups) || hasPerm(user, "avaliacoes.change_professional")
+    (inGroups(user.groups, "GERENTE") && hasPerm(user, "avaliacoes.change_professional"))
   );
+}
+
+export function canAddAssessmentResource(user: SessionUser | null | undefined): boolean {
+  return !!user && isClinical(user.groups) && hasPerm(user, "avaliacoes.add_resource");
 }
 
 /* ------------------------------- API calls ------------------------------- */
@@ -168,6 +200,16 @@ export function listAssessmentsByPatient(
   if (page > 1) search.set("page", String(page));
   return apiJson<Paginated<PatientAssessment>>(
     `/api/avaliacoes/?${search.toString()}`,
+  );
+}
+
+/** Lista global de avaliações (filtro `patient` é opcional no backend). */
+export function listAssessments(page = 1): Promise<Paginated<PatientAssessment>> {
+  const search = new URLSearchParams();
+  if (page > 1) search.set("page", String(page));
+  const query = search.toString();
+  return apiJson<Paginated<PatientAssessment>>(
+    `/api/avaliacoes/${query ? `?${query}` : ""}`,
   );
 }
 
@@ -231,8 +273,8 @@ export function updateNeed(id: number, input: NeedCreateInput): Promise<CareNeed
 export async function deleteNeed(id: number): Promise<void> {
   const response = await api(`/api/necessidades/${id}/`, { method: "DELETE" });
   if (!response.ok) {
-    const message = await response.json().then((body) => body.detail ?? JSON.stringify(body)).catch(() => response.statusText);
-    throw new ApiError(response.status, String(message));
+    const body: { detail?: string } = await response.json().catch(() => ({}));
+    throw new ApiError(response.status, body?.detail ?? response.statusText);
   }
 }
 
@@ -287,9 +329,30 @@ export function listNeedTypes(): Promise<NeedType[]> {
   return apiJson<NeedType[]>("/api/tipos-necessidade/");
 }
 
+export function createNeedType(input: NeedTypeInput): Promise<NeedType> {
+  return apiJson<NeedType>("/api/tipos-necessidade/", { method: "POST", json: input });
+}
+
+export function updateNeedType(id: number, input: NeedTypeInput): Promise<NeedType> {
+  return apiJson<NeedType>(`/api/tipos-necessidade/${id}/`, { method: "PATCH", json: input });
+}
+
+export function changeNeedTypeStatus(id: number, active: boolean): Promise<NeedType> {
+  const action = active ? "reativar" : "inativar";
+  return apiJson<NeedType>(`/api/tipos-necessidade/${id}/${action}/`, { method: "POST" });
+}
+
 /** Catálogo p/ o select de recursos (TA-63). Sem paginação. */
 export function listResources(): Promise<ResourceCatalog[]> {
   return apiJson<ResourceCatalog[]>("/api/recursos/");
+}
+
+export function createResource(name: string): Promise<ResourceCatalog> {
+  return apiJson<ResourceCatalog>("/api/recursos/", { method: "POST", json: { name } });
+}
+
+export function updateResource(id: number, name: string): Promise<ResourceCatalog> {
+  return apiJson<ResourceCatalog>(`/api/recursos/${id}/`, { method: "PATCH", json: { name } });
 }
 
 /** Equipe clínica ativa p/ o select de responsável (completa TA-62/UX). */

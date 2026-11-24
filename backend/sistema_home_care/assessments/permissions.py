@@ -34,3 +34,8 @@ def need_permissions(action):
     codename, allow_manager = rule
     profile = (IsGerente | IsClinicalStaff) if allow_manager else IsClinicalStaff
     return [IsActiveUser(), profile(), RequirePermission(f'necessidades.{codename}')()]
+
+
+def type_management_permissions():
+    return [IsActiveUser(), (IsGerente | IsClinicalStaff)(),
+            RequirePermission('tipos_necessidade.manage')()]

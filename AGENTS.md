@@ -117,7 +117,7 @@ MinIO credentials: `minioadmin` / `minioadmin`
 - Apps `accounts` + `professionals` (stub): `Profession` (nome único; `save()` cria `Category` espelho sem permissões), `Category` (nome único + M2M `permissions`), `GranularPermission` (`feature`+`action`→`codename` único), `Professional` (`user` 1:1 nullable `CASCADE`, `full_name`, `profession` `PROTECT`, `is_active`), `User` (`email` único obrigatório, `category` FK `PROTECT` obrigatória), `UserAuditLog` (`user`/`actor` `SET_NULL` p/ sobreviver ao DELETE físico)
 - `accounts/services.py` (transacional): `create_managed_user` (profissional inline ou `professional_id` livre; categoria deve espelhar a profissão), `set_user_status` (sincroniza usuário↔profissional), `change_professional_profession` (atualiza categoria do usuário p/ a nova profissão), `transfer_profession_professionals`, `sync_legacy_groups` (espelha categoria nos Groups até endpoints clínicos migrarem)
 - Endpoints (`api/usuarios|/categorias|/profissoes|/permissoes/`, router em `accounts/urls_users.py`; `GET /api/profissionais-livres/`): CRUD usuário + `inativar/reativar` idempotentes + DELETE físico em cascata — tudo só gerente (`IsGerente` + granular); listagem default ativos, filtros `nome/cpf/status/categoria`, paginação 20; categorias: `PUT <id>/permissoes/`; profissões: inativar/excluir bloqueados com vinculados (400) + `POST <id>/transferir/`; profissional e categoria imutáveis no update (400); erros de obrigatórios acumulados numa 400 única
-- Recuperação de senha **adiada** (sem SMTP; `email` único já reservado p/ isso); campos específicos do profissional ficam p/ o módulo oficial
+- Recuperação de senha **incluída no MVP por decisão de 23/11/2026**: implementar fluxo por e-mail com SMTP configurável por ambiente, sem versionar credenciais; validar envio usando backend de e-mail em memória. Campos específicos do profissional ficam para o módulo oficial.
 - Testes `accounts/tests_users.py` (30) + `accounts`/`patients` atualizados (helpers com categoria/e-mail); total 80 verdes via `backend/venv`
 - Frontend (só gerente): `lib/users.ts`, `pages/UsersList|UserForm|UserDetail|Categories|Professions`, rotas `/usuarios/*`, `/categorias`, `/profissoes`, seção Administração no `AppLayout` (badge mostra categoria)
 
@@ -126,12 +126,16 @@ MinIO credentials: `minioadmin` / `minioadmin`
 - App `patients`: `Patient` (`patients`, ordering por nome), `PatientAddress` (1:1, `CASCADE`), `HealthCondition` (mínima: só id+timestamps, RN-CAD-PAC-005 pendente)
 - CPF: só dígitos (`max_length=11`, `unique+db_index`), máscara aceita e normalizada no `clean()`/`save()` e no serializer antes do `UniqueValidator`; algoritmo oficial reusado de `accounts.validators`
 - `status`: choices ACTIVE/INACTIVE, default ACTIVE, **read-only** nos serializers (só via actions)
+- `gender`: choices `Masculino`, `Feminino`, `Prefiro não dizer`; valores legados são preservados ao editar sem aceitar novos valores livres
 - `responsible_doctor`: FK `accounts.User` `PROTECT` nullable; serializer exige grupo **MEDICO** e obrigatoriedade no create (TA-5/TASK-CAD-PAC-004)
 - `responsible_team`: **JSONField provisório** (`null/blank`, default `dict`, sem validação) até o módulo de profissionais definir a Equipe (TA-7/TASK-CAD-PAC-005, decisão intencional desta fase)
+- Médico e equipe só podem ser alterados por GERENTE com `pacientes.update_manager`, além da permissão de edição clínica; equipe é opcional no cadastro
+- Respostas do paciente incluem `responsible_doctor_name` e `health_condition_name` para exibição no detalhe
+- `NeedType` pertence ao app `assessments`; migração mantém a tabela `need_types` e os vínculos existentes com `CareNeed`
 - Endpoints (`api/pacientes/`, router DRF): `POST` cria (só gerente, endereço aninhado obrigatório); `GET` lista/detalhe (gerente+médico+enfermeiro); `PUT/PATCH` edita (clínica; só gerente toca médico/equipe, resto 403); `POST <id>/inativar/` e `<id>/reativar/` (só gerente, idempotentes, funcionam fora do filtro de ativos)
 - Listagem: default só ativos; `?nome=` (icontains), `?cpf=` (aceita máscara), `?status=ativo|inativo|todos`, `?regiao=` (via `address__region`); paginação fixa **20/página**; `status` inválido → 400
 - Create acumula todos os erros de obrigatórios (`responsible_doctor`, `health_condition`, `address`) numa resposta 400 única
-- Jira concluídos: TA-5, TA-7, TA-10, TA-12, TA-13, TA-14, TA-15, TA-16, TA-17, TA-18, TA-20, TA-21, TA-22, TA-23, TA-24, TA-26, TA-34, TA-35, TA-36, TA-37, TA-38, TA-39 (TASK-CAD-PAC-004/005/008–022/031–036); testes `patients`+`accounts` (50) verdes via `backend/venv`
+- Jira concluídos: TA-5, TA-7, TA-10, TA-12, TA-13, TA-14, TA-15, TA-16, TA-17, TA-18, TA-20, TA-21, TA-22, TA-23, TA-24, TA-26, TA-34, TA-35, TA-36, TA-37, TA-38, TA-39 (TASK-CAD-PAC-004/005/008–022/031–036); suíte `patients` + `accounts`: 110 testes verdes em 22/11/2026 via `backend/venv`
 - Auditoria mínima (TA-37/TASK-CAD-PAC-032): `PatientAuditLog` (patient, actor, action CREATE/UPDATE/INACTIVATE/REACTIVATE/DOCTOR_TEAM_CHANGE, changes JSON) via `patients/audit.py` chamado nas views; admin read-only; auditoria completa (retenção, formato, UI) pendente
 
 ## Key Details

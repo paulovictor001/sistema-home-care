@@ -17,7 +17,7 @@ from rest_framework.views import APIView
 
 from professionals.models import Professional
 
-from .models import Category, GranularPermission, Profession, UserAuditAction
+from .models import Category, GranularPermission, Profession
 from .permissions import IsGerente, RequirePermission
 from .serializers_users import (
     CategorySerializer,
@@ -27,7 +27,8 @@ from .serializers_users import (
     UserSerializer,
 )
 from .services import (
-    log_user_event,
+    delete_managed_user,
+    protected_deletion_message,
     set_user_status,
     transfer_profession_professionals,
 )
@@ -114,16 +115,10 @@ class UserViewSet(viewsets.ModelViewSet):
         return queryset.distinct()
 
     def perform_destroy(self, instance):
-        request = self.request
-        actor = request.user
-        pk, cpf = instance.pk, instance.cpf
-        log_user_event(
-            user=instance,
-            actor=actor,
-            action=UserAuditAction.DELETE,
-            changes={"id": pk, "cpf": cpf},
-        )
-        instance.delete()  # CASCADE exclui o profissional vinculado.
+        try:
+            delete_managed_user(user=instance, actor=self.request.user)
+        except ProtectedError as exc:
+            raise DRFValidationError(protected_deletion_message(exc)) from exc
 
     def _set_status(self, request, pk, is_active: bool):
         user = get_object_or_404(self.get_queryset(), pk=pk)
@@ -166,6 +161,11 @@ class CategoryViewSet(viewsets.ModelViewSet):
         return [IsGerente(), RequirePermission(codename)()]
 
     def perform_destroy(self, instance):
+        if Profession.objects.filter(category=instance).exists():
+            raise DRFValidationError(
+                "Categoria associada a uma profissão não pode ser excluída. "
+                "Exclua primeiro a profissão, se ela não possuir profissionais."
+            )
         if instance.users.exists():
             raise DRFValidationError(
                 "Categoria possui usuarios e nao pode ser excluida."

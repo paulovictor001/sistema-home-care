@@ -1,77 +1,130 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../contexts/useAuth";
 import { formatCpf } from "../lib/cpf";
-import { isGerente } from "../lib/patients";
+import { canViewPatients, isGerente } from "../lib/patients";
 import { scaleAccess } from '../lib/careScales';
-import { Breadcrumbs } from "./ui";
+import { canManageNeedTypes } from "../lib/assessments";
+import { canVisit } from "../lib/visits";
 
 function navClasses({ isActive }: { isActive: boolean }): string {
   return `flex min-h-11 items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-care-action ${
     isActive
-      ? "bg-care-soft text-care-forest ring-1 ring-inset ring-care-action/10"
-      : "text-[#C2D0CA] hover:bg-white/10 hover:text-white"
+      ? "bg-primary text-white"
+      : "text-white/75 hover:bg-white/10 hover:text-white"
   }`;
 }
 
 function sectionLabel(text: string) {
   return (
-    <p className="px-3 pt-6 pb-2 text-[10px] font-semibold tracking-[0.14em] text-[#8FA39A] uppercase">
+    <p className="px-3 pt-5 pb-1 text-[11px] font-semibold tracking-wider text-white/60 uppercase">
       {text}
     </p>
   );
 }
 
-type Breadcrumb = { label: string; to?: string };
-type PageContext = { title: string; breadcrumbs: Breadcrumb[] };
+/* Ícones da navegação — SVG stroke (mesmo estilo do painel) */
+const NAV_ICONS: Record<string, ReactNode> = {
+  grid: (
+    <>
+      <rect x="3" y="3" width="7" height="7" rx="1.5" />
+      <rect x="14" y="3" width="7" height="7" rx="1.5" />
+      <rect x="3" y="14" width="7" height="7" rx="1.5" />
+      <rect x="14" y="14" width="7" height="7" rx="1.5" />
+    </>
+  ),
+  users: (
+    <>
+      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+      <circle cx="9" cy="7" r="4" />
+      <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+    </>
+  ),
+  calendar: (
+    <>
+      <path d="M8 2v4" />
+      <path d="M16 2v4" />
+      <rect width="18" height="18" x="3" y="4" rx="2" />
+      <path d="M3 10h18" />
+    </>
+  ),
+  user: (
+    <>
+      <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2" />
+      <circle cx="12" cy="7" r="4" />
+    </>
+  ),
+  tag: (
+    <>
+      <path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z" />
+      <circle cx="7.5" cy="7.5" r=".5" fill="currentColor" />
+    </>
+  ),
+  briefcase: (
+    <>
+      <path d="M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
+      <rect width="20" height="14" x="2" y="6" rx="2" />
+    </>
+  ),
+  box: (
+    <>
+      <path d="m12 3 9 5-9 5-9-5 9-5Z" />
+      <path d="M3 8v9l9 5 9-5V8" />
+      <path d="M12 13v9" />
+    </>
+  ),
+  types: (
+    <>
+      <path d="M4 5h16M4 12h16M4 19h16" />
+      <circle cx="7" cy="5" r="1" fill="currentColor" />
+      <circle cx="7" cy="12" r="1" fill="currentColor" />
+      <circle cx="7" cy="19" r="1" fill="currentColor" />
+    </>
+  ),
+};
 
-function getPageContext(pathname: string): PageContext {
-  const parts = pathname.split("/").filter(Boolean);
-  const home: Breadcrumb = { label: "Painel", to: "/" };
-  const patients: Breadcrumb = { label: "Pacientes", to: "/pacientes" };
-  const users: Breadcrumb = { label: "Usuários", to: "/usuarios" };
-
-  if (parts.length === 0) return { title: "Painel", breadcrumbs: [home] };
-  if (parts[0] === "pacientes") {
-    if (parts[1] === "novo") return { title: "Novo paciente", breadcrumbs: [home, patients, { label: "Novo" }] };
-    if (parts[1] && parts[2] === "editar") return { title: "Editar paciente", breadcrumbs: [home, patients, { label: `Paciente #${parts[1]}`, to: `/pacientes/${parts[1]}` }, { label: "Editar" }] };
-    if (parts[1] && parts[2] === "avaliacoes") {
-      const assessments: Breadcrumb = { label: "Avaliações", to: `/pacientes/${parts[1]}/avaliacoes` };
-      const patient: Breadcrumb = { label: `Paciente #${parts[1]}`, to: `/pacientes/${parts[1]}` };
-      if (parts[3] === "nova") return { title: "Nova avaliação", breadcrumbs: [home, patients, patient, assessments, { label: "Nova" }] };
-      return { title: "Histórico de avaliações", breadcrumbs: [home, patients, patient, assessments] };
-    }
-    if (parts[1] && parts[2] === "planos-cuidados") return { title: "Planos de cuidado", breadcrumbs: [home, patients, { label: `Paciente #${parts[1]}`, to: `/pacientes/${parts[1]}` }, { label: "Planos de cuidado" }] };
-    if (parts[1] && parts[2] === "escalas") return { title: "Escalas de cuidado", breadcrumbs: [home, patients, { label: `Paciente #${parts[1]}`, to: `/pacientes/${parts[1]}` }, { label: "Escalas" }] };
-    if (parts[1]) return { title: "Detalhe do paciente", breadcrumbs: [home, patients, { label: "Detalhe" }] };
-    return { title: "Pacientes", breadcrumbs: [home, patients] };
-  }
-  if (parts[0] === "avaliacoes") {
-    if (parts[2] === "editar") return { title: "Editar avaliação", breadcrumbs: [home, patients, { label: "Avaliações" }, { label: "Editar" }] };
-    return { title: "Detalhe da avaliação", breadcrumbs: [home, patients, { label: "Avaliações" }, { label: "Detalhe" }] };
-  }
-  if (parts[0] === "usuarios") {
-    if (parts[1] === "novo") return { title: "Novo usuário", breadcrumbs: [home, users, { label: "Novo" }] };
-    if (parts[1] && parts[2] === "editar") return { title: "Editar usuário", breadcrumbs: [home, users, { label: "Usuário" }, { label: "Editar" }] };
-    if (parts[1]) return { title: "Detalhe do usuário", breadcrumbs: [home, users, { label: "Detalhe" }] };
-    return { title: "Usuários", breadcrumbs: [home, users] };
-  }
-  if (parts[0] === "escalas") {
-    if (parts[1]) return { title: "Detalhe da escala", breadcrumbs: [home, { label: "Escalas", to: "/escalas" }, { label: "Detalhe" }] };
-    return { title: "Escalas", breadcrumbs: [home, { label: "Escalas" }] };
-  }
-  if (parts[0] === "planos-cuidados") return { title: "Detalhe do plano de cuidado", breadcrumbs: [home, patients, { label: "Planos de cuidado" }, { label: "Detalhe" }] };
-  const sections: Record<string, string> = { categorias: "Categorias", profissoes: "Profissões", tipos: "Tipos de necessidade" };
-  const title = sections[parts[0]];
-  if (title) return { title, breadcrumbs: [home, { label: title }] };
-  return { title: "Painel", breadcrumbs: [home] };
+function NavIcon({ name }: { name: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.75}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+      className="h-[18px] w-[18px] shrink-0"
+    >
+      {NAV_ICONS[name]}
+    </svg>
+  );
 }
+
+const PAGE_TITLES: { prefix: string; title: string; crumb: string }[] = [
+  { prefix: "/escalas", title: "Escalas", crumb: "Painel / Escalas" },
+  { prefix: "/agendamentos", title: "Agendamentos", crumb: "Painel / Gestão / Agendamentos" },
+  { prefix: "/avaliacoes/", title: "Detalhe da Avaliação", crumb: "Painel / Pacientes / Avaliações / Detalhe" },
+  { prefix: "/avaliacoes", title: "Avaliações", crumb: "Painel / Pacientes / Avaliações" },
+  { prefix: "/pacientes/novo", title: "Novo Paciente", crumb: "Painel / Pacientes / Novo" },
+  { prefix: "/pacientes/", title: "Detalhe do Paciente", crumb: "Painel / Pacientes / Detalhe" },
+  { prefix: "/pacientes", title: "Pacientes", crumb: "Painel / Pacientes" },
+  { prefix: "/usuarios/novo", title: "Novo Usuário", crumb: "Painel / Usuários / Novo" },
+  { prefix: "/usuarios/", title: "Detalhe do Usuário", crumb: "Painel / Usuários / Detalhe" },
+  { prefix: "/usuarios", title: "Usuários", crumb: "Painel / Usuários" },
+  { prefix: "/categorias", title: "Categorias", crumb: "Painel / Categorias" },
+  { prefix: "/profissoes", title: "Profissões", crumb: "Painel / Profissões" },
+  { prefix: "/tipos", title: "Tipos de necessidade", crumb: "Painel / Administração / Tipos de necessidade" },
+  { prefix: "/recursos", title: "Recursos", crumb: "Painel / Administração / Recursos" },
+  { prefix: "/", title: "Painel", crumb: "Painel" },
+];
 
 export function AppLayout() {
   const { user, logout } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const [scalesVisible, setScalesVisible] = useState(false);
-  useEffect(() => {let cancelled = false; setScalesVisible(false); if (user) void scaleAccess().then(access => {if (!cancelled) setScalesVisible(Object.values(access).some(Boolean));}).catch(() => {}); return () => {cancelled = true;};}, [user]);
+  useEffect(() => {let cancelled = false; if (user) void scaleAccess().then(access => {if (!cancelled) setScalesVisible(Object.values(access).some(Boolean));}).catch(() => {}); return () => {cancelled = true;};}, [user]);
   const location = useLocation();
 
   const displayName =
@@ -83,24 +136,26 @@ export function AppLayout() {
     .map((part) => part[0]?.toUpperCase() ?? "")
     .join("");
 
-  const current = getPageContext(location.pathname);
+  const current =
+    PAGE_TITLES.find((page) => location.pathname.startsWith(page.prefix)) ??
+    PAGE_TITLES[PAGE_TITLES.length - 1];
 
   function closeMenu() {
     setMenuOpen(false);
   }
 
   return (
-    <div className="min-h-screen bg-[#F6F7F4] text-[#253431]">
+    <div className="min-h-screen bg-background">
       <div className="flex">
         {/* Sidebar */}
         <aside
           id="primary-sidebar"
           className={`${
             menuOpen ? "fixed inset-y-0 left-0 z-40 flex" : "hidden"
-          } w-[min(19rem,88vw)] shrink-0 flex-col bg-[#173B3A] p-4 shadow-xl md:sticky md:top-0 md:flex md:h-screen md:w-64 md:shadow-none`}
+          } w-64 shrink-0 flex-col bg-sidebar p-4 md:sticky md:top-0 md:flex md:h-screen`}
         >
           <Link to="/" onClick={closeMenu} className="flex items-center gap-2 px-1 py-2">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-care-action text-sm font-bold text-white ring-1 ring-inset ring-white/15">
+            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent text-sm font-bold text-sidebar">
               HC
             </span>
             <span className="text-lg font-semibold text-white">LarVita</span>
@@ -110,52 +165,63 @@ export function AppLayout() {
             {sectionLabel("Principal")}
             <div className="space-y-1">
               <NavLink to="/" end className={navClasses} onClick={closeMenu}>
-                <span aria-hidden="true" className="w-5 text-center">⌂</span> Painel
+                <NavIcon name="grid" /> Painel
               </NavLink>
             </div>
 
             {sectionLabel("Gestão")}
             <div className="space-y-1">
-              <NavLink to="/pacientes" className={navClasses} onClick={closeMenu}>
-                <span aria-hidden="true" className="w-5 text-center">◉</span> Pacientes
-              </NavLink>
-              {scalesVisible && <NavLink to="/escalas" className={navClasses} onClick={closeMenu}><span aria-hidden="true" className="w-5 text-center">⌁</span>Escalas</NavLink>}
+              {canViewPatients(user) && (
+                <NavLink to="/pacientes" end className={navClasses} onClick={closeMenu}>
+                  <NavIcon name="users" /> Pacientes
+                </NavLink>
+              )}
+              {scalesVisible && <NavLink to="/escalas" className={navClasses} onClick={closeMenu}><NavIcon name="calendar" /> Escalas</NavLink>}
+              {canVisit(user, 'view') && <NavLink to="/agendamentos" className={navClasses} onClick={closeMenu}><NavIcon name="calendar" /> Agendamentos</NavLink>}
             </div>
 
-            {isGerente(user?.groups) && (
+            {(isGerente(user?.groups) || canManageNeedTypes(user)) && (
               <>
                 {sectionLabel("Administração")}
                 <div className="space-y-1">
-                  <NavLink to="/usuarios" className={navClasses} onClick={closeMenu}>
-                    <span aria-hidden="true" className="w-5 text-center">◎</span> Usuários
-                  </NavLink>
-                  <NavLink to="/categorias" end className={navClasses} onClick={closeMenu}>
-                    <span aria-hidden="true" className="w-5 text-center">◈</span> Categorias
-                  </NavLink>
-                  <NavLink to="/profissoes" end className={navClasses} onClick={closeMenu}>
-                    <span aria-hidden="true" className="w-5 text-center">✚</span> Profissões
-                  </NavLink>
+                  {isGerente(user?.groups) && <>
+                    <NavLink to="/usuarios" end className={navClasses} onClick={closeMenu}>
+                      <NavIcon name="user" /> Usuários
+                    </NavLink>
+                    <NavLink to="/categorias" end className={navClasses} onClick={closeMenu}>
+                      <NavIcon name="tag" /> Categorias
+                    </NavLink>
+                    <NavLink to="/profissoes" end className={navClasses} onClick={closeMenu}>
+                      <NavIcon name="briefcase" /> Profissões
+                    </NavLink>
+                    <NavLink to="/recursos" end className={navClasses} onClick={closeMenu}>
+                      <NavIcon name="box" /> Recursos
+                    </NavLink>
+                  </>}
+                  {canManageNeedTypes(user) && <NavLink to="/tipos" end className={navClasses} onClick={closeMenu}>
+                    <NavIcon name="types" /> Tipos de necessidade
+                  </NavLink>}
                 </div>
               </>
             )}
           </nav>
 
-          <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-3 text-sm">
+          <div className="mt-4 rounded-lg bg-white/10 p-3 text-sm">
             <div className="flex items-center gap-3">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-care-action font-semibold text-white">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary font-semibold text-white">
                 {initials}
               </span>
               <div className="min-w-0">
                 <p className="truncate font-medium text-white">{displayName}</p>
-                <p className="truncate text-xs text-[#B5C6BE]">{roleLabel}</p>
+                <p className="truncate text-xs text-white/60">{roleLabel}</p>
               </div>
             </div>
-            <p className="mt-2 text-xs text-[#B5C6BE]">
+            <p className="mt-2 text-xs text-white/60">
               CPF: {user ? formatCpf(user.cpf) : "—"}
             </p>
             <button
-              onClick={() => void logout()}
-              className="mt-3 min-h-10 w-full rounded-xl border border-white/15 px-3 py-2 text-sm font-medium text-white transition hover:bg-white/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+              onClick={logout}
+              className="mt-3 w-full rounded-lg border border-white/25 px-3 py-1.5 text-sm text-white/90 transition-colors hover:bg-white/10"
             >
               Sair
             </button>
@@ -174,32 +240,32 @@ export function AppLayout() {
         {/* Coluna conteúdo */}
         <div className="min-w-0 flex-1">
           {/* Topbar */}
-          <header className="sticky top-0 z-20 flex min-h-[76px] items-center gap-3 border-b border-[#E5EAE5] bg-white/95 px-4 py-3 backdrop-blur-sm md:gap-5 md:px-8">
+          <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-line bg-surface px-4 py-3 md:px-6">
             <button
               type="button"
               onClick={() => setMenuOpen((open) => !open)}
               aria-controls="primary-sidebar"
               aria-expanded={menuOpen}
               aria-label={menuOpen ? "Fechar menu" : "Abrir menu"}
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-[#E5EAE5] text-[#347C70] transition hover:bg-[#E4F0EA] md:hidden"
+              className="rounded-lg border border-line px-3 py-1.5 text-sm md:hidden"
             >
               <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-5 w-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
                 {menuOpen ? <><path d="m6 6 12 12M18 6 6 18" /></> : <><path d="M4 7h16M4 12h16M4 17h16" /></>}
               </svg>
             </button>
             <div className="min-w-0">
-              <div className="mb-1 hidden sm:block"><Breadcrumbs items={current.breadcrumbs} /></div>
-              <h1 className="truncate text-base font-semibold tracking-[-0.02em] text-[#253431] md:text-lg">
+              <h1 className="truncate text-lg font-semibold text-ink">
                 {current.title}
               </h1>
+              <p className="truncate text-xs text-muted">{current.crumb}</p>
             </div>
-            <div className="ml-auto flex min-w-0 items-center gap-2.5 border-l border-[#E5EAE5] pl-3 sm:gap-3 sm:pl-5">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#E4F0EA] text-xs font-semibold text-[#347C70] ring-1 ring-inset ring-[#347C70]/10 sm:h-10 sm:w-10 sm:text-sm">
+            <div className="ml-auto hidden items-center gap-3 sm:flex">
+              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-sm font-semibold text-white">
                 {initials}
               </span>
-              <div className="min-w-0 max-w-[140px] sm:max-w-[220px]">
-                <p className="truncate text-xs font-semibold text-[#253431] sm:text-sm">{displayName}</p>
-                <p className="truncate text-[11px] text-[#78847F] sm:text-xs">{roleLabel}</p>
+              <div className="text-right">
+                <p className="text-sm font-medium text-ink">{displayName}</p>
+                <p className="text-xs text-muted">{roleLabel}</p>
               </div>
             </div>
           </header>
@@ -208,8 +274,8 @@ export function AppLayout() {
             <Outlet />
           </main>
 
-          <footer className="mx-auto w-full max-w-[1440px] px-4 pb-6 text-xs text-care-muted sm:px-6 lg:px-8">
-            LarVita — painel de acesso
+          <footer className="px-4 pb-6 text-xs text-muted md:px-6">
+            Sistema Home Care — painel de acesso
           </footer>
         </div>
       </div>

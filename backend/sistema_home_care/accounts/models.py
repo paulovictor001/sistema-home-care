@@ -25,15 +25,13 @@ class CustomUserManager(BaseUserManager):
 
     def _default_category(self):
         """Categoria padrao (criada sob demanda) + profissao espelho."""
-        Category = self.model._meta.apps.get_model("accounts", "Category")
         Profession = self.model._meta.apps.get_model("accounts", "Profession")
-        Profession.objects.get_or_create(
-            name=self.DEFAULT_CATEGORY_NAME, defaults={"is_active": True}
-        )
-        category, _ = Category.objects.get_or_create(
-            name=self.DEFAULT_CATEGORY_NAME
-        )
-        return category
+        try:
+            return Profession.objects.get(name=self.DEFAULT_CATEGORY_NAME).category
+        except Profession.DoesNotExist:
+            from .services import save_profession
+
+            return save_profession(name=self.DEFAULT_CATEGORY_NAME).category
 
     def get_by_natural_key(self, cpf):
         """Permite login com CPF mascarado (admin, shell, backends)."""
@@ -58,35 +56,39 @@ class CustomUserManager(BaseUserManager):
         return user
 
     def create_superuser(self, cpf, password=None, email=None, **extra_fields):
+        from django.db import transaction
+
         extra_fields.setdefault("is_staff", True)
         extra_fields.setdefault("is_superuser", True)
         if extra_fields.get("is_staff") is not True:
             raise ValueError("Superuser precisa de is_staff=True.")
         if extra_fields.get("is_superuser") is not True:
             raise ValueError("Superuser precisa de is_superuser=True.")
-        user = self.create_user(cpf, password, email=email, **extra_fields)
-        # Bootstrap: grupo + categoria GERENTE e profissional vinculado.
-        from django.contrib.auth.models import Group
+        with transaction.atomic():
+            user = self.create_user(cpf, password, email=email, **extra_fields)
+            # Bootstrap consistente: a categoria deve ser a da profissão
+            # vinculada, e o profissional é criado na mesma transação.
+            from django.contrib.auth.models import Group
+            from .services import category_for_profession
 
-        group, _ = Group.objects.get_or_create(name="GERENTE")
-        user.groups.add(group)
-        Professional = self.model._meta.apps.get_model(
-            "professionals", "Professional"
-        )
-        Profession = self.model._meta.apps.get_model("accounts", "Profession")
-        profession, _ = Profession.objects.get_or_create(
-            name=self.DEFAULT_CATEGORY_NAME, defaults={"is_active": True}
-        )
-        Professional.objects.get_or_create(
-            user=user,
-            defaults={
-                "full_name": f"{user.first_name} {user.last_name}".strip()
+            profession = self._default_category().profession
+            category = category_for_profession(profession)
+            if user.category_id != category.pk:
+                user.category = category
+                user.save(update_fields=["category"])
+            group, _ = Group.objects.get_or_create(name="GERENTE")
+            user.groups.add(group)
+            Professional = self.model._meta.apps.get_model(
+                "professionals", "Professional"
+            )
+            Professional.objects.create(
+                user=user,
+                full_name=f"{user.first_name} {user.last_name}".strip()
                 or user.cpf,
-                "profession": profession,
-                "is_active": True,
-            },
-        )
-        return user
+                profession=profession,
+                is_active=user.is_active,
+            )
+            return user
 
 
 class User(AbstractUser):
@@ -188,6 +190,12 @@ class Profession(models.Model):
     """Profissao cadastravel (somente o Gerente administra)."""
 
     name = models.CharField(max_length=100, unique=True)
+    category = models.OneToOneField(
+        "accounts.Category",
+        on_delete=models.PROTECT,
+        related_name="profession",
+        help_text="Categoria vinculada exclusivamente a esta profissão.",
+    )
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -195,11 +203,6 @@ class Profession(models.Model):
     class Meta:
         db_table = "professions"
         ordering = ["name"]
-
-    def save(self, *args, **kwargs):
-        super().save(*args, **kwargs)
-        # Categoria espelho criada automaticamente, sem permissoes.
-        Category.objects.get_or_create(name=self.name)
 
     def __str__(self):
         return self.name

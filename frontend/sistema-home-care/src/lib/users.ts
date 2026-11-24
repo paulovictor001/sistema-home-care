@@ -64,7 +64,9 @@ export interface UserListParams {
   page?: number;
 }
 
-export function listUsers(params: UserListParams = {}): Promise<Paginated<ManagedUser>> {
+export function listUsers(
+  params: UserListParams = {},
+): Promise<Paginated<ManagedUser>> {
   const search = new URLSearchParams();
   if (params.nome) search.set("nome", params.nome);
   if (params.cpf) search.set("cpf", params.cpf);
@@ -72,7 +74,9 @@ export function listUsers(params: UserListParams = {}): Promise<Paginated<Manage
   if (params.categoria) search.set("categoria", params.categoria);
   if (params.page && params.page > 1) search.set("page", String(params.page));
   const query = search.toString();
-  return apiJson<Paginated<ManagedUser>>(`/api/usuarios/${query ? `?${query}` : ""}`);
+  return apiJson<Paginated<ManagedUser>>(
+    `/api/usuarios/${query ? `?${query}` : ""}`,
+  );
 }
 
 export function getUser(id: number): Promise<ManagedUser> {
@@ -96,7 +100,10 @@ export interface UserCreateInput {
 }
 
 export function createUser(input: UserCreateInput): Promise<ManagedUser> {
-  return apiJson<ManagedUser>("/api/usuarios/", { method: "POST", json: input });
+  return apiJson<ManagedUser>("/api/usuarios/", {
+    method: "POST",
+    json: input,
+  });
 }
 
 export interface UserUpdateInput {
@@ -106,16 +113,26 @@ export interface UserUpdateInput {
   password?: string;
 }
 
-export function updateUser(id: number, input: UserUpdateInput): Promise<ManagedUser> {
-  return apiJson<ManagedUser>(`/api/usuarios/${id}/`, { method: "PATCH", json: input });
+export function updateUser(
+  id: number,
+  input: UserUpdateInput,
+): Promise<ManagedUser> {
+  return apiJson<ManagedUser>(`/api/usuarios/${id}/`, {
+    method: "PATCH",
+    json: input,
+  });
 }
 
 export function inativarUser(id: number): Promise<ManagedUser> {
-  return apiJson<ManagedUser>(`/api/usuarios/${id}/inativar/`, { method: "POST" });
+  return apiJson<ManagedUser>(`/api/usuarios/${id}/inativar/`, {
+    method: "POST",
+  });
 }
 
 export function reativarUser(id: number): Promise<ManagedUser> {
-  return apiJson<ManagedUser>(`/api/usuarios/${id}/reativar/`, { method: "POST" });
+  return apiJson<ManagedUser>(`/api/usuarios/${id}/reativar/`, {
+    method: "POST",
+  });
 }
 
 export function deleteUser(id: number): Promise<void> {
@@ -127,7 +144,10 @@ export function listCategories(): Promise<Paginated<Category>> {
 }
 
 export function createCategory(name: string): Promise<Category> {
-  return apiJson<Category>("/api/categorias/", { method: "POST", json: { name } });
+  return apiJson<Category>("/api/categorias/", {
+    method: "POST",
+    json: { name },
+  });
 }
 
 export function deleteCategory(id: number): Promise<void> {
@@ -149,14 +169,20 @@ export function listProfessions(): Promise<Paginated<Profession>> {
 }
 
 export function createProfession(name: string): Promise<Profession> {
-  return apiJson<Profession>("/api/profissoes/", { method: "POST", json: { name } });
+  return apiJson<Profession>("/api/profissoes/", {
+    method: "POST",
+    json: { name },
+  });
 }
 
 export function updateProfession(
   id: number,
   input: Partial<Pick<Profession, "name" | "is_active">>,
 ): Promise<Profession> {
-  return apiJson<Profession>(`/api/profissoes/${id}/`, { method: "PATCH", json: input });
+  return apiJson<Profession>(`/api/profissoes/${id}/`, {
+    method: "PATCH",
+    json: input,
+  });
 }
 
 export function deleteProfession(id: number): Promise<void> {
@@ -174,7 +200,9 @@ export function transferProfession(
 }
 
 export function listPermissions(): Promise<Paginated<GranularPermission>> {
-  return apiJson<Paginated<GranularPermission>>("/api/permissoes/?page_size=200");
+  return apiJson<Paginated<GranularPermission>>(
+    "/api/permissoes/?page_size=200",
+  );
 }
 
 export function listFreeProfessionals(): Promise<FreeProfessional[]> {

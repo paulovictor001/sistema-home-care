@@ -41,8 +41,10 @@ export interface Patient {
   gender: string;
   status: PatientStatus;
   responsible_doctor: number | null;
+  responsible_doctor_name: string | null;
   responsible_team: unknown;
   health_condition: number | null;
+  health_condition_name: string | null;
   address: PatientAddress | null;
   created_at: string;
   updated_at: string;
@@ -169,21 +171,60 @@ export function isGerente(groups: string[] | undefined): boolean {
   return groups?.includes("GERENTE") ?? false;
 }
 
+export interface PatientAccessUser {
+  groups: string[];
+  permissions: string[];
+}
+
+export function canViewPatients(user: PatientAccessUser | null | undefined): boolean {
+  return !!user && user.groups.some((group) => ["GERENTE", "MEDICO", "ENFERMEIRO"].includes(group))
+    && user.permissions.includes("pacientes.view");
+}
+
+export function canUpdatePatientClinically(user: PatientAccessUser | null | undefined): boolean {
+  return !!user && user.groups.some((group) => ["GERENTE", "MEDICO", "ENFERMEIRO"].includes(group))
+    && user.permissions.includes("pacientes.update_clinical");
+}
+
+export function canManagePatientAssignments(user: PatientAccessUser | null | undefined): boolean {
+  return isGerente(user?.groups) && !!user?.permissions.includes("pacientes.update_manager");
+}
+
 /** Erros 400 por campo vindos do DRF (`{campo: [msgs]}` ou `{detail}`). */
 export function parseFieldErrors(message: string): Record<string, string[]> {
+  function extractMessages(value: unknown): string[] {
+    if (typeof value === "string" || typeof value === "number") {
+      return [String(value)];
+    }
+
+    if (Array.isArray(value)) {
+      return value.flatMap(extractMessages);
+    }
+
+    if (value && typeof value === "object") {
+      return Object.values(value).flatMap(extractMessages);
+    }
+
+    return [];
+  }
+
   try {
     const body = JSON.parse(message) as unknown;
+
     if (body && typeof body === "object" && !Array.isArray(body)) {
       const out: Record<string, string[]> = {};
+
       for (const [key, value] of Object.entries(
         body as Record<string, unknown>,
       )) {
-        out[key] = Array.isArray(value) ? value.map(String) : [String(value)];
+        out[key] = extractMessages(value);
       }
+
       return out;
     }
   } catch {
-    // Cai no retorno abaixo: mensagem genérica.
+    // Retorna a mensagem genérica abaixo.
   }
+
   return { detail: [message] };
 }

@@ -6,6 +6,9 @@ import {
   addNeed,
   addResource,
   canCreateAssessment,
+  canEditAssessment,
+  canAddAssessmentResource,
+  canChangeProfessional,
   canViewAssessments,
   clinicoDisplayName,
   createAssessment,
@@ -345,6 +348,10 @@ export function AssessmentForm({ mode }: { mode: "create" | "edit" }) {
     );
   }
 
+  if (mode === "edit" && !canEditAssessment(user)) {
+    return <div className="mx-auto max-w-5xl"><ErrorState>Você não tem permissão para editar esta avaliação.</ErrorState></div>;
+  }
+
   if (loadError) {
     return (
       <div className="mx-auto max-w-5xl space-y-3"><ErrorState>{loadError}</ErrorState><BackLink to="/pacientes">Voltar para pacientes</BackLink></div>
@@ -404,7 +411,7 @@ export function AssessmentForm({ mode }: { mode: "create" | "edit" }) {
             value={form.professional}
             onChange={(e) => set("professional", e.target.value)}
             required
-            disabled={readOnlyMain}
+            disabled={readOnlyMain && !canChangeProfessional(user)}
             title={
               readOnlyMain
                 ? "Gerente altera apenas este campo"
@@ -630,7 +637,7 @@ export function AssessmentForm({ mode }: { mode: "create" | "edit" }) {
             {assessment && <Link to={`/avaliacoes/${assessment.id}`} className="mt-3 inline-block text-sm text-blue-600 underline">Ver necessidades e histórico da avaliação</Link>}
       </section>
 
-      {assessment && clinical && (
+      {assessment && canAddAssessmentResource(user) && (
           <section className="mt-4 rounded-2xl border border-care-line bg-white p-5 sm:p-6">
             <h2 className="mb-3 text-sm font-semibold">
               Recursos ({assessment.assessment_resources.length})

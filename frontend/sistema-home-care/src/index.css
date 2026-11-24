@@ -1,21 +1,63 @@
 @import "tailwindcss";
 
+/*
+ * Identidade visual oficial — Sistema Home Care
+ * (frontend-redesign §2.1 + docs/regras_redesigner.md)
+ *
+ * Tokens → utilitários Tailwind:
+ *   background → bg-background      sidebar   → bg-sidebar / text-sidebar
+ *   primary    → bg/text/border-    primary-light → *-primary-light
+ *   ink        → text-ink (texto principal)   muted → text-muted (secundário)
+ *   accent     → bg-accent          surface   → bg-surface   line → border-line
+ */
 @theme {
-  --color-care-canvas: #f6f7f4;
-  --color-care-ink: #253431;
-  --color-care-muted: #78847f;
-  --color-care-forest: #173b3a;
-  --color-care-action: #347c70;
-  --color-care-soft: #e4f0ea;
-  --color-care-accent: #d9a66f;
-  --color-care-line: #e2e8e2;
-  --font-sans: "Inter", "Segoe UI", sans-serif;
+  /* Aliases kept for screens introduced on main during this merge. */
+  --color-background: #f6f7f4;
+  --color-sidebar: #173b3a;
+  --color-primary: #347c70;
+  --color-primary-dark: #2a655b;
+  --color-primary-light: #e4f0ea;
+  --color-ink: #253431;
+  --color-muted: #78847f;
+  --color-accent: #d9a66f;
+  --color-surface: #ffffff;
+  --color-line: #e5eae5;
+  --color-background: #f6f7f4;
+  --color-sidebar: #173b3a;
+  --color-primary: #347c70;
+  --color-primary-dark: #2a655b; /* tom de hover/active da Primary */
+  --color-primary-light: #e4f0ea;
+  --color-ink: #253431; /* Text Primary */
+  --color-muted: #78847f; /* Text Secondary */
+  --color-accent: #d9a66f;
+  --color-surface: #ffffff;
+  --color-line: #e5eae5; /* Border */
+
+  --font-sans:
+    "Segoe UI", ui-sans-serif, system-ui, -apple-system, "Helvetica Neue",
+    Arial, sans-serif;
 }
 
 @layer base {
-  :root { color: #253431; background: #f6f7f4; font-synthesis: none; }
-  body { min-width: 320px; margin: 0; font-family: var(--font-sans); }
-  button, input, select, textarea { font: inherit; }
-  button, a, input, select, textarea { outline-color: #347c70; }
-  ::selection { color: #173b3a; background: #e4f0ea; }
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+  }
+
+  /* Foco visível consistente e acessível em toda a aplicação */
+  :focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background-color: var(--color-primary-light);
+    color: var(--color-ink);
+  }
 }

@@ -19,6 +19,7 @@ export function AssessmentsHistory() {
   const [patient, setPatient] = useState<Patient | null>(null);
   const [items, setItems] = useState<PatientAssessment[]>([]);
   const [count, setCount] = useState(0);
+  const [hasNext, setHasNext] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const page = Math.max(1, Number(searchParams.get("page") ?? "1") || 1);
@@ -33,6 +34,7 @@ export function AssessmentsHistory() {
       setPatient(p);
       setItems(list.results);
       setCount(list.count);
+      setHasNext(!!list.next);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Falha ao carregar histórico.");
     } finally {
@@ -40,7 +42,7 @@ export function AssessmentsHistory() {
     }
   }, [patientId, page]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { void Promise.resolve().then(load); }, [load]);
 
   if (!canViewAssessments(user)) return <div className="mx-auto max-w-4xl"><ErrorState>Você não tem permissão para visualizar avaliações.</ErrorState></div>;
 
@@ -61,7 +63,7 @@ export function AssessmentsHistory() {
               <div className="min-w-0">
                 <h2 className="mb-2 font-semibold text-care-forest">Avaliação #{a.id}</h2>
                 <p className="text-sm text-care-ink">{dateLabel(a.assessment_date)}{a.assessment_time ? ` · ${a.assessment_time.slice(0, 5)}` : ""}</p>
-                <p className="mt-1 truncate text-sm text-care-muted">{a.request_reason || "Motivo não informado"}</p>
+                <p className="mt-1 truncate text-sm text-care-muted">{a.professional_name || (a.professional ? `Profissional #${a.professional}` : "Sem profissional responsável")} · {a.request_reason || "Motivo não informado"}</p>
                 <p className="mt-2 text-xs text-care-muted">{a.care_needs.length} necessidade(s) <span aria-hidden="true">·</span> {a.assessment_resources.length} recurso(s)</p>
               </div>
               <Link to={`/avaliacoes/${a.id}`} className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-xl border border-care-line bg-white px-4 py-2 text-sm font-semibold text-care-action transition hover:bg-care-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-care-action">Abrir avaliação <span aria-hidden="true" className="ml-1">→</span></Link>
@@ -70,7 +72,7 @@ export function AssessmentsHistory() {
         </ul>
         <nav aria-label="Paginação do histórico" className="mt-5 flex flex-col gap-3 rounded-2xl border border-care-line bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-care-muted">Exibindo {items.length} de {count} avaliação(ões)</p>
-          <div className="flex items-center gap-2"><Button variant="secondary" disabled={page <= 1} onClick={() => goToPage(page - 1)}>Anterior</Button><span aria-current="page" className="px-2 text-sm font-medium text-care-ink">{page} / {pageCount}</span><Button variant="secondary" disabled={page >= pageCount} onClick={() => goToPage(page + 1)}>Próxima</Button></div>
+          <div className="flex items-center gap-2"><Button variant="secondary" disabled={page <= 1} onClick={() => goToPage(page - 1)}>Anterior</Button><span aria-current="page" className="px-2 text-sm font-medium text-care-ink">{page} / {pageCount}</span><Button variant="secondary" disabled={!hasNext} onClick={() => goToPage(page + 1)}>Próxima</Button></div>
         </nav>
       </>}
     </div>

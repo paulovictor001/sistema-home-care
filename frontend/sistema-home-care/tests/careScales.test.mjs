@@ -11,11 +11,16 @@ test('manager or independent grant without requiring clinical group', () => {
   const actions = ['view', 'create', 'update', 'delete', 'change_status'];
   for (const action of actions) {
     assert.equal(scales.canScale({groups: ['GERENTE'], permissions: []}, action), true);
+    assert.equal(scales.canScale({groups: [], permissions: [], is_superuser: true}, action), true);
     assert.equal(scales.canScale({groups: [], permissions: [`escalas.${action}`]}, action), true);
     assert.equal(scales.canScale({groups: ['MEDICO'], permissions: []}, action), false);
     assert.equal(scales.canScale(null, action), false);
   }
   assert.equal(scales.canScale({groups: ['GERENTE'], permissions: []}, 'unknown'), false);
+});
+test('audit actions have Portuguese labels', () => {
+  assert.equal(scales.scaleAuditActionLabels.ADD_NEED, 'Necessidade incluída');
+  assert.equal(scales.scaleAuditActionLabels.SUBSTITUTE, 'Profissional substituído');
 });
 test('deletion accepts empty 204 and status uses dedicated endpoint', async () => {
   await scales.deleteScale(8);

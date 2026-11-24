@@ -1,6 +1,11 @@
 ﻿import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { apiJson } from "../lib/api";
+import {
+  changeNeedTypeStatus,
+  createNeedType,
+  updateNeedType,
+} from "../lib/assessments";
 
 interface NeedType {
   id: number;
@@ -14,13 +19,13 @@ export function NeedTypes() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   async function loadTypes() {
     try {
       const data = await apiJson<NeedType[] | { results: NeedType[] }>(
-        "/api/tipos/?page_size=100",
+        "/api/tipos-necessidade/?status=todos",
       );
 
       setTypes(Array.isArray(data) ? data : data.results);
@@ -30,11 +35,13 @@ export function NeedTypes() {
           ? err.message
           : "Não foi possível carregar os tipos.",
       );
+    } finally {
+      setLoading(false);
     }
   }
 
   useEffect(() => {
-    void loadTypes();
+    void Promise.resolve().then(loadTypes);
   }, []);
 
   function startEdit(item: NeedType) {
@@ -64,21 +71,14 @@ export function NeedTypes() {
 
     try {
       if (editingId) {
-        await apiJson(`/api/tipos/${editingId}/`, {
-          method: "PATCH",
-          json: {
-            name: name.trim(),
-            description: description.trim(),
-          },
+        await updateNeedType(editingId, {
+          name: name.trim(),
+          description: description.trim(),
         });
       } else {
-        await apiJson("/api/tipos/", {
-          method: "POST",
-          json: {
-            name: name.trim(),
-            description: description.trim(),
-            status: "ACTIVE",
-          },
+        await createNeedType({
+          name: name.trim(),
+          description: description.trim(),
         });
       }
 
@@ -98,11 +98,7 @@ export function NeedTypes() {
     setError("");
 
     try {
-      const action = item.status === "ACTIVE" ? "inativar" : "reativar";
-
-      await apiJson(`/api/tipos/${item.id}/${action}/`, {
-        method: "POST",
-      });
+      await changeNeedTypeStatus(item.id, item.status !== "ACTIVE");
 
       await loadTypes();
     } catch (err) {
@@ -117,11 +113,13 @@ export function NeedTypes() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl p-6">
+    <div className="mx-auto max-w-6xl p-6">
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold">Manutenção de tipos</h1>
-        <p className="mt-1 text-sm text-gray-600">
-          Cadastre, edite, ative e inative os tipos de necessidades.
+        <h1 className="text-xl font-semibold text-ink">
+          Tipos de necessidades
+        </h1>
+        <p className="mt-1 text-sm text-muted">
+          Gerencie os tipos de necessidades utilizados no atendimento Home Care.
         </p>
       </div>
 
@@ -131,10 +129,16 @@ export function NeedTypes() {
         </p>
       )}
 
-      <section className="mb-6 rounded-lg bg-white p-6 shadow">
-        <h2 className="mb-4 text-lg font-semibold">
-          {editingId ? "Editar tipo" : "Novo tipo"}
-        </h2>
+      <section className="mb-6 rounded-xl border border-line bg-surface p-6 shadow-sm">
+        <div className="mb-5">
+          <h2 className="text-base font-semibold text-ink">
+            {editingId ? "Editar tipo" : "Cadastrar novo tipo"}
+          </h2>
+          <p className="mt-1 text-sm text-muted">
+            Preencha as informações para cadastrar ou atualizar um tipo de
+            necessidade.
+          </p>
+        </div>
 
         <form onSubmit={handleSubmit}>
           <div className="mb-4">
@@ -142,7 +146,7 @@ export function NeedTypes() {
             <input
               value={name}
               onChange={(event) => setName(event.target.value)}
-              className="w-full rounded border border-gray-300 px-3 py-2"
+              className="w-full rounded-lg border border-line bg-background px-3 py-2.5 text-sm text-ink outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
               placeholder="Ex.: Necessidade de mobilidade"
             />
           </div>
@@ -153,7 +157,7 @@ export function NeedTypes() {
               value={description}
               onChange={(event) => setDescription(event.target.value)}
               rows={3}
-              className="w-full rounded border border-gray-300 px-3 py-2"
+              className="w-full rounded-lg border border-line bg-background px-3 py-2.5 text-sm text-ink outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
               placeholder="Descreva este tipo de necessidade."
             />
           </div>
@@ -162,7 +166,7 @@ export function NeedTypes() {
             <button
               type="submit"
               disabled={loading}
-              className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+              className="rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-white shadow-sm transition hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-primary/30 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {loading
                 ? "Salvando..."
@@ -175,7 +179,7 @@ export function NeedTypes() {
               <button
                 type="button"
                 onClick={cancelEdit}
-                className="rounded border border-gray-300 px-4 py-2 text-sm"
+                className="rounded-lg border border-line px-5 py-2.5 text-sm font-medium text-ink transition hover:bg-background focus:outline-none focus:ring-2 focus:ring-primary/20"
               >
                 Cancelar
               </button>
@@ -184,45 +188,63 @@ export function NeedTypes() {
         </form>
       </section>
 
-      <section className="rounded-lg bg-white p-6 shadow">
-        <h2 className="mb-4 text-lg font-semibold">Tipos cadastrados</h2>
+      <section className="rounded-xl border border-line bg-surface p-6 shadow-sm">
+        <div className="mb-5">
+          <h2 className="text-base font-semibold text-ink">
+            Tipos cadastrados
+          </h2>
+          <p className="mt-1 text-sm text-muted">
+            Consulte, edite e altere o status dos tipos de necessidades.
+          </p>
+        </div>
 
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead>
-              <tr className="border-b border-gray-200">
-                <th className="px-3 py-3 font-medium">Nome</th>
-                <th className="px-3 py-3 font-medium">Descrição</th>
-                <th className="px-3 py-3 font-medium">Status</th>
-                <th className="px-3 py-3 text-right font-medium">Ações</th>
+              <tr className="border-b border-line bg-background">
+                <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted">
+                  Nome
+                </th>
+                <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted">
+                  Descrição
+                </th>
+                <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wide text-muted">
+                  Status
+                </th>
+                <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-muted">
+                  Ações
+                </th>
               </tr>
             </thead>
 
             <tbody>
               {types.map((item) => (
-                <tr key={item.id} className="border-b border-gray-100">
-                  <td className="px-3 py-3 font-medium">{item.name}</td>
-                  <td className="px-3 py-3 text-gray-600">
+                <tr
+                  key={item.id}
+                  className="border-b border-line transition-colors hover:bg-background/70"
+                >
+                  <td className="px-4 py-3">{item.name}</td>
+                  <td className="px-4 py-3 text-ink">
                     {item.description || "-"}
                   </td>
-                  <td className="px-3 py-3">
+                  <td className="px-4 py-3">
                     <span
                       className={
                         item.status === "ACTIVE"
                           ? "rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-700"
-                          : "rounded-full bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600"
+                          : "rounded-full bg-line px-2 py-1 text-xs font-medium text-ink"
                       }
                     >
                       {item.status === "ACTIVE" ? "Ativo" : "Inativo"}
                     </span>
                   </td>
-                  <td className="px-3 py-3">
+                  <td className="px-4 py-3">
                     <div className="flex justify-end gap-2">
                       <button
                         type="button"
                         onClick={() => startEdit(item)}
                         disabled={loading}
-                        className="rounded border border-gray-300 px-3 py-1.5 text-xs font-medium disabled:opacity-50"
+                        className="rounded-lg border border-line px-3 py-2 text-xs font-medium text-ink transition hover:bg-background disabled:cursor-not-allowed disabled:opacity-50"
                       >
                         Editar
                       </button>
@@ -233,8 +255,8 @@ export function NeedTypes() {
                         disabled={loading}
                         className={
                           item.status === "ACTIVE"
-                            ? "rounded bg-red-600 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
-                            : "rounded bg-green-600 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
+                            ? "rounded-lg bg-red-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+                            : "rounded-lg bg-green-600 px-3 py-2 text-xs font-medium text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
                         }
                       >
                         {item.status === "ACTIVE" ? "Inativar" : "Ativar"}
@@ -246,11 +268,13 @@ export function NeedTypes() {
 
               {types.length === 0 && (
                 <tr>
-                  <td
-                    colSpan={4}
-                    className="px-3 py-6 text-center text-gray-500"
-                  >
-                    Nenhum tipo cadastrado.
+                  <td colSpan={4} className="px-4 py-10 text-center">
+                    <p className="text-sm font-medium text-ink">
+                      Nenhum tipo cadastrado
+                    </p>
+                    <p className="mt-1 text-xs text-muted">
+                      Cadastre um novo tipo para começar.
+                    </p>
                   </td>
                 </tr>
               )}
@@ -261,6 +285,3 @@ export function NeedTypes() {
     </div>
   );
 }
-
-
-

@@ -45,12 +45,14 @@ Os campos são nullable para preservar vínculos existentes sem inventar profiss
   - Mês
 
 ### TASK 04 — Modelar recursos do plano
+**Catálogo confirmado existente:** `GET /api/planos-cuidados/recursos/` e o CRUD `/api/recursos/` com tela `/recursos` já permitem selecionar e manter recursos cadastrados. O gerenciamento é restrito ao Gerente via `avaliacoes.manage_resources`; nenhum estoque ou logística é incluído.
 - Relacionar recursos já cadastrados às necessidades do plano.
 - Armazenar:
   - recurso
   - quantidade
   - observação
 - Permitir zero ou mais recursos por necessidade.
+- Disponibilizar cadastro e gerenciamento do catálogo de recursos pela API e interface, com autorização definida no processo de catálogo.
 
 ## 2. Regras de negócio e validações
 
@@ -69,7 +71,7 @@ Os campos são nullable para preservar vínculos existentes sem inventar profiss
 - Impedir que uma Necessidade Identificada esteja vinculada a mais de um Plano de Cuidados Ativo.
 
 ### TASK 08 — Validar profissional necessário
-- Permitir somente profissionais previamente cadastrados.
+- Permitir somente profissionais previamente cadastrados e ativos.
 - Registrar o profissional específico selecionado para cada necessidade.
 
 ### TASK 09 — Validar frequência
@@ -93,6 +95,8 @@ Os campos são nullable para preservar vínculos existentes sem inventar profiss
 - Não excluir a necessidade.
 - Não inativar a necessidade.
 - Registrar a remoção no histórico.
+- Impedir a remoção da última necessidade vigente do plano.
+- Permitir Médico e Enfermeiro executar vínculo, configuração e remoção, inclusive em plano encerrado.
 
 ### TASK 12 — Implementar encerramento do plano
 - Alterar o plano para Encerrado.

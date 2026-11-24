@@ -4,6 +4,18 @@ from .test_support import ScaleFixture
 
 
 class ActivationTests(ScaleFixture):
+    def test_activation_requires_plan_to_remain_active(self):
+        from care_plans.models import CarePlanStatus
+
+        self.plan.status = CarePlanStatus.DRAFT
+        self.plan.save(update_fields=['status'])
+        response = auth_client(self.manager).post(
+            f'/api/escalas/{self.scale.pk}/status/', {'status': 'ACTIVE'}, format='json')
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('plano de cuidados ativo', str(response.data))
+        self.scale.refresh_from_db()
+        self.assertEqual(self.scale.status, 'DRAFT')
+
     def test_activation_validates_needs_frequency_and_current_professional(self):
         client = auth_client(self.manager)
         url = f'/api/escalas/{self.scale.pk}/status/'

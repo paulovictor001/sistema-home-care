@@ -16,6 +16,8 @@ O Plano de Cuidados não representa o profissional efetivamente escalado ou agen
 ## 3. Existência do plano
 
 - O Plano de Cuidados é obrigatório após a identificação das necessidades.
+- Para este processo, a obrigatoriedade significa que o paciente deve possuir um Plano de Cuidados ativo antes da criação de uma escala. A validação e eventual bloqueio pertencem ao processo de Escala.
+- A ativação de Rascunho para Ativo pelo Médico representa a aprovação do plano; não há etapa separada de aprovação.
 - Um Plano de Cuidados só pode ser criado quando existir pelo menos uma **Necessidade Identificada**.
 - Um paciente pode possuir apenas **um Plano de Cuidados ativo por vez**.
 - Planos anteriores permanecem armazenados no histórico.
@@ -23,6 +25,7 @@ O Plano de Cuidados não representa o profissional efetivamente escalado ou agen
 ## 4. Relação com Necessidades Identificadas
 
 - O Plano de Cuidados deve estar relacionado a uma ou mais Necessidades Identificadas.
+- Um plano deve manter ao menos uma necessidade vigente vinculada; não é permitido remover sua última necessidade vigente.
 - Uma mesma Necessidade Identificada pode ser vinculada a diferentes Planos de Cuidados ao longo do tempo.
 - Uma Necessidade Identificada pode estar vinculada a apenas um Plano de Cuidados ativo por vez.
 - Uma necessidade vinculada ao plano pode ser removida do plano sem ser excluída ou inativada em Necessidades Identificadas.
@@ -43,6 +46,7 @@ Para cada Necessidade Identificada vinculada ao Plano de Cuidados, devem ser def
 ### 5.1 Profissional necessário
 
 - O profissional necessário deve ser um **profissional específico já cadastrado no sistema**.
+- O profissional selecionado deve estar ativo.
 - Exemplo: João — Enfermeiro.
 - O profissional necessário no plano não representa necessariamente o profissional que será escalado ou agendado para o atendimento.
 
@@ -82,6 +86,7 @@ O Plano de Cuidados possui os seguintes status:
 - **Rascunho → Ativo:** somente Médico.
 - **Ativo → Encerrado:** Médico ou Enfermeiro.
 - **Encerrado → Ativo:** Médico ou Enfermeiro.
+- Médico ou Enfermeiro podem vincular, configurar e remover necessidades, inclusive em plano encerrado.
 - A reativação utiliza o mesmo registro do plano.
 - A reativação não cria um novo Plano de Cuidados.
 - O histórico de alterações de status deve ser preservado.

@@ -21,12 +21,10 @@ from django.test import TestCase
 from rest_framework.test import APIClient
 
 from accounts.models import GranularPermission
+from assessments.models import INITIAL_NEED_TYPES, NeedType, NeedTypeStatus
 
 from .models import (
     HealthCondition,
-    INITIAL_NEED_TYPES,
-    NeedType,
-    NeedTypeStatus,
     Patient,
     PatientAddress,
     PatientAuditAction,
@@ -360,6 +358,14 @@ class PatientCreateAPITests(TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertIn("responsible_doctor", response.data)
 
+    def test_responsible_team_is_optional(self):
+        payload = self._payload()
+        payload.pop("responsible_team")
+        response = self._login_client(GERENTE_CPF).post(
+            "/api/pacientes/", payload, format="json"
+        )
+        self.assertEqual(response.status_code, 201, response.data)
+
     def test_create_rejects_duplicate_cpf_even_masked(self):
         client = self._login_client(GERENTE_CPF)
         response = client.post(
@@ -377,6 +383,13 @@ class PatientCreateAPITests(TestCase):
         response = client.post("/api/pacientes/", payload, format="json")
         self.assertEqual(response.status_code, 400)
         self.assertIn("cpf", response.data)
+
+    def test_create_rejects_unlisted_gender_value(self):
+        response = self._login_client(GERENTE_CPF).post(
+            "/api/pacientes/", self._payload(gender="Outro valor"), format="json"
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("gender", response.data)
 
 
 class PatientListAPITests(TestCase):
@@ -496,6 +509,38 @@ class PatientDetailUpdateAPITests(TestCase):
         response = client.get(self.url)
         self.assertEqual(response.status_code, 200)
         self.assertIn("address", response.data)
+
+    def test_detail_returns_related_names(self):
+        response = make_api_client(self.users[GERENTE_CPF]).get(self.url)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["responsible_doctor_name"], self.users[MEDICO_CPF].cpf)
+        self.assertEqual(response.data["health_condition_name"], f"Condição de saúde #{self.condition.pk}")
+
+    def test_legacy_gender_can_be_preserved_while_editing_other_fields(self):
+        self.patient.gender = "Outro valor legado"
+        self.patient.save(update_fields=["gender"])
+        client = make_api_client(self.users[GERENTE_CPF])
+        response = client.patch(self.url, {"phone": "91988887777"}, format="json")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["gender"], "Outro valor legado")
+        response = client.patch(self.url, {"gender": "Outro valor legado"}, format="json")
+        self.assertEqual(response.status_code, 200)
+
+    def test_manager_assignment_change_requires_granular_permission(self):
+        manager = self.users[GERENTE_CPF]
+        permission = GranularPermission.objects.get(codename="pacientes.update_manager")
+        manager.category.permissions.remove(permission)
+        response = make_api_client(manager).patch(
+            self.url, {"responsible_team": {"nome": "Equipe nova"}}, format="json"
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_manager_assignment_change_succeeds_with_granular_permission(self):
+        response = make_api_client(self.users[GERENTE_CPF]).patch(
+            self.url, {"responsible_team": {"nome": "Equipe nova"}}, format="json"
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["responsible_team"], {"nome": "Equipe nova"})
 
     def test_care_team_can_list_and_view_detail(self):
         # TA-21: gerente/medico/enfermeiro visualizam; sem grupo 403.
@@ -633,7 +678,7 @@ class PatientAuditLogTests(TestCase):
             f"/api/pacientes/{patient.pk}/", {"phone": "92999998888"}, format="json"
         )
         self.assertEqual(response.status_code, 200)
-        log = PatientAuditLog.objects.filter(patient=patient).latest("created_at")
+        log = PatientAuditLog.objects.filter(patient=patient).latest("pk")
         self.assertEqual(log.action, PatientAuditAction.UPDATE)
         self.assertEqual(log.actor.cpf, MEDICO_CPF)
 
@@ -663,7 +708,7 @@ class PatientAuditLogTests(TestCase):
             self.gerente.post(f"/api/pacientes/{patient.pk}/reativar/").status_code,
             200,
         )
-        log = PatientAuditLog.objects.filter(patient=patient).latest("created_at")
+        log = PatientAuditLog.objects.filter(patient=patient).latest("pk")
         self.assertEqual(log.action, PatientAuditAction.REACTIVATE)
 
     def test_denied_request_does_not_log(self):

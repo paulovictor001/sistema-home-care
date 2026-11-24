@@ -15,7 +15,8 @@ from django.db import IntegrityError
 from django.db.models import ProtectedError
 from django.test import TestCase
 
-from patients.models import NeedType, Patient
+from assessments.models import NeedType
+from patients.models import Patient
 
 from .models import (
     AssessmentResource,
