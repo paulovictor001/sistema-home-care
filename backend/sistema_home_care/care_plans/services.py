@@ -177,7 +177,7 @@ def configure_need(*, actor, link, data):
 
 @transaction.atomic
 def create_plan(*, actor, patient=None, start_date=None, needs=None, objective='', end_date=None):
-    require_role(actor, 'MEDICO')
+    require_role(actor, 'MEDICO', 'GERENTE')
     needs = list(needs or [])
     errors = {}
     if patient is None:
