@@ -41,8 +41,10 @@ export interface Patient {
   gender: string;
   status: PatientStatus;
   responsible_doctor: number | null;
+  responsible_doctor_name: string | null;
   responsible_team: unknown;
   health_condition: number | null;
+  health_condition_name: string | null;
   address: PatientAddress | null;
   created_at: string;
   updated_at: string;
@@ -167,6 +169,25 @@ export function listMedicos(): Promise<Medico[]> {
 
 export function isGerente(groups: string[] | undefined): boolean {
   return groups?.includes("GERENTE") ?? false;
+}
+
+export interface PatientAccessUser {
+  groups: string[];
+  permissions: string[];
+}
+
+export function canViewPatients(user: PatientAccessUser | null | undefined): boolean {
+  return !!user && user.groups.some((group) => ["GERENTE", "MEDICO", "ENFERMEIRO"].includes(group))
+    && user.permissions.includes("pacientes.view");
+}
+
+export function canUpdatePatientClinically(user: PatientAccessUser | null | undefined): boolean {
+  return !!user && user.groups.some((group) => ["GERENTE", "MEDICO", "ENFERMEIRO"].includes(group))
+    && user.permissions.includes("pacientes.update_clinical");
+}
+
+export function canManagePatientAssignments(user: PatientAccessUser | null | undefined): boolean {
+  return isGerente(user?.groups) && !!user?.permissions.includes("pacientes.update_manager");
 }
 
 /** Erros 400 por campo vindos do DRF (`{campo: [msgs]}` ou `{detail}`). */

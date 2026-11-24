@@ -19,9 +19,6 @@ class PlanHTTPPermissionTests(TestCase):
                 self.assertEqual(client.get(path).status_code, 200)
         writes = [('post', '/api/planos-cuidados/', self.payload),
                   ('patch', base, {'objective': 'Proibido'}),
-                  ('post', base + 'necessidades/', {'care_need': self.need.pk}),
-                  ('post', link + 'configurar/', self.configuration),
-                  ('post', link + 'remover/', {'reason': 'Proibido'}),
                   ('post', base + 'ativar/', {})]
         for cpf in (GERENTE_CPF, ENFERMEIRO_CPF, SEM_GRUPO_CPF):
             for method, path, payload in writes:
@@ -35,6 +32,14 @@ class PlanHTTPPermissionTests(TestCase):
         self.assertEqual(plan.history.count(), 1)
         self.assertIsNone(plan.need_links.get().removed_at)
         self.assertEqual(CarePlan.objects.count(), 1)
+
+    def test_nurse_can_manage_need_links_but_not_edit_plan(self):
+        data = self.create()
+        base = f"/api/planos-cuidados/{data['id']}/"
+        client = auth_client(self.users[ENFERMEIRO_CPF])
+        self.assertEqual(client.patch(base, {'objective': 'Não permitido'}, format='json').status_code, 403)
+        self.assertEqual(client.post(base + f"necessidades/{data['need_links'][0]['id']}/configurar/",
+            self.configuration, format='json').status_code, 200)
 
     def test_anonymous_cannot_read_or_create(self):
         self.assertEqual(APIClient().get('/api/planos-cuidados/').status_code, 401)

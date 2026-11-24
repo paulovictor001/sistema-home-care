@@ -6,6 +6,10 @@ import {
   addNeed,
   addResource,
   canCreateAssessment,
+  canEditAssessment,
+  canCreateNeed,
+  canAddAssessmentResource,
+  canChangeProfessional,
   canViewAssessments,
   clinicoDisplayName,
   createAssessment,
@@ -118,8 +122,7 @@ export function AssessmentForm({ mode }: { mode: "create" | "edit" }) {
   const { user } = useAuth();
   const manager = isGerente(user?.groups);
   const clinical = isClinical(user?.groups);
-  const canAddNeeds = clinical && !!user?.permissions.includes("necessidades.create")
-    && !!user?.permissions.includes("avaliacoes.add_need");
+  const canAddNeeds = canCreateNeed(user);
 
   const [patient, setPatient] = useState<Patient | null>(null);
   const [assessment, setAssessment] = useState<PatientAssessment | null>(null);
@@ -249,7 +252,7 @@ export function AssessmentForm({ mode }: { mode: "create" | "edit" }) {
                 form.assessment_time.length === 5
                   ? `${form.assessment_time}:00`
                   : form.assessment_time || undefined,
-              request_origin: form.request_origin || undefined,
+              request_origin: form.request_origin,
               administrative_observations: form.administrative_observations,
               request_reason: form.request_reason,
               chief_complaint: form.chief_complaint,
@@ -342,6 +345,10 @@ export function AssessmentForm({ mode }: { mode: "create" | "edit" }) {
     );
   }
 
+  if (mode === "edit" && !canEditAssessment(user)) {
+    return <div className="mx-auto max-w-3xl p-6"><p role="alert" className="text-sm text-red-600">Você não tem permissão para editar esta avaliação.</p></div>;
+  }
+
   if (loadError) {
     return (
       <div className="mx-auto max-w-3xl p-6">
@@ -420,7 +427,7 @@ export function AssessmentForm({ mode }: { mode: "create" | "edit" }) {
             value={form.professional}
             onChange={(e) => set("professional", e.target.value)}
             required
-            disabled={readOnlyMain}
+            disabled={readOnlyMain && !canChangeProfessional(user)}
             title={
               readOnlyMain
                 ? "Gerente altera apenas este campo"
@@ -646,7 +653,7 @@ export function AssessmentForm({ mode }: { mode: "create" | "edit" }) {
             {assessment && <Link to={`/avaliacoes/${assessment.id}`} className="mt-3 inline-block text-sm text-primary underline">Ver necessidades e histórico da avaliação</Link>}
       </section>
 
-      {assessment && clinical && (
+      {assessment && canAddAssessmentResource(user) && (
           <section className="mt-4 rounded-lg bg-surface p-4 shadow">
             <h2 className="mb-3 text-sm font-semibold">
               Recursos ({assessment.assessment_resources.length})

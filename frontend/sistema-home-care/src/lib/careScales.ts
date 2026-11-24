@@ -5,8 +5,15 @@ export type ScaleStatus = 'DRAFT' | 'ACTIVE' | 'SUSPENDED' | 'CLOSED';
 export type ScaleAction = 'create' | 'update' | 'view' | 'delete' | 'change_status';
 export const scaleStatusLabels: Record<ScaleStatus, string> = { DRAFT: 'Rascunho', ACTIVE: 'Ativa', SUSPENDED: 'Suspensa', CLOSED: 'Encerrada' };
 export function canScale(user: SessionUser | null, action: ScaleAction): boolean {
-  return ['create', 'update', 'view', 'delete', 'change_status'].includes(action) && !!user && (user.groups.includes('GERENTE') || user.permissions.includes(`escalas.${action}`));
+  return ['create', 'update', 'view', 'delete', 'change_status'].includes(action) && !!user && (user.is_superuser === true || user.groups.includes('GERENTE') || user.permissions.includes(`escalas.${action}`));
 }
+export const scaleAuditActionLabels: Record<string, string> = {
+  CREATE: 'Escala criada', UPDATE: 'Escala atualizada', DELETE: 'Escala excluída',
+  ADD_NEED: 'Necessidade incluída', REMOVE_NEED: 'Necessidade removida',
+  ADD_PROFESSIONAL: 'Profissional vinculado', REMOVE_PROFESSIONAL: 'Vínculo de profissional encerrado',
+  ADD_PROFESSIONALS: 'Profissionais vinculados', SUBSTITUTE: 'Profissional substituído',
+  CONFIGURE_NEED: 'Necessidade configurada', STATUS: 'Status alterado',
+};
 export interface ScaleAssignment { id: number; professional: number; full_name: string; profession_name: string; removed_at: string | null }
 export interface ScaleNeed { id: number; plan_need: number; description: string; need_type: string; required_profession: number | null; planned_quantity: number | null; planned_period: FrequencyPeriod | null; frequency_quantity: number | null; frequency_period: FrequencyPeriod | null; frequency_reason: string; observation: string; removed_at: string | null; assignments: ScaleAssignment[] }
 export interface CareScale { id: number; patient: number; patient_name: string; care_plan: number; start_date: string; end_date: string; status: ScaleStatus; observation: string; items: ScaleNeed[] }

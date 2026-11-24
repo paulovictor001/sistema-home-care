@@ -17,6 +17,7 @@ export function AssessmentsHistory() {
   const [patient, setPatient] = useState<Patient | null>(null);
   const [items, setItems] = useState<PatientAssessment[]>([]);
   const [count, setCount] = useState(0);
+  const [hasNext, setHasNext] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -34,6 +35,7 @@ export function AssessmentsHistory() {
       setPatient(p);
       setItems(list.results);
       setCount(list.count);
+      setHasNext(!!list.next);
     } catch (err) {
       setError(
         err instanceof ApiError ? err.message : "Falha ao carregar histórico.",
@@ -109,7 +111,7 @@ export function AssessmentsHistory() {
                     {(a.assessment_time ?? "").slice(0, 5)}
                   </p>
                   <p className="truncate text-xs text-ink">
-                    {a.request_reason || "—"} · {a.care_needs.length}{" "}
+                    {a.professional_name || (a.professional ? `Profissional #${a.professional}` : "Sem profissional responsável")} · {a.request_reason || "—"} · {a.care_needs.length}{" "}
                     necessidade(s) · {a.assessment_resources.length} recurso(s)
                   </p>
                 </div>
@@ -136,7 +138,7 @@ export function AssessmentsHistory() {
             <span className="text-sm text-ink">Página {page}</span>
             <button
               type="button"
-              disabled={items.length < 20}
+              disabled={!hasNext}
               onClick={() => setSearchParams({ page: String(page + 1) })}
               className="rounded border border-line px-3 py-1.5 text-sm disabled:opacity-50"
             >

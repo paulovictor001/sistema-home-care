@@ -23,6 +23,28 @@ def normalize_token(value: str) -> str:
     return text.upper().strip()
 
 
+def protected_deletion_message(exc, *, subject="usuário") -> str:
+    """Mensagem de domínio consistente para referências protegidas."""
+    labels = {
+        "patients.patient": "pacientes",
+        "care_plans.careplan": "planos de cuidado",
+        "assessments.patientassessment": "avaliações",
+        "accounts.user": "usuários",
+    }
+    counts = {}
+    for item in exc.protected_objects:
+        key = item._meta.label_lower
+        label = labels.get(key, item._meta.verbose_name_plural)
+        counts[label] = counts.get(label, 0) + 1
+    details = ", ".join(
+        f"{count} {label}" for label, count in sorted(counts.items())
+    )
+    return (
+        f"Não foi possível excluir o {subject}: há vínculos protegidos "
+        f"({details}). Reatribua ou remova esses vínculos antes de tentar novamente."
+    )
+
+
 #: Categorias que possuem grupo Django legado homonimo.
 LEGACY_GROUP_NAMES = ("GERENTE", "MEDICO", "ENFERMEIRO")
 
@@ -41,9 +63,41 @@ def sync_legacy_groups(user) -> None:
 
 
 def category_for_profession(profession: Profession) -> Category:
-    """Categoria espelho da profissao (criada sob demanda, sem permissoes)."""
-    category, _ = Category.objects.get_or_create(name=profession.name)
-    return category
+    """Retorna a categoria formalmente associada à profissão."""
+    if profession.category_id is None:
+        raise ValueError("Profissão sem categoria associada.")
+    return profession.category
+
+
+@transaction.atomic
+def save_profession(*, profession=None, name=None, is_active=None):
+    """Cria ou renomeia profissão e categoria associada na mesma transação."""
+    if profession is None:
+        if Category.objects.filter(name=name).exists():
+            raise ValueError(
+                "Já existe uma categoria avulsa com esse nome; renomeie-a antes."
+            )
+        profession = Profession(name=name, is_active=True if is_active is None else is_active)
+        category = Category.objects.create(name=name)
+        profession.category = category
+        profession.save()
+        return profession
+
+    profession = Profession.objects.select_for_update().select_related("category").get(
+        pk=profession.pk
+    )
+    if name is not None and name != profession.name:
+        if Category.objects.filter(name=name).exclude(pk=profession.category_id).exists():
+            raise ValueError(
+                "Já existe outra categoria com esse nome; renomeie-a antes."
+            )
+        profession.category.name = name
+        profession.category.save(update_fields=["name", "updated_at"])
+        profession.name = name
+    if is_active is not None:
+        profession.is_active = is_active
+    profession.save()
+    return profession
 
 
 @transaction.atomic
@@ -124,6 +178,23 @@ def create_managed_user(
         user=user, actor=actor, action=UserAuditAction.CREATE, changes={"id": user.pk}
     )
     return user, professional
+
+
+@transaction.atomic
+def delete_managed_user(*, user, actor=None):
+    """Exclui usuário e seu profissional, preservando auditoria mínima.
+
+    ProtectedError é propagado para a camada HTTP/admin, que pode apresentar
+    uma explicação estável sem deixar a auditoria de exclusão gravada.
+    """
+    pk, cpf = user.pk, user.cpf
+    log_user_event(
+        user=user,
+        actor=actor,
+        action=UserAuditAction.DELETE,
+        changes={"id": pk, "cpf": cpf},
+    )
+    user.delete()
 
 
 @transaction.atomic

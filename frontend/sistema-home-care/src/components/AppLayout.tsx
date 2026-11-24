@@ -2,8 +2,10 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../contexts/useAuth";
 import { formatCpf } from "../lib/cpf";
-import { isGerente } from "../lib/patients";
+import { canViewPatients, isGerente } from "../lib/patients";
 import { scaleAccess } from '../lib/careScales';
+import { canManageNeedTypes } from "../lib/assessments";
+import { canVisit } from "../lib/visits";
 
 function navClasses({ isActive }: { isActive: boolean }): string {
   return `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
@@ -65,6 +67,21 @@ const NAV_ICONS: Record<string, ReactNode> = {
       <rect width="20" height="14" x="2" y="6" rx="2" />
     </>
   ),
+  box: (
+    <>
+      <path d="m12 3 9 5-9 5-9-5 9-5Z" />
+      <path d="M3 8v9l9 5 9-5V8" />
+      <path d="M12 13v9" />
+    </>
+  ),
+  types: (
+    <>
+      <path d="M4 5h16M4 12h16M4 19h16" />
+      <circle cx="7" cy="5" r="1" fill="currentColor" />
+      <circle cx="7" cy="12" r="1" fill="currentColor" />
+      <circle cx="7" cy="19" r="1" fill="currentColor" />
+    </>
+  ),
 };
 
 function NavIcon({ name }: { name: string }) {
@@ -87,6 +104,7 @@ function NavIcon({ name }: { name: string }) {
 
 const PAGE_TITLES: { prefix: string; title: string; crumb: string }[] = [
   { prefix: "/escalas", title: "Escalas", crumb: "Painel / Escalas" },
+  { prefix: "/agendamentos", title: "Agendamentos", crumb: "Painel / Gestão / Agendamentos" },
   { prefix: "/avaliacoes/", title: "Detalhe da Avaliação", crumb: "Painel / Pacientes / Avaliações / Detalhe" },
   { prefix: "/avaliacoes", title: "Avaliações", crumb: "Painel / Pacientes / Avaliações" },
   { prefix: "/pacientes/novo", title: "Novo Paciente", crumb: "Painel / Pacientes / Novo" },
@@ -97,6 +115,8 @@ const PAGE_TITLES: { prefix: string; title: string; crumb: string }[] = [
   { prefix: "/usuarios", title: "Usuários", crumb: "Painel / Usuários" },
   { prefix: "/categorias", title: "Categorias", crumb: "Painel / Categorias" },
   { prefix: "/profissoes", title: "Profissões", crumb: "Painel / Profissões" },
+  { prefix: "/tipos", title: "Tipos de necessidade", crumb: "Painel / Administração / Tipos de necessidade" },
+  { prefix: "/recursos", title: "Recursos", crumb: "Painel / Administração / Recursos" },
   { prefix: "/", title: "Painel", crumb: "Painel" },
 ];
 
@@ -155,25 +175,36 @@ export function AppLayout() {
 
             {sectionLabel("Gestão")}
             <div className="space-y-1">
-              <NavLink to="/pacientes" end className={navClasses} onClick={closeMenu}>
-                <NavIcon name="users" /> Pacientes
-              </NavLink>
+              {canViewPatients(user) && (
+                <NavLink to="/pacientes" end className={navClasses} onClick={closeMenu}>
+                  <NavIcon name="users" /> Pacientes
+                </NavLink>
+              )}
               {scalesVisible && <NavLink to="/escalas" className={navClasses} onClick={closeMenu}><NavIcon name="calendar" /> Escalas</NavLink>}
+              {canVisit(user, 'view') && <NavLink to="/agendamentos" className={navClasses} onClick={closeMenu}><NavIcon name="calendar" /> Agendamentos</NavLink>}
             </div>
 
-            {isGerente(user?.groups) && (
+            {(isGerente(user?.groups) || canManageNeedTypes(user)) && (
               <>
                 {sectionLabel("Administração")}
                 <div className="space-y-1">
-                  <NavLink to="/usuarios" end className={navClasses} onClick={closeMenu}>
-                    <NavIcon name="user" /> Usuários
-                  </NavLink>
-                  <NavLink to="/categorias" end className={navClasses} onClick={closeMenu}>
-                    <NavIcon name="tag" /> Categorias
-                  </NavLink>
-                  <NavLink to="/profissoes" end className={navClasses} onClick={closeMenu}>
-                    <NavIcon name="briefcase" /> Profissões
-                  </NavLink>
+                  {isGerente(user?.groups) && <>
+                    <NavLink to="/usuarios" end className={navClasses} onClick={closeMenu}>
+                      <NavIcon name="user" /> Usuários
+                    </NavLink>
+                    <NavLink to="/categorias" end className={navClasses} onClick={closeMenu}>
+                      <NavIcon name="tag" /> Categorias
+                    </NavLink>
+                    <NavLink to="/profissoes" end className={navClasses} onClick={closeMenu}>
+                      <NavIcon name="briefcase" /> Profissões
+                    </NavLink>
+                    <NavLink to="/recursos" end className={navClasses} onClick={closeMenu}>
+                      <NavIcon name="box" /> Recursos
+                    </NavLink>
+                  </>}
+                  {canManageNeedTypes(user) && <NavLink to="/tipos" end className={navClasses} onClick={closeMenu}>
+                    <NavIcon name="types" /> Tipos de necessidade
+                  </NavLink>}
                 </div>
               </>
             )}

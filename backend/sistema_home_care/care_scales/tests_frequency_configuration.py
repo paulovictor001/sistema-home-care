@@ -4,6 +4,33 @@ from .test_support import ScaleFixture
 
 
 class FrequencyConfigurationTests(ScaleFixture):
+    def test_observation_and_reason_can_be_saved_without_frequency(self):
+        item = ScaleNeed.objects.create(scale=self.scale, plan_need=self.link)
+        client = auth_client(self.manager)
+        url = f'/api/escalas/{self.scale.pk}/necessidades/{item.pk}/configurar/'
+
+        response = client.post(url, {
+            'observation': 'Atendimento conforme necessidade',
+            'frequency_reason': 'Frequência ainda será definida',
+        }, format='json')
+        self.assertEqual(response.status_code, 200, response.data)
+        item.refresh_from_db()
+        self.assertIsNone(item.frequency_quantity)
+        self.assertIsNone(item.frequency_period)
+        self.assertEqual(item.observation, 'Atendimento conforme necessidade')
+        self.assertEqual(item.frequency_reason, 'Frequência ainda será definida')
+
+        response = client.post(f'/api/escalas/{self.scale.pk}/status/', {'status': 'ACTIVE'}, format='json')
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('frequência', str(response.data))
+
+    def test_frequency_still_requires_quantity_and_period_as_a_pair(self):
+        item = ScaleNeed.objects.create(scale=self.scale, plan_need=self.link)
+        client = auth_client(self.manager)
+        url = f'/api/escalas/{self.scale.pk}/necessidades/{item.pk}/configurar/'
+        self.assertEqual(client.post(url, {'frequency_quantity': 2}, format='json').status_code, 400)
+        self.assertEqual(client.post(url, {'frequency_period': 'WEEK'}, format='json').status_code, 400)
+
     def test_frequency_can_increase_decrease_and_change_period_independently(self):
         item = ScaleNeed.objects.create(scale=self.scale, plan_need=self.link, frequency_quantity=2, frequency_period='WEEK', planned_quantity=2, planned_period='WEEK')
         client = auth_client(self.manager)

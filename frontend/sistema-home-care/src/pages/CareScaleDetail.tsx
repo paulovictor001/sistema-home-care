@@ -1,7 +1,7 @@
 import {useEffect, useState, type FormEvent} from 'react';
 import {Link, useParams, useNavigate} from 'react-router-dom';
 import {useAuth} from '../contexts/useAuth';
-import {canScale, getScale, updateScale, scaleStatusLabels, type CareScale} from '../lib/careScales';
+import {canScale, getScale, updateScale, scaleStatusLabels, scaleAuditActionLabels, type CareScale} from '../lib/careScales';
 import {frequencyLabels} from '../lib/carePlans';
 import {scalePlans, addScaleNeed, type ScalePlanOption} from '../lib/careScales';
 import {ScaleNeedManagement} from '../components/ScaleNeedManagement';
@@ -90,7 +90,7 @@ export function CareScaleDetail() {
     </section>
     <section className="space-y-3 rounded bg-surface p-4 shadow"><h2 className="font-semibold">Histórico da escala</h2><button className="rounded border p-2" disabled={busy} onClick={() => void history()}>Consultar histórico</button>
       {substitutions && <><h3 className="font-medium">Substituições de profissionais</h3>{!substitutions.length ? <p>Nenhuma substituição registrada.</p> : <ul className="space-y-2">{substitutions.map(value => <li key={value.id}>{value.previous_name} → {value.new_name} · Necessidade #{value.item || 'Histórica'} · {value.actor_name} · {new Date(value.created_at).toLocaleString('pt-BR')}</li>)}</ul>}</>}
-      {events && <><h3 className="font-medium">Auditoria</h3>{!events.length ? <p>Nenhuma alteração registrada.</p> : <ul className="space-y-2">{events.map(value => <li key={value.id}>{value.action} · {value.actor_name} · {new Date(value.created_at).toLocaleString('pt-BR')}</li>)}</ul>}</>}
+      {events && <><h3 className="font-medium">Auditoria</h3>{!events.length ? <p>Nenhuma alteração registrada.</p> : <ul className="space-y-2">{events.map(value => <li key={value.id} className="rounded border p-3"><p>{scaleAuditActionLabels[value.action] ?? value.action} · {value.actor_name} · {new Date(value.created_at).toLocaleString('pt-BR')}</p><details className="mt-2"><summary className="cursor-pointer text-sm text-primary">Ver dados anteriores e novos</summary><div className="mt-2 grid gap-3 sm:grid-cols-2"><div><h4 className="text-sm font-medium">Antes</h4><pre className="overflow-auto whitespace-pre-wrap break-words text-xs">{JSON.stringify(value.previous_data, null, 2) ?? '—'}</pre></div><div><h4 className="text-sm font-medium">Depois</h4><pre className="overflow-auto whitespace-pre-wrap break-words text-xs">{JSON.stringify(value.new_data, null, 2) ?? '—'}</pre></div></div></details></li>)}</ul>}</>}
     </section>
   </div>;
 }

@@ -55,7 +55,7 @@ def validate_need(plan, need):
 
 @transaction.atomic
 def attach_need(*, actor, plan, need):
-    require_role(actor, 'MEDICO')
+    require_role(actor, 'MEDICO', 'ENFERMEIRO')
     plan = lock_plan(plan)
     need = CareNeed.objects.select_for_update().get(pk=need.pk)
     validate_need(plan, need)
@@ -103,7 +103,7 @@ def close_plan(*, actor, plan):
 
 @transaction.atomic
 def remove_need(*, actor, link, reason):
-    require_role(actor, 'MEDICO')
+    require_role(actor, 'MEDICO', 'ENFERMEIRO')
     reason = (reason or '').strip()
     if not reason:
         raise ValidationError({'reason': 'Informe o motivo da remoção.'})
@@ -111,6 +111,8 @@ def remove_need(*, actor, link, reason):
     link = CarePlanNeed.objects.select_for_update().get(pk=link.pk, care_plan=plan)
     if link.removed_at:
         raise ValidationError({'need': 'Este vínculo já foi removido.'})
+    if not plan.need_links.filter(removed_at__isnull=True).exclude(pk=link.pk).exists():
+        raise ValidationError({'need': 'O plano deve manter ao menos uma necessidade vigente.'})
     from care_scales.models import ScaleNeed
     if ScaleNeed.objects.filter(plan_need=link, removed_at__isnull=True, scale__deleted_at__isnull=True).exists():
         raise ValidationError({'need': 'Remova esta necessidade das escalas antes de retirá-la do plano.'})
@@ -143,7 +145,7 @@ def update_plan(*, actor, plan, data):
 
 @transaction.atomic
 def configure_need(*, actor, link, data):
-    require_role(actor, 'MEDICO')
+    require_role(actor, 'MEDICO', 'ENFERMEIRO')
     from .serializers import NeedConfigurationSerializer
     # Revalida dentro da transação também para chamadas diretas do serviço.
     payload = dict(data)

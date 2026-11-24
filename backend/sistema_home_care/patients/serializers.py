@@ -10,7 +10,8 @@ Cobre em nivel de endpoint (DRF):
   unicidade (mascara nao burla duplicado).
 - TASK-CAD-PAC-011/020: no update, `status` e read-only (sai pelas actions
   inativar/reativar) e somente gerente pode enviar `responsible_doctor` /
-  `responsible_team` (outros perfis recebem 403).
+  `responsible_team` (outros perfis recebem 403; GERENTE também precisa
+  da permissão granular `pacientes.update_manager`).
 """
 
 from django.contrib.auth import get_user_model
@@ -20,7 +21,7 @@ from rest_framework.exceptions import PermissionDenied
 from accounts.permissions import GroupNames
 from accounts.validators import normalize_cpf
 
-from .models import HealthCondition, NeedType, Patient, PatientAddress
+from .models import HealthCondition, Patient, PatientAddress
 
 User = get_user_model()
 
@@ -44,12 +45,15 @@ class PatientAddressSerializer(serializers.ModelSerializer):
 
 class PatientSerializer(serializers.ModelSerializer):
     address = PatientAddressSerializer(required=False)
+    gender = serializers.CharField()
     responsible_doctor = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.all(), required=False, allow_null=True
     )
     health_condition = serializers.PrimaryKeyRelatedField(
         queryset=HealthCondition.objects.all(), required=False, allow_null=True
     )
+    responsible_doctor_name = serializers.SerializerMethodField()
+    health_condition_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Patient
@@ -64,13 +68,30 @@ class PatientSerializer(serializers.ModelSerializer):
             "gender",
             "status",
             "responsible_doctor",
+            "responsible_doctor_name",
             "responsible_team",
             "health_condition",
+            "health_condition_name",
             "address",
             "created_at",
             "updated_at",
         )
-        read_only_fields = ("id", "status", "created_at", "updated_at")
+        read_only_fields = (
+            "id", "status", "created_at", "updated_at",
+            "responsible_doctor_name", "health_condition_name",
+        )
+
+    def get_responsible_doctor_name(self, patient):
+        doctor = patient.responsible_doctor
+        if doctor is None:
+            return None
+        return f"{doctor.first_name} {doctor.last_name}".strip() or doctor.cpf
+
+    def get_health_condition_name(self, patient):
+        condition = patient.health_condition
+        if condition is None:
+            return None
+        return condition.name.strip() or f"Condição de saúde #{condition.pk}"
 
     def validate_cpf(self, value):
         """Normaliza antes do UniqueValidator (TASK-CAD-PAC-006/029)."""
@@ -85,6 +106,16 @@ class PatientSerializer(serializers.ModelSerializer):
                 "Medico responsavel deve ser um usuario do grupo MEDICO."
             )
         return value
+
+    def validate_gender(self, value):
+        allowed = {"Masculino", "Feminino", "Prefiro não dizer"}
+        if value in allowed:
+            return value
+        if self.instance is not None and value == self.instance.gender:
+            return value
+        raise serializers.ValidationError(
+            "Selecione Masculino, Feminino ou Prefiro não dizer."
+        )
 
     def validate(self, attrs):
         request = self.context.get("request")
@@ -131,15 +162,3 @@ class HealthConditionSerializer(serializers.ModelSerializer):
         model = HealthCondition
         fields = ("id", "name")
         read_only_fields = ("id",)
-
-
-class NeedTypeCatalogSerializer(serializers.ModelSerializer):
-    """Catálogo read-only p/ o select da avaliação (TA-61/TASK-AVL-FE-004).
-
-    Somente leitura: criação/inativação pelo admin (NeedTypeAdmin).
-    """
-
-    class Meta:
-        model = NeedType
-        fields = ("id", "name", "description", "status")
-        read_only_fields = fields

@@ -2,10 +2,10 @@ from datetime import date
 from django.test import TestCase
 from accounts.models import Profession
 from professionals.models import Professional
-from patients.models import NeedType
+from assessments.models import NeedType
 from assessments.models import PatientAssessment, CareNeed
 from assessments.tests_api import make_api_users, make_patient, GERENTE_CPF
-from care_plans.models import CarePlan, CarePlanNeed
+from care_plans.models import CarePlan, CarePlanNeed, CarePlanStatus
 from .models import CareScale
 
 
@@ -22,5 +22,7 @@ class ScaleFixture(TestCase):
         self.other_professional = Professional.objects.create(full_name='Maria', profession=self.profession)
         self.link = CarePlanNeed.objects.create(care_plan=self.plan, care_need=self.need,
             required_professional=self.professional, frequency_quantity=2, frequency_period='WEEK')
+        self.plan.status = CarePlanStatus.ACTIVE
+        self.plan.save(update_fields=['status'])
         self.scale = CareScale.objects.create(patient=self.patient, care_plan=self.plan,
             start_date=date(2026, 10, 1), end_date=date(2026, 11, 30))

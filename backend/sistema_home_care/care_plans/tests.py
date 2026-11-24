@@ -1,4 +1,5 @@
 from datetime import date
+from time import sleep
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.db.models import ProtectedError
@@ -8,7 +9,7 @@ from .models import CarePlan, CarePlanHistory, CarePlanStatus
 from .models import CarePlanNeed, FrequencyPeriod
 from django.utils import timezone
 from assessments.models import CareNeed, PatientAssessment, NeedPriority
-from patients.models import NeedType
+from assessments.models import NeedType
 from accounts.models import Profession
 from professionals.models import Professional
 
@@ -63,6 +64,7 @@ class CarePlanModelTests(TestCase):
     def test_update_preserves_record_and_created_timestamp(self):
         plan = self.make_plan()
         created_at, updated_at, pk = plan.created_at, plan.updated_at, plan.pk
+        sleep(0.002)
         plan.objective = 'Novo objetivo'
         plan.save()
         self.assertEqual(plan.pk, pk)

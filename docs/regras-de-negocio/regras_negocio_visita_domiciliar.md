@@ -6,11 +6,11 @@ A Visita Domiciliar representa o evento de atendimento domiciliar planejado. Reg
 A Visita responde: **O atendimento programado aconteceu?**
 
 ## 2. Permissões
-- **RN-VIS-01:** Gerente e usuários com permissão podem visualizar a visita.
-- **RN-VIS-02:** Gerente e usuários com permissão podem alterar a visita.
-- **RN-VIS-03:** Gerente e usuários com permissão podem cancelar a visita.
-- **RN-VIS-04:** Alterações de status respeitam as permissões configuradas.
-- **RN-VIS-05:** O profissional responsável pode iniciar e finalizar a própria visita.
+- **RN-VIS-01:** Gerente e usuários com `visitas.view` podem visualizar a visita.
+- **RN-VIS-02:** Gerente e usuários com `visitas.update` podem alterar campos operacionais editáveis.
+- **RN-VIS-03:** Gerente e usuários com `visitas.cancel` podem cancelar visita elegível.
+- **RN-VIS-04:** Cada ação de status exige sua permissão granular (`visitas.confirm`, `visitas.cancel`, `visitas.start`, `visitas.finish` ou `visitas.not_realized`). A categoria Gerente recebe todas inicialmente; outras categorias podem recebê-las pela administração de permissões.
+- **RN-VIS-05:** Somente o profissional responsável vinculado à ocorrência pode iniciar ou concluir a própria visita, e deve possuir a permissão granular correspondente. A conclusão ocorre pelo fluxo de Atendimento.
 
 ## 3. Origem e vínculos
 - **RN-VIS-06:** A visita nasce de um agendamento; não é criada como evento independente.
@@ -64,6 +64,11 @@ A Visita responde: **O atendimento programado aconteceu?**
 - **RN-VIS-38:** Não haverá tabela configurável de motivos de não realização; a justificativa será texto livre.
 - **RN-VIS-39:** Não haverá reagendamento dentro da Visita.
 - **RN-VIS-40:** O MVP preserva a separação entre Visita, Atendimento e Evolução.
+- **RN-VIS-41:** A ocorrência persistida pelo Agendamento é a própria `Visit`; não existe uma segunda entidade de visita.
+- **RN-VIS-42:** O início registra instante e profissional responsável. A conclusão registra instante e profissional responsável após existir Atendimento válido.
+- **RN-VIS-43:** O Atendimento necessário contém descrição obrigatória dos cuidados/procedimentos realizados; observações adicionais são opcionais.
+- **RN-VIS-44:** A relação com o item do Plano aponta para `CarePlanNeed`; o item da Escala continua registrado separadamente para identificar a atribuição operacional.
+- **RN-VIS-45:** O histórico operacional preserva ator, data/hora, evento e valores anteriores/novos; visitas e históricos não são apagados fisicamente.
 
 ## 12. Fluxo consolidado
 Plano de Cuidados → Escala → Agendamento → Visita → Atendimento → Evolução.

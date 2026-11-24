@@ -7,6 +7,7 @@ export interface SessionUserCategory {
 
 export interface SessionUser {
   id: number;
+  is_superuser?: boolean;
   cpf: string;
   email: string;
   first_name: string;

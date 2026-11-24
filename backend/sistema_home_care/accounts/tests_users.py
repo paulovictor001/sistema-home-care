@@ -15,7 +15,7 @@ Cobre a validacao da spec (tasks_usuarios.md item 9):
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
-from django.test import TestCase
+from django.test import RequestFactory, TestCase
 from rest_framework.test import APIClient
 
 from professionals.models import Professional
@@ -397,6 +397,68 @@ class UserDeleteTests(TestCase):
         )
         self.assertTrue(User.objects.filter(pk=self.user.pk).exists())
 
+    def test_protected_patient_reference_blocks_delete_with_explanation(self):
+        from datetime import date
+        from patients.models import Patient
+
+        Patient.objects.create(
+            full_name="Paciente referenciado",
+            birth_date=date(1980, 1, 1),
+            cpf="12345678909",
+            rg="123",
+            age=46,
+            phone="11999999999",
+            gender="Masculino",
+            responsible_doctor=self.user,
+        )
+        response = self.gerente.delete(f"/api/usuarios/{self.user.pk}/")
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("vínculos protegidos", str(response.data))
+        self.assertIn("pacientes", str(response.data))
+        self.assertTrue(User.objects.filter(pk=self.user.pk).exists())
+        self.assertTrue(Professional.objects.filter(pk=self.pro_pk).exists())
+        self.assertFalse(
+            UserAuditLog.objects.filter(
+                action=UserAuditAction.DELETE,
+                changes__cpf=NOVO_CPF,
+            ).exists()
+        )
+
+
+class UserInvariantPathTests(TestCase):
+    def setUp(self):
+        self.users = make_manager_users()
+
+    def test_superuser_bootstrap_creates_matching_professional(self):
+        user = User.objects.create_superuser(
+            cpf=NOVO_CPF_6,
+            password="Senha123!",
+            email="superuser-bootstrap@teste.local",
+        )
+        self.assertEqual(user.category_id, user.professional.profession.category_id)
+        self.assertTrue(user.professional.is_active)
+
+    def test_admin_add_path_creates_matching_professional(self):
+        from django.contrib.admin.sites import site
+
+        from .admin import UserAdmin
+
+        category = Category.objects.get(name="Médico")
+        obj = User(
+            cpf=NOVO_CPF_5,
+            email="admin-created@teste.local",
+            category=category,
+            first_name="Admin",
+            last_name="Criado",
+        )
+        obj.set_password("Senha123!")
+        request = RequestFactory().post("/admin/accounts/user/add/")
+        request.user = self.users[GERENTE_CPF]
+        UserAdmin(User, site).save_model(request, obj, form=None, change=False)
+        obj.refresh_from_db()
+        self.assertEqual(obj.professional.profession.category_id, obj.category_id)
+        self.assertEqual(obj.professional.full_name, "Admin Criado")
+
 
 class ProfessionCategoryTests(TestCase):
     def setUp(self):
@@ -410,6 +472,54 @@ class ProfessionCategoryTests(TestCase):
         self.assertEqual(response.status_code, 201, response.data)
         category = Category.objects.get(name="Fisioterapeuta")
         self.assertEqual(category.permissions.count(), 0)
+        profession = Profession.objects.get(name="Fisioterapeuta")
+        self.assertEqual(profession.category_id, category.pk)
+
+    def test_rename_profession_renames_its_category_and_preserves_permissions(self):
+        profession = Profession.objects.get(name="Médico")
+        permission = GranularPermission.objects.get(codename="pacientes.view")
+        category = profession.category
+        category.permissions.add(permission)
+        permission_ids = set(category.permissions.values_list("pk", flat=True))
+
+        response = self.gerente.patch(
+            f"/api/profissoes/{profession.pk}/",
+            {"name": "Médico Especialista"},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200, response.data)
+        profession.refresh_from_db()
+        category.refresh_from_db()
+        self.assertEqual(profession.name, "Médico Especialista")
+        self.assertEqual(category.name, profession.name)
+        self.assertEqual(set(category.permissions.values_list("pk", flat=True)), permission_ids)
+
+    def test_mirror_category_name_and_delete_are_protected(self):
+        profession = Profession.objects.get(name="Médico")
+        category = profession.category
+        response = self.gerente.patch(
+            f"/api/categorias/{category.pk}/", {"name": "Categoria alterada"}, format="json"
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(
+            self.gerente.delete(f"/api/categorias/{category.pk}/").status_code, 400
+        )
+        category.refresh_from_db()
+        self.assertEqual(category.name, profession.name)
+
+    def test_profession_rename_rejects_category_name_conflict(self):
+        profession = Profession.objects.get(name="Médico")
+        Category.objects.create(name="Categoria avulsa")
+        response = self.gerente.patch(
+            f"/api/profissoes/{profession.pk}/",
+            {"name": "Categoria avulsa"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+        profession.refresh_from_db()
+        self.assertEqual(profession.name, "Médico")
+        self.assertEqual(profession.category.name, "Médico")
 
     def test_inactivate_blocked_with_linked_professionals(self):
         medico = Profession.objects.get(name="Médico")

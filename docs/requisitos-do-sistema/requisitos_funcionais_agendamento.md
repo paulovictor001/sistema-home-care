@@ -16,13 +16,13 @@ O sistema deve exigir a data da visita.
 O sistema deve exigir horário inicial e horário final.
 
 ## RF-AGE-06 — Validar disponibilidade
-O sistema deve verificar se o horário escolhido está dentro da disponibilidade cadastrada do profissional.
+O sistema deve verificar se o horário escolhido está contido em uma das janelas de disponibilidade semanal do profissional, configuradas por dia da semana no perfil profissional. Cada dia pode ter uma ou mais janelas. Sem disponibilidade cadastrada, o agendamento deve ser bloqueado. Usar horário local `America/Sao_Paulo`.
 
 ## RF-AGE-07 — Validar conflito do profissional
-O sistema deve impedir agendamento conflitante para o mesmo profissional.
+O sistema deve impedir sobreposição com visitas do mesmo profissional, usando intervalos `[início, fim)`. Visitas canceladas e não realizadas não bloqueiam; demais estados bloqueiam.
 
 ## RF-AGE-08 — Validar conflito do paciente
-O sistema deve impedir agendamento conflitante para o mesmo paciente.
+O sistema deve impedir sobreposição com visitas do mesmo paciente, usando intervalos `[início, fim)` e ignorando visitas canceladas e não realizadas.
 
 ## RF-AGE-09 — Selecionar endereço
 O sistema deve permitir utilizar o endereço do paciente no agendamento e registrar o endereço utilizado na visita.
@@ -34,7 +34,7 @@ O sistema deve preservar o endereço utilizado no agendamento, mesmo que o cadas
 O sistema deve exigir o tipo de visita, utilizando o tipo inicial definido para o MVP.
 
 ## RF-AGE-12 — Criar visita
-Ao confirmar o agendamento, o sistema deve criar o registro correspondente na entidade `visits`.
+Ao salvar um agendamento, o sistema deve criar um registro `Visit` (tabela `visits`), que representa a própria ocorrência agendada.
 
 ## RF-AGE-13 — Status inicial
 Uma nova visita deve iniciar com status `AGENDADA`.
@@ -70,10 +70,10 @@ O sistema deve permitir alterar o tipo de visita e a observação.
 O sistema não deve permitir alterar o profissional diretamente pelo Agendamento. A substituição deve ser feita na Escala.
 
 ## RF-AGE-24 — Gerar série de agendamentos
-O sistema deve permitir gerar múltiplos agendamentos a partir da frequência da Escala.
+O sistema deve permitir informar explicitamente as datas de uma série e exigir que a quantidade informada corresponda à frequência da Escala em cada período de calendário representado (semana de segunda a domingo ou mês civil). A validação de horário, disponibilidade, período e conflito ocorre individualmente por data. O sistema cria as ocorrências válidas e retorna os erros das inválidas, sem cancelar as válidas.
 
 ## RF-AGE-25 — Gerar agendamento individual
-O sistema deve permitir gerar somente um agendamento a partir da Escala.
+O sistema deve permitir gerar uma ocorrência individual a partir da Escala, observando a frequência definida para o respectivo período.
 
 ## RF-AGE-26 — Editar ocorrência individual
 O sistema deve permitir alterar individualmente uma visita gerada.
@@ -103,7 +103,7 @@ O sistema deve registrar o usuário e a data/hora quando uma visita for confirma
 O sistema deve permitir visualizar os agendamentos conforme as permissões definidas.
 
 ## RF-AGE-35 — Exclusão
-O sistema deve permitir excluir agendamentos conforme a permissão definida, respeitando a preservação dos registros que já representem histórico operacional.
+O sistema não deve excluir visitas física ou logicamente. A permissão granular `agendamentos.delete` fica cadastrada por compatibilidade com o catálogo de operações, mas não autoriza apagar registros; visitas são retiradas da agenda por cancelamento com motivo, preservando histórico.
 
 ## RF-AGE-36 — Persistência
 O sistema deve armazenar os dados do agendamento/visita conforme o modelo `visits`:
@@ -121,3 +121,12 @@ O sistema deve armazenar os dados do agendamento/visita conforme o modelo `visit
 - observações;
 - data de criação;
 - data de atualização.
+
+## RF-AGE-37 — Agenda semanal do profissional
+O sistema deve permitir configurar, no perfil do profissional, dias da semana e uma ou mais janelas de horário por dia. A agenda é recorrente semanalmente e usada como validação bloqueante.
+
+## RF-AGE-38 — Histórico de endereço
+O sistema deve copiar todos os campos do endereço selecionado para cada `Visit`, sem depender de alterações posteriores do cadastro do paciente. Uma edição autorizada altera somente o snapshot daquela visita.
+
+## RF-AGE-39 — Transições e fronteira operacional
+O sistema deve permitir `AGENDADA → CONFIRMADA → EM_ATENDIMENTO → REALIZADA`; `AGENDADA` e `CONFIRMADA` também podem ir para `CANCELADA` ou `NÃO_REALIZADA`. Os estados terminais não podem ser alterados. O registro clínico e a transição para `REALIZADA` pertencem ao Atendimento.

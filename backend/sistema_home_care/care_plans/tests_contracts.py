@@ -3,6 +3,8 @@ from django.core.exceptions import ValidationError
 from . import tests_api as fixtures
 from .models import CarePlan
 from .contracts import planned_requirement
+from .models import CarePlanNeed
+from assessments.models import CareNeed
 
 
 class PlanIntegrationContractTests(TestCase):
@@ -11,9 +13,12 @@ class PlanIntegrationContractTests(TestCase):
 
     def test_read_contract_keeps_planned_professional_distinct_from_future_assignment(self):
         data = self.create()
+        other = CareNeed.objects.create(assessment=self.assessment, need_type=self.need.need_type,
+            description='Outra necessidade', priority='MEDIUM')
+        CarePlanNeed.objects.create(care_plan_id=data['id'], care_need=other)
         base = f"/api/planos-cuidados/{data['id']}/necessidades/{data['need_links'][0]['id']}/"
         self.client.post(base + 'configurar/', self.configuration, format='json')
-        link = CarePlan.objects.get(pk=data['id']).need_links.get()
+        link = CarePlan.objects.get(pk=data['id']).need_links.get(pk=data['need_links'][0]['id'])
         contract = planned_requirement(link)
         self.assertEqual(contract['required_profession_id'], self.professional.profession_id)
         self.assertEqual(contract['required_professional_id'], self.professional.pk)

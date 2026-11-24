@@ -4,7 +4,7 @@ from django.core.exceptions import ValidationError
 from django.utils import timezone
 from assessments.models import CareNeed, PatientAssessment
 from assessments.tests_api import make_api_users, make_patient, MEDICO_CPF
-from patients.models import NeedType
+from assessments.models import NeedType
 from .models import CarePlan, CarePlanNeed
 from .services import attach_need
 

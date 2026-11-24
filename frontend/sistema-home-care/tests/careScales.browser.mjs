@@ -1,6 +1,21 @@
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
-const browser = await chromium.launch({executablePath: '/usr/bin/google-chrome', headless: true, args: ['--no-sandbox']});
+import {spawn} from 'node:child_process';
+import {setTimeout as delay} from 'node:timers/promises';
+import {fileURLToPath} from 'node:url';
+import {dirname, resolve} from 'node:path';
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+const server = spawn(process.execPath, [resolve(root, 'node_modules/vite/bin/vite.js'), 'preview', '--host', '127.0.0.1', '--port', '4173', '--strictPort'], {cwd: root, stdio: 'ignore'});
+let browser;
+for (let attempt = 0; attempt < 50; attempt++) {
+  if (server.exitCode !== null) throw new Error(`Vite preview encerrou antes de iniciar (código ${server.exitCode}).`);
+  try { if ((await fetch('http://127.0.0.1:4173')).ok) break; } catch {}
+  if (attempt === 49) { server.kill(); throw new Error('Vite preview não iniciou em http://127.0.0.1:4173.'); }
+  await delay(200);
+}
+try {
+  browser = await chromium.launch({...(process.env.CHROMIUM_PATH ? {executablePath: process.env.CHROMIUM_PATH} : {}), headless: true, args: ['--no-sandbox']});
+} catch (error) {server.kill(); throw error;}
 const page = await browser.newPage(); const errors = []; page.on('pageerror', error => errors.push(error.message)); page.on('dialog', dialog => dialog.accept());
 let role = 'GERENTE'; let deleted = false;
 let scale = {id: 9, patient: 7, patient_name: 'Maria da Silva', care_plan: 12, start_date: '2026-10-01', end_date: '2026-12-31', status: 'DRAFT', observation: '', items: []};
@@ -64,4 +79,4 @@ try {
   await page.getByText('Nenhuma escala disponível.', {exact: true}).waitFor();
   assert.equal(deleted, true); assert.deepEqual(errors, []);
   console.log('Escalas: criar, editar, incluir necessidade, disponibilidade, vincular, substituir, frequência, status, histórico, leitura restrita e excluir 204: OK');
-} finally {await browser.close();}
+} finally {if (browser) await browser.close(); server.kill();}

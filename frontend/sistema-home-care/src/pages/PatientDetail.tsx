@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import { useAuth } from "../contexts/useAuth";
 import { ApiError } from "../lib/api";
 import { canPlan } from '../lib/carePlans';
+import { canScale } from '../lib/careScales';
 import {
   canCreateAssessment,
   canViewAssessments,
@@ -147,7 +148,7 @@ export function PatientDetail() {
       <section className="mb-4 rounded-2xl border border-line bg-surface p-5 shadow-sm sm:p-6">
         <div className="mb-5"><h2 className="text-base font-semibold text-ink">Informações clínicas e responsáveis</h2><p className="mt-1 text-sm text-muted">Referências atuais do acompanhamento do paciente.</p></div>
         <dl className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2">
-          <Field label="Médico responsável (id)" value={patient.responsible_doctor?.toString() ?? ""} />
+          <Field label="Médico responsável" value={patient.responsible_doctor_name ?? ""} />
           <Field
             label="Equipe responsável"
             value={
@@ -159,8 +160,8 @@ export function PatientDetail() {
             }
           />
           <Field
-            label="Condição de saúde (id)"
-            value={patient.health_condition?.toString() ?? ""}
+            label="Condição de saúde"
+            value={patient.health_condition_name ?? ""}
           />
         </dl>
       </section>
@@ -211,6 +212,8 @@ export function PatientDetail() {
       )}
 
       {canPlan(user, 'view') && <section className="mb-4 rounded-2xl border border-line bg-surface p-5 shadow-sm sm:p-6"><h2 className="mb-4 text-base font-semibold text-ink">Plano de cuidados</h2><Link className="inline-flex min-h-10 items-center rounded-lg border border-line px-4 text-sm font-medium text-ink transition hover:bg-background" to={`/pacientes/${patient.id}/planos-cuidados`}>Ver planos de cuidados</Link></section>}
+
+      {canScale(user, 'view') && <section className="mb-4 rounded-2xl border border-line bg-surface p-5 shadow-sm sm:p-6"><h2 className="mb-4 text-base font-semibold text-ink">Escalas</h2><Link className="inline-flex min-h-10 items-center rounded-lg border border-line px-4 text-sm font-medium text-ink transition hover:bg-background" to={`/pacientes/${patient.id}/escalas`}>Ver escalas do paciente</Link></section>}
 
       {manager && (
         <section className="rounded-2xl border border-line bg-surface p-5 shadow-sm sm:p-6">

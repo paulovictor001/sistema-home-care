@@ -1,10 +1,15 @@
 from assessments.tests_api import auth_client, MEDICO_CPF
 from .models import ScaleNeed
 from .test_support import ScaleFixture
+from assessments.models import CareNeed
+from care_plans.models import CarePlanNeed
 
 
 class PlanConsistencyTests(ScaleFixture):
     def test_explicit_scale_removal_required_before_plan_removal(self):
+        second_need = CareNeed.objects.create(assessment=self.need.assessment, need_type=self.need.need_type,
+            description='Acompanhamento', priority='MEDIUM')
+        CarePlanNeed.objects.create(care_plan=self.plan, care_need=second_need)
         item = ScaleNeed.objects.create(scale=self.scale, plan_need=self.link)
         doctor = auth_client(self.users[MEDICO_CPF])
         url = f'/api/planos-cuidados/{self.plan.pk}/necessidades/{self.link.pk}/remover/'

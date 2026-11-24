@@ -1,4 +1,11 @@
 from django.conf import settings
+from django.contrib.auth import get_user_model, password_validation
+from django.contrib.auth.tokens import default_token_generator
+from django.core.mail import send_mail
+from django.core.exceptions import ValidationError
+import logging
+from django.utils.encoding import force_bytes, force_str
+from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from django.contrib.auth import get_user_model
 from rest_framework import status
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -15,6 +22,8 @@ from .permissions import (
     RequirePermission,
 )
 from .serializers import LoginSerializer
+
+logger = logging.getLogger(__name__)
 
 
 def _cookie_kwargs(max_age: int) -> dict:
@@ -65,6 +74,7 @@ def _user_payload(user) -> dict:
         category_payload = None
     return {
         "id": user.id,
+        "is_superuser": user.is_superuser,
         "cpf": user.cpf,
         "email": user.email,
         "first_name": user.first_name,
@@ -88,6 +98,59 @@ class LoginView(APIView):
         )
         _set_auth_cookies(response, str(refresh.access_token), str(refresh))
         return response
+
+
+class PasswordResetRequestView(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def post(self, request):
+        email = str(request.data.get("email", "")).strip()
+        user = get_user_model().objects.filter(email__iexact=email, is_active=True).first()
+        if user:
+            uid = urlsafe_base64_encode(force_bytes(user.pk))
+            token = default_token_generator.make_token(user)
+            base = getattr(settings, "FRONTEND_URL", "http://localhost:5173").rstrip("/")
+            link = f"{base}/login?uid={uid}&token={token}"
+            try:
+                send_mail(
+                    "Redefinição de senha — Sistema Home Care",
+                    f"Para definir uma nova senha, acesse: {link}\n\nO link expira em {settings.PASSWORD_RESET_TIMEOUT // 60} minutos.",
+                    settings.DEFAULT_FROM_EMAIL,
+                    [user.email],
+                    fail_silently=False,
+                )
+            except Exception:
+                # Não variar a resposta pública quando o SMTP está indisponível.
+                logger.exception("Falha ao enviar e-mail de redefinição de senha")
+        return Response(
+            {"detail": "Se houver uma conta ativa com esse e-mail, enviaremos instruções de redefinição."},
+            status=status.HTTP_200_OK,
+        )
+
+
+class PasswordResetConfirmView(APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def post(self, request):
+        uid = request.data.get("uid", "")
+        token = request.data.get("token", "")
+        password = request.data.get("password", "")
+        try:
+            user_id = force_str(urlsafe_base64_decode(uid))
+            user = get_user_model().objects.get(pk=user_id, is_active=True)
+        except (TypeError, ValueError, OverflowError, get_user_model().DoesNotExist):
+            user = None
+        if not user or not token or not default_token_generator.check_token(user, token):
+            return Response({"detail": "Link inválido ou expirado."}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            password_validation.validate_password(password, user)
+        except ValidationError as exc:
+            return Response({"password": list(exc.messages)}, status=status.HTTP_400_BAD_REQUEST)
+        user.set_password(password)
+        user.save(update_fields=["password"])
+        return Response({"detail": "Senha redefinida. Faça login com a nova senha."}, status=status.HTTP_200_OK)
 
 
 class RefreshView(APIView):

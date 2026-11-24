@@ -8,6 +8,7 @@ O sistema deve permitir que um Médico crie um Plano de Cuidados para um pacient
 - O usuário deve possuir permissão de Médico.
 - O paciente deve possuir pelo menos uma Necessidade Identificada.
 - O plano deve possuir pelo menos uma necessidade vinculada.
+- A ativação pelo Médico representa a aprovação do plano.
 - A Data de início é obrigatória.
 - A descrição/objetivo geral é opcional.
 - A Data de encerramento é opcional e pode ser informada antecipadamente.
@@ -32,7 +33,7 @@ O sistema deve permitir configurar, para cada necessidade vinculada:
 - Recursos necessários.
 
 ### Profissional
-O sistema deve permitir selecionar um profissional específico já cadastrado.
+O sistema deve permitir selecionar um profissional específico já cadastrado e ativo.
 
 ### Frequência
 O sistema deve permitir informar:
@@ -48,6 +49,8 @@ O sistema deve permitir adicionar zero ou mais recursos já cadastrados, informa
 ## RF04 — Editar Plano de Cuidados
 
 O sistema deve permitir que um Médico edite o Plano de Cuidados.
+
+Médico e Enfermeiro podem vincular, configurar e remover necessidades, inclusive em planos encerrados. O plano deve manter ao menos uma necessidade vigente.
 
 As alterações devem atualizar automaticamente:
 - Data de atualização.
@@ -74,7 +77,7 @@ A visualização deve apresentar, no mínimo:
 O sistema deve permitir alterar o status conforme as permissões definidas.
 
 ### Rascunho → Ativo
-Permitido somente para Médico.
+Permitido somente para Médico. Esta ativação representa a aprovação do plano.
 
 ### Ativo → Encerrado
 Permitido para Médico ou Enfermeiro.
@@ -126,6 +129,10 @@ O sistema deve impedir que um paciente possua mais de um Plano de Cuidados com s
 ## RF12 — Controlar Plano ativo por necessidade
 
 O sistema deve impedir que uma mesma Necessidade Identificada esteja vinculada simultaneamente a mais de um Plano de Cuidados Ativo.
+
+## Regra de escala
+
+Antes de criar uma escala, o paciente deve possuir um Plano de Cuidados ativo. A validação e o bloqueio são responsabilidade do processo de Escala.
 
 ## RF13 — Registrar auditoria
 

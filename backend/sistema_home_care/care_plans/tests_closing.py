@@ -3,7 +3,7 @@ from django.test import TestCase
 from django.core.exceptions import PermissionDenied, ValidationError
 from assessments.models import CareNeed, PatientAssessment
 from assessments.tests_api import make_api_users, make_patient, MEDICO_CPF, ENFERMEIRO_CPF, GERENTE_CPF
-from patients.models import NeedType
+from assessments.models import NeedType
 from .models import CarePlan, CarePlanNeed
 from .services import close_plan
 

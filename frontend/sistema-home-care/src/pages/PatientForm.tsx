@@ -10,6 +10,7 @@ import {
   type HealthCondition,
   getPatient,
   isGerente,
+  canManagePatientAssignments,
   listMedicos,
   medicoDisplayName,
   parseFieldErrors,
@@ -103,6 +104,7 @@ export function PatientForm({ mode }: { mode: "create" | "edit" }) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const manager = isGerente(user?.groups);
+  const canManageAssignments = canManagePatientAssignments(user);
 
   const [form, setForm] = useState<FormState>(EMPTY);
   const [medicos, setMedicos] = useState<Medico[]>([]);
@@ -242,7 +244,7 @@ export function PatientForm({ mode }: { mode: "create" | "edit" }) {
             ? Number(form.health_condition)
             : null,
           address,
-          ...(manager
+          ...(canManageAssignments
             ? {
                 responsible_doctor: form.responsible_doctor
                   ? Number(form.responsible_doctor)
@@ -428,8 +430,8 @@ export function PatientForm({ mode }: { mode: "create" | "edit" }) {
             value={form.responsible_doctor}
             onChange={(e) => set("responsible_doctor", e.target.value)}
             required={mode === "create"}
-            disabled={!manager}
-            title={!manager ? "Somente gerente pode alterar" : undefined}
+            disabled={mode === "edit" ? !canManageAssignments : !manager}
+            title={mode === "edit" && !canManageAssignments ? "Somente gerente com permissão para alterar responsáveis" : undefined}
             className={`${inputClass} disabled:bg-line`}
           >
             <option value="">Selecione…</option>
@@ -448,8 +450,8 @@ export function PatientForm({ mode }: { mode: "create" | "edit" }) {
             value={form.responsible_team}
             onChange={(e) => set("responsible_team", e.target.value)}
             placeholder="Texto livre (provisório)"
-            disabled={!manager}
-            title={!manager ? "Somente gerente pode alterar" : undefined}
+            disabled={mode === "edit" ? !canManageAssignments : !manager}
+            title={mode === "edit" && !canManageAssignments ? "Somente gerente com permissão para alterar responsáveis" : undefined}
             className={`${inputClass} disabled:bg-line`}
           />
         </Field>

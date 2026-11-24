@@ -6,7 +6,7 @@ from .models import CareScale, ScaleNeed, ScaleAssignment, ScaleSubstitution, Sc
 from professionals.models import Professional
 from django.shortcuts import get_object_or_404
 from .permissions import require_scale_permission
-from care_plans.models import CarePlan, CarePlanNeed
+from care_plans.models import CarePlan, CarePlanNeed, CarePlanStatus
 from care_plans.models import FrequencyPeriod
 from patients.models import Patient
 
@@ -35,6 +35,8 @@ def validate_period(start_date, end_date, plan):
 def create_scale(*, actor, **data):
     require_scale_permission(actor, 'create')
     data['care_plan'] = validate_relationship(data.get('patient'), data.get('care_plan'))
+    if data['care_plan'].status != CarePlanStatus.ACTIVE:
+        raise ValidationError({'care_plan': 'O paciente precisa de um plano de cuidados ativo para criar uma escala.'})
     validate_period(data.get('start_date'), data.get('end_date'), data['care_plan'])
     return CareScale.objects.create(created_by=actor, updated_by=actor, **data)
 
@@ -68,6 +70,8 @@ def update_scale(*, actor, scale, data):
 def delete_scale(*, actor, scale):
     require_scale_permission(actor, 'delete', scale)
     scale = locked_scale(scale)
+    if scale.status == ScaleStatus.ACTIVE:
+        raise ValidationError({'status': 'Encerre ou suspenda a escala antes de excluí-la.'})
     scale.deleted_at = timezone.now()
     scale.updated_by = actor
     scale.save(update_fields=['deleted_at', 'updated_by', 'updated_at'])
@@ -194,9 +198,12 @@ def configure_need(*, actor, scale, item_id, data):
         raise ValidationError('Campo não editável na necessidade.')
     quantity = data.get('frequency_quantity', item.frequency_quantity)
     period = data.get('frequency_period', item.frequency_period)
-    if not isinstance(quantity, int) or isinstance(quantity, bool) or quantity <= 0:
+    if quantity is None and period is None:
+        # Frequency is optional while drafting; activation still requires it.
+        pass
+    elif not isinstance(quantity, int) or isinstance(quantity, bool) or quantity <= 0:
         raise ValidationError({'frequency_quantity': 'Informe uma quantidade inteira positiva.'})
-    if period not in FrequencyPeriod.values:
+    elif period not in FrequencyPeriod.values:
         raise ValidationError({'frequency_period': 'Selecione dia, semana ou mês.'})
     for field, value in data.items():
         setattr(item, field, value)
@@ -225,6 +232,8 @@ def change_status(*, actor, scale, status):
 
 def validate_activation(scale):
     plan = validate_relationship(scale.patient, scale.care_plan)
+    if plan.status != CarePlanStatus.ACTIVE:
+        raise ValidationError({'care_plan': 'A escala só pode ser ativada com um plano de cuidados ativo.'})
     validate_period(scale.start_date, scale.end_date, plan)
     items = list(scale.items.filter(removed_at__isnull=True).select_related('plan_need'))
     if not items:

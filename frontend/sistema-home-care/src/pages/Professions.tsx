@@ -12,6 +12,9 @@ import {
 export function Professions() {
   const [professions, setProfessions] = useState<Profession[]>([]);
   const [newName, setNewName] = useState("");
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editingName, setEditingName] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
   const [transferFrom, setTransferFrom] = useState("");
   const [transferTo, setTransferTo] = useState("");
   const [loading, setLoading] = useState(true);
@@ -62,6 +65,35 @@ export function Professions() {
           ? err.message
           : "Falha ao alterar status. Transfira os profissionais antes.",
       );
+    }
+  }
+
+  function startEditing(p: Profession) {
+    setEditingId(p.id);
+    setEditingName(p.name);
+    setError(null);
+    setNotice(null);
+  }
+
+  async function handleRename(e: React.FormEvent, p: Profession) {
+    e.preventDefault();
+    const name = editingName.trim();
+    if (!name) {
+      setError("Informe o nome da profissão.");
+      return;
+    }
+    setSavingEdit(true);
+    setError(null);
+    setNotice(null);
+    try {
+      await updateProfession(p.id, { name });
+      await refresh();
+      setEditingId(null);
+      setNotice("Profissão e categoria correspondente atualizadas.");
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Falha ao atualizar profissão.");
+    } finally {
+      setSavingEdit(false);
     }
   }
 
@@ -192,7 +224,38 @@ export function Professions() {
           <tbody>
             {professions.map((p) => (
               <tr key={p.id} className="border-b border-line last:border-0">
-                <td className="px-4 py-3 font-medium text-ink">{p.name}</td>
+                <td className="px-4 py-3 font-medium text-ink">
+                  {editingId === p.id ? (
+                    <form
+                      onSubmit={(e) => void handleRename(e, p)}
+                      className="flex flex-wrap items-center gap-2"
+                    >
+                      <input
+                        aria-label={`Nome da profissão ${p.name}`}
+                        autoFocus
+                        maxLength={100}
+                        value={editingName}
+                        onChange={(e) => setEditingName(e.target.value)}
+                        className="min-w-40 rounded-lg border border-line px-3 py-1.5 text-sm"
+                      />
+                      <button
+                        type="submit"
+                        disabled={savingEdit || !editingName.trim()}
+                        className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
+                      >
+                        {savingEdit ? "Salvando…" : "Salvar"}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={savingEdit}
+                        onClick={() => setEditingId(null)}
+                        className="rounded-lg border border-line px-3 py-1.5 text-xs disabled:opacity-50"
+                      >
+                        Cancelar
+                      </button>
+                    </form>
+                  ) : p.name}
+                </td>
                 <td className="px-4 py-3 text-ink">{p.professionals_count ?? "—"}</td>
                 <td className="px-4 py-3">
                   <span
@@ -207,6 +270,14 @@ export function Professions() {
                 </td>
                 <td className="px-4 py-3 text-right">
                   <div className="flex justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => startEditing(p)}
+                      disabled={savingEdit}
+                      className="rounded-lg border border-line px-3 py-1.5 text-xs hover:bg-line disabled:opacity-50"
+                    >
+                      Editar nome
+                    </button>
                     <button
                       type="button"
                       onClick={() => void handleToggleActive(p)}

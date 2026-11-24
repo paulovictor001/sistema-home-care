@@ -174,7 +174,6 @@ Ainda precisam ser validados antes de implementação definitiva:
 - valores e estrutura detalhada dos campos clínicos;
 - estrutura detalhada dos tipos de necessidade;
 - evolução dos status das necessidades;
-- possibilidade de editar necessidades após a avaliação ser utilizada no plano;
 - regras de recursos, estoque, farmácia e logística;
 - regras do plano de cuidados;
 - escala;
@@ -183,6 +182,15 @@ Ainda precisam ser validados antes de implementação definitiva:
 - atendimento;
 - evolução;
 - reavaliação.
+
+## Decisões complementares — 22/11/2026
+
+- Somente Médico/Enfermeiro criam necessidades e associam recursos na avaliação; as permissões granulares continuam obrigatórias.
+- Edição de necessidade já vinculada a plano é permitida após aviso e confirmação do usuário.
+- Necessidades não podem ser excluídas fisicamente; devem ser inativadas para preservar histórico e vínculos.
+- Criação e alterações da avaliação, incluindo troca do profissional responsável, devem gerar trilha de auditoria.
+- O Gerente mantém o catálogo mínimo de recursos pela tela/API; detalhes de estoque e logística continuam fora do escopo.
+- `avaliacoes.change_professional` é permissão específica do Gerente. Médicos/Enfermeiros trocam o responsável no fluxo de edição clínica.
 
 ## 12. Princípio de não antecipação
 

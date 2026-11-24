@@ -2,10 +2,11 @@ from unittest.mock import patch
 from django.test import TestCase
 from professionals.models import Professional
 from accounts.models import Profession
-from patients.models import NeedType
+from assessments.models import NeedType
 from assessments.models import CareNeed, PatientAssessment, Resource
 from assessments.tests_api import make_api_users, make_patient, auth_client, MEDICO_CPF, ENFERMEIRO_CPF
 from .models import CarePlan
+from .models import CarePlanNeed
 
 
 class PlanAPITests(TestCase):
@@ -43,6 +44,9 @@ class PlanAPITests(TestCase):
         self.assertEqual(nurse.post(base + 'encerrar/').status_code, 200)
         self.assertEqual(self.client.post(base + 'ativar/').status_code, 400)
         self.assertEqual(nurse.post(base + 'reativar/').status_code, 200)
+        other = CareNeed.objects.create(assessment=self.assessment, need_type=self.need.need_type,
+            description='Outra necessidade', priority='MEDIUM')
+        CarePlanNeed.objects.create(care_plan_id=data['id'], care_need=other)
         self.assertEqual(self.client.post(link_base + 'remover/', {'reason': 'Revisão'}, format='json').status_code, 200)
         self.need.refresh_from_db()
         self.assertTrue(self.need.is_active)
@@ -87,12 +91,15 @@ class PlanAPITests(TestCase):
         wrong = base + f"necessidades/{first['need_links'][0]['id']}/configurar/"
         self.assertEqual(self.client.post(wrong, self.configuration, format='json').status_code, 404)
         link_base = base + f"necessidades/{second['need_links'][0]['id']}/"
+        other = CareNeed.objects.create(assessment=self.assessment, need_type=self.need.need_type,
+            description='Outra necessidade', priority='MEDIUM')
+        CarePlanNeed.objects.create(care_plan_id=second['id'], care_need=other)
         self.assertEqual(self.client.post(link_base + 'remover/', {'reason': ' '}, format='json').status_code, 400)
         self.assertEqual(self.client.post(link_base + 'remover/', {'reason': 'Revisão'}, format='json').status_code, 200)
         self.assertEqual(self.client.post(link_base + 'configurar/', self.configuration, format='json').status_code, 400)
         response = self.client.post(base + 'necessidades/', {'care_need': self.need.pk}, format='json')
         self.assertEqual(response.status_code, 201, response.data)
-        self.assertEqual(len(response.data['need_links']), 2)
+        self.assertEqual(len(response.data['need_links']), 3)
 
     def test_configuration_rolls_back_if_history_fails(self):
         data = self.create()

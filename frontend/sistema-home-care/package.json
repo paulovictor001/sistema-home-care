@@ -7,6 +7,11 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
+    "test:assessments": "node --test tests/assessments.test.mjs",
+    "test:patients": "node --test tests/patients.test.mjs",
+    "test:care-scales:unit": "node --test tests/careScales.test.mjs",
+    "test:care-scales:e2e": "node tests/careScales.browser.mjs",
+    "test:care-scales": "npm run test:care-scales:unit && npm run build && npm run test:care-scales:e2e",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -22,6 +27,7 @@
     "@types/react-dom": "^19.2.7",
     "@vitejs/plugin-react": "^6.1.1",
     "oxlint": "^1.81.0",
+    "playwright": "^1.65.1",
     "typescript": "~6.0.2",
     "vite": "^8.3.0"
   }

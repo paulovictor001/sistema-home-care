@@ -19,6 +19,35 @@ class ScaleAPITests(ScaleFixture):
         self.assertEqual(client.get(url).status_code, 404)
         self.assertIsNotNone(CareScale.objects.get(pk=pk).deleted_at)
 
+    def test_scale_creation_requires_active_care_plan(self):
+        from care_plans.models import CarePlanStatus
+        self.plan.status = CarePlanStatus.DRAFT
+        self.plan.save(update_fields=['status'])
+        client = auth_client(self.manager)
+        existing_count = CareScale.objects.filter(patient=self.patient, deleted_at__isnull=True).count()
+        payload = {'patient': self.patient.pk, 'care_plan': self.plan.pk,
+                   'start_date': '2026-10-01', 'end_date': '2026-11-30'}
+        response = client.post('/api/escalas/', payload, format='json')
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('plano de cuidados ativo', str(response.data))
+        self.assertEqual(CareScale.objects.filter(patient=self.patient, deleted_at__isnull=True).count(), existing_count)
+
+    def test_active_scale_must_be_closed_or_suspended_before_deletion(self):
+        self.scale.status = 'ACTIVE'
+        self.scale.save(update_fields=['status'])
+        client = auth_client(self.manager)
+        response = client.delete(f'/api/escalas/{self.scale.pk}/')
+        self.assertEqual(response.status_code, 400)
+        self.scale.refresh_from_db()
+        self.assertIsNone(self.scale.deleted_at)
+
+        self.scale.status = 'CLOSED'
+        self.scale.save(update_fields=['status'])
+        response = client.delete(f'/api/escalas/{self.scale.pk}/')
+        self.assertEqual(response.status_code, 204)
+        self.scale.refresh_from_db()
+        self.assertIsNotNone(self.scale.deleted_at)
+
     def test_denied_operations_have_no_effect_and_filters_are_validated(self):
         client = auth_client(self.users[SEM_GRUPO_CPF])
         self.assertEqual(client.get('/api/escalas/').status_code, 403)

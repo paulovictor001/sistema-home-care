@@ -1,7 +1,7 @@
 from django.test import TestCase
 from rest_framework.test import APIClient
 from accounts.models import GranularPermission
-from patients.models import NeedType
+from assessments.models import CareNeedHistory, NeedType
 from .models import CareNeed, PatientAssessment
 from .tests_api import (make_api_users, make_patient, auth_client, MEDICO_CPF,
                         ENFERMEIRO_CPF, GERENTE_CPF, SEM_GRUPO_CPF)
@@ -17,7 +17,7 @@ class CareNeedManagementAPITests(TestCase):
         self.url = f"/api/necessidades/{self.need.pk}/"
         self.client = auth_client(self.users[MEDICO_CPF])
 
-    def test_clinical_profiles_consult_edit_delete(self):
+    def test_clinical_profiles_consult_edit_and_delete_unlinked_need(self):
         for cpf in (MEDICO_CPF, ENFERMEIRO_CPF):
             with self.subTest(cpf=cpf):
                 client = auth_client(self.users[cpf])
@@ -31,11 +31,34 @@ class CareNeedManagementAPITests(TestCase):
                 self.assertEqual(client.patch(url, {"description": " Atualizada "}, format="json").status_code, 200)
                 need.refresh_from_db()
                 self.assertEqual(need.description, "Atualizada")
-                self.assertEqual(client.delete(url).status_code, 204)
+                response = client.delete(url)
+                self.assertEqual(response.status_code, 204)
                 self.assertFalse(CareNeed.objects.filter(pk=need.pk).exists())
         self.assertTrue(PatientAssessment.objects.filter(pk=self.assessment.pk).exists())
         self.assertTrue(NeedType.objects.filter(pk=self.need_type.pk).exists())
         self.assertTrue(CareNeed.objects.filter(pk=self.need.pk).exists())
+
+    def test_delete_is_blocked_when_plan_linked_or_history_exists(self):
+        from datetime import date
+        from care_plans.services import create_plan
+
+        linked = CareNeed.objects.create(assessment=self.assessment,
+            need_type=self.need_type, description="Com plano", priority="LOW")
+        create_plan(actor=self.users[MEDICO_CPF], patient=self.assessment.patient,
+            start_date=date.today(), needs=[linked])
+        response = self.client.delete(f"/api/necessidades/{linked.pk}/")
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("vinculada a um plano", response.data["detail"])
+        self.assertTrue(CareNeed.objects.filter(pk=linked.pk).exists())
+
+        historical = CareNeed.objects.create(assessment=self.assessment,
+            need_type=self.need_type, description="Com histórico", priority="LOW")
+        CareNeedHistory.objects.create(need=historical, actor=self.users[MEDICO_CPF],
+            actor_name="Médico", action="INACTIVATE", snapshot={"description": "Com histórico"})
+        response = self.client.delete(f"/api/necessidades/{historical.pk}/")
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("histórico", response.data["detail"])
+        self.assertTrue(CareNeed.objects.filter(pk=historical.pk).exists())
 
     def test_list_filter_pagination(self):
         other = PatientAssessment.objects.create(patient=self.assessment.patient)

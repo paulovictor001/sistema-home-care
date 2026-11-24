@@ -18,7 +18,9 @@ from rest_framework import serializers
 from rest_framework.exceptions import PermissionDenied
 
 from accounts.permissions import GroupNames
-from patients.models import NeedTypeStatus, Patient
+from patients.models import Patient
+
+from .models import NeedType, NeedTypeStatus
 
 from .models import (
     AssessmentResource,
@@ -30,6 +32,37 @@ from .models import (
 )
 
 User = get_user_model()
+
+
+class NeedTypeCatalogSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = NeedType
+        fields = ("id", "name", "description", "status")
+        read_only_fields = fields
+
+
+class NeedTypeManageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = NeedType
+        fields = ("id", "name", "description", "status")
+        read_only_fields = ("id", "status")
+
+    def to_internal_value(self, data):
+        data = data.copy()
+        if isinstance(data.get("name"), str):
+            data["name"] = data["name"].strip()
+        if isinstance(data.get("description"), str):
+            data["description"] = data["description"].strip()
+        return super().to_internal_value(data)
+
+    def validate_name(self, value):
+        value = (value or "").strip()
+        if not value:
+            raise serializers.ValidationError("Nome é obrigatório.")
+        return value
+
+    def validate_description(self, value):
+        return (value or "").strip()
 
 # Campos que o gerente pode alterar na avaliação (TASK-AVL-BE-006).
 GERENTE_ALLOWED_UPDATE_FIELDS = ("professional",)
@@ -58,6 +91,10 @@ class CareNeedReadSerializer(serializers.ModelSerializer):
     need_type_name = serializers.CharField(
         source="need_type.name", read_only=True
     )
+    has_plan_links = serializers.SerializerMethodField()
+
+    def get_has_plan_links(self, obj):
+        return obj.care_plan_links.exists()
 
     class Meta:
         model = CareNeed
@@ -65,6 +102,7 @@ class CareNeedReadSerializer(serializers.ModelSerializer):
             "id",
             "need_type",
             "need_type_name",
+            "has_plan_links",
             "description",
             "priority",
             "status",
@@ -102,6 +140,7 @@ class PatientAssessmentSerializer(serializers.ModelSerializer):
     professional = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.all(), required=False, allow_null=True
     )
+    professional_name = serializers.SerializerMethodField()
     care_needs = CareNeedReadSerializer(many=True, read_only=True)
     assessment_resources = AssessmentResourceReadSerializer(
         many=True, read_only=True
@@ -113,6 +152,7 @@ class PatientAssessmentSerializer(serializers.ModelSerializer):
             "id",
             "patient",
             "professional",
+            "professional_name",
             "assessment_type",
             "assessment_date",
             "assessment_time",
@@ -135,6 +175,11 @@ class PatientAssessmentSerializer(serializers.ModelSerializer):
             "updated_at",
         )
         read_only_fields = ("id", "created_at", "updated_at")
+
+    def get_professional_name(self, obj):
+        if not obj.professional:
+            return None
+        return obj.professional.get_full_name() or obj.professional.email
 
     def validate_professional(self, value):
         """Profissional responsável deve ser MEDICO ou ENFERMEIRO."""
@@ -176,6 +221,22 @@ class PatientAssessmentSerializer(serializers.ModelSerializer):
             if errors:
                 raise serializers.ValidationError(errors)
             return attrs
+        # RN-AVL-003: obrigatórios também não podem ser apagados na edição.
+        required_values = {
+            "patient": attrs.get("patient", self.instance.patient),
+            "professional": attrs.get("professional", self.instance.professional),
+            "assessment_date": attrs.get("assessment_date", self.instance.assessment_date),
+            "assessment_time": attrs.get("assessment_time", self.instance.assessment_time),
+            "assessment_type": attrs.get("assessment_type", self.instance.assessment_type),
+            "request_reason": attrs.get("request_reason", self.instance.request_reason),
+            "chief_complaint": attrs.get("chief_complaint", self.instance.chief_complaint),
+        }
+        errors = {}
+        for field, value in required_values.items():
+            if value is None or (isinstance(value, str) and not value.strip()):
+                errors[field] = "Obrigatório; não pode ser removido na edição."
+        if errors:
+            raise serializers.ValidationError(errors)
         # Edição (TASK-AVL-BE-005/006).
         if request is not None and _is_gerente(request.user):
             touched = set(self.initial_data or {})
@@ -195,6 +256,10 @@ class PatientAssessmentSerializer(serializers.ModelSerializer):
 
 class CareNeedSerializer(serializers.ModelSerializer):
     need_type_name = serializers.CharField(source="need_type.name", read_only=True)
+    has_plan_links = serializers.SerializerMethodField()
+
+    def get_has_plan_links(self, obj):
+        return obj.care_plan_links.exists()
 
     class Meta:
         model = CareNeed
@@ -203,6 +268,7 @@ class CareNeedSerializer(serializers.ModelSerializer):
             "assessment",
             "need_type",
             "need_type_name",
+            "has_plan_links",
             "description",
             "priority",
             "status",
@@ -211,7 +277,7 @@ class CareNeedSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         )
-        read_only_fields = ("id", "assessment", "status", "is_active", "inactivated_at", "created_at", "updated_at")
+        read_only_fields = ("id", "assessment", "has_plan_links", "status", "is_active", "inactivated_at", "created_at", "updated_at")
 
     def validate_description(self, value):
         if not (value or "").strip():
@@ -252,13 +318,9 @@ class AssessmentResourceSerializer(serializers.ModelSerializer):
 
 
 class ResourceCatalogSerializer(serializers.ModelSerializer):
-    """Catálogo read-only p/ o select da avaliação (TA-63/TASK-AVL-FE-006).
-
-    Somente leitura: cadastro detalhado pendente (stub mínimo como
-    HealthCondition); criação/edição pelo admin (ResourceAdmin).
-    """
+    """Recurso mínimo do catálogo da avaliação, mantido pelo gerente."""
 
     class Meta:
         model = Resource
         fields = ("id", "name")
-        read_only_fields = fields
+        read_only_fields = ("id",)

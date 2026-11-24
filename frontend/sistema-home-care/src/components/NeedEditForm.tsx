@@ -34,6 +34,9 @@ export function NeedEditForm({ need, onSave, onCancel }: {
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     if (saving) return;
+    if (need.has_plan_links && !window.confirm(
+      "Esta necessidade já está vinculada a um plano de cuidados. A alteração também ficará visível nos dados consultados pelo plano. Deseja continuar?",
+    )) return;
     setSaving(true);
     setErrors({});
     try {
@@ -56,6 +59,7 @@ export function NeedEditForm({ need, onSave, onCancel }: {
       <h3 className="mb-3 font-semibold">Editar necessidade</h3>
       {errors.detail && <p role="alert" className="mb-2 text-red-600">{errors.detail.join(" ")}</p>}
       {catalogError && <p role="alert" className="mb-2 text-red-600">Não foi possível carregar outros tipos. Você pode manter o tipo atual.</p>}
+      {need.has_plan_links && <p role="status" className="mb-3 rounded bg-amber-50 p-3 text-sm text-amber-900">Esta necessidade está vinculada a um plano de cuidados. Ao salvar, o plano consultará os dados atualizados.</p>}
       <fieldset disabled={saving} className="grid gap-3 sm:grid-cols-2">
         <label>
           <span className="mb-1 block font-medium">Tipo *</span>
