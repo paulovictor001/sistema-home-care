@@ -18,12 +18,13 @@ import {
   type PatientAssessment,
 } from "../lib/assessments";
 import { getPatient } from "../lib/patients";
+import { BackLink, Card, EmptyState, ErrorState, LoadingState, PageHeader } from "../components/ui";
 
 function Field({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <dt className="text-xs font-medium text-gray-500 uppercase">{label}</dt>
-      <dd className="mt-0.5 text-sm whitespace-pre-wrap">{value || "—"}</dd>
+      <dt className="text-xs font-semibold tracking-wide text-care-muted uppercase">{label}</dt>
+      <dd className="mt-1.5 text-sm leading-6 whitespace-pre-wrap text-care-ink">{value || "—"}</dd>
     </div>
   );
 }
@@ -139,61 +140,27 @@ export function AssessmentDetail() {
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-3xl p-6">
-        <p className="text-sm text-gray-600">Carregando…</p>
-      </div>
+      <div className="mx-auto max-w-5xl"><LoadingState label="Carregando avaliação…" /></div>
     );
   }
 
   if (error || !assessment) {
     return (
-      <div className="mx-auto max-w-3xl p-6">
-        <p role="alert" className="mb-3 text-sm text-red-600">
-          {error ?? "Avaliação não encontrada."}
-        </p>
-        <Link to="/pacientes" className="text-sm text-blue-600 underline">
-          Voltar para pacientes
-        </Link>
-      </div>
+      <div className="mx-auto max-w-5xl space-y-3"><ErrorState>{error ?? "Avaliação não encontrada."}</ErrorState><BackLink to="/pacientes">Voltar para pacientes</BackLink></div>
     );
   }
 
   const editable = canEditAssessment(user);
 
   return (
-    <div className="mx-auto max-w-3xl p-6">
-      <div className="mb-4 flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold">
-            Avaliação #{assessment.id}
-          </h1>
-          <p className="mt-1 text-sm text-gray-600">
-            {patientName} · {assessment.assessment_date ?? "—"} ·{" "}
-            {(assessment.assessment_time ?? "").slice(0, 5)}
-          </p>
-        </div>
-        <div className="flex shrink-0 gap-2">
-          <Link
-            to={`/pacientes/${assessment.patient}/avaliacoes`}
-            className="rounded border border-gray-300 px-3 py-1.5 text-sm"
-          >
-            Histórico
-          </Link>
-          {editable && (
-            <Link
-              to={`/avaliacoes/${assessment.id}/editar`}
-              className="rounded border border-gray-300 px-3 py-1.5 text-sm"
-            >
-              Editar
-            </Link>
-          )}
-        </div>
-      </div>
+    <div className="mx-auto max-w-5xl">
+      <PageHeader eyebrow="Registro clínico" title={`Avaliação #${assessment.id}`} description={<>{patientName} <span aria-hidden="true">·</span> {assessment.assessment_date ?? "Data não informada"} · {(assessment.assessment_time ?? "").slice(0, 5)}</>} actions={<><BackLink to={`/pacientes/${assessment.patient}/avaliacoes`}>Histórico</BackLink>{editable && <Link to={`/avaliacoes/${assessment.id}/editar`} className="inline-flex min-h-10 items-center justify-center rounded-xl bg-care-action px-4 py-2 text-sm font-semibold text-white transition hover:bg-care-forest">Editar avaliação</Link>}</>} />
 
-      <section className="mb-4 rounded-lg bg-white p-4 shadow">
-        <h2 className="mb-3 text-sm font-semibold">Dados da avaliação</h2>
-        <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <Card className="mb-4">
+        <h2 className="mb-5 text-lg font-semibold text-care-forest">Dados da avaliação</h2>
+        <dl className="grid grid-cols-1 gap-x-8 gap-y-5 sm:grid-cols-2">
           <Field label="Tipo" value={assessment.assessment_type} />
+          <Field label="Profissional responsável" value={assessment.professional ? `Profissional #${assessment.professional}` : ""} />
           <Field label="Origem da solicitação" value={assessment.request_origin} />
           <Field label="Motivo da solicitação" value={assessment.request_reason} />
           <Field label="Queixa principal" value={assessment.chief_complaint} />
@@ -217,20 +184,20 @@ export function AssessmentDetail() {
           <Field label="Conclusão" value={assessment.conclusion} />
           <Field label="Recomendação / Conduta" value={assessment.recommendation} />
         </dl>
-      </section>
+      </Card>
 
-      <section className="mb-4 rounded-lg bg-white p-4 shadow">
-        <h2 className="mb-3 text-sm font-semibold">
+      <Card className="mb-4">
+        <h2 className="mb-4 text-lg font-semibold text-care-forest">
           Necessidades ({assessment.care_needs.length})
         </h2>
-        {needError && <p role="alert" className="mb-2 text-sm text-red-600">{needError}</p>}
-        {needMessage && <p role="status" className="mb-2 text-sm text-green-700">{needMessage}</p>}
+        {needError && <div className="mb-3"><ErrorState>{needError}</ErrorState></div>}
+        {needMessage && <p role="status" className="mb-3 rounded-xl bg-care-soft px-3 py-2 text-sm text-care-forest">{needMessage}</p>}
         {assessment.care_needs.length === 0 ? (
-          <p className="text-sm text-gray-600">Nenhuma necessidade registrada.</p>
+          <EmptyState title="Nenhuma necessidade registrada" />
         ) : (
           <ul className="space-y-2">
             {assessment.care_needs.map((n) => (
-              <li key={n.id} className="rounded border px-3 py-2 text-sm">
+              <li key={n.id} className="rounded-xl border border-care-line p-4 text-sm text-care-ink">
                 <span className="font-medium">
                   {n.need_type_name ?? `Tipo #${n.need_type}`}
                 </span>{" "}
@@ -238,7 +205,7 @@ export function AssessmentDetail() {
                 {NEED_PRIORITIES.find((p) => p.value === n.priority)?.label ??
                   n.priority}{" "}
                 · {n.status === "IDENTIFIED" ? "Identificada" : n.status}
-                <span className={`ml-2 rounded px-2 py-0.5 ${n.is_active ? "bg-green-100" : "bg-gray-200"}`}>
+                <span className={`ml-2 rounded-full px-2 py-0.5 text-xs font-semibold ${n.is_active ? "bg-care-soft text-care-forest" : "bg-gray-100 text-gray-600"}`}>
                   {n.is_active ? "Ativa" : "Inativa"}
                 </span>
                 {n.inactivated_at && <p className="mt-1 text-gray-600">Inativada em {new Date(n.inactivated_at).toLocaleString("pt-BR")}</p>}
@@ -278,18 +245,18 @@ export function AssessmentDetail() {
             ))}
           </ul>
         )}
-      </section>
+      </Card>
 
-      <section className="rounded-lg bg-white p-4 shadow">
-        <h2 className="mb-3 text-sm font-semibold">
+      <Card>
+        <h2 className="mb-4 text-lg font-semibold text-care-forest">
           Recursos ({assessment.assessment_resources.length})
         </h2>
         {assessment.assessment_resources.length === 0 ? (
-          <p className="text-sm text-gray-600">Nenhum recurso associado.</p>
+          <EmptyState title="Nenhum recurso associado" />
         ) : (
           <ul className="space-y-2">
             {assessment.assessment_resources.map((r) => (
-              <li key={r.id} className="rounded border px-3 py-2 text-sm">
+              <li key={r.id} className="rounded-xl border border-care-line px-4 py-3 text-sm text-care-ink">
                 <span className="font-medium">
                   {r.resource_name ?? `Recurso #${r.resource}`}
                 </span>{" "}
@@ -299,7 +266,7 @@ export function AssessmentDetail() {
             ))}
           </ul>
         )}
-      </section>
+      </Card>
     </div>
   );
 }

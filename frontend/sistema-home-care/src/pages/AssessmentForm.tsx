@@ -28,6 +28,7 @@ import {
   parseFieldErrors,
   type Patient,
 } from "../lib/patients";
+import { BackLink, controlClass, ErrorState, LoadingState, PageHeader } from "../components/ui";
 
 function Field({
   label,
@@ -40,10 +41,10 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-sm font-medium">{label}</span>
+      <span className="mb-1.5 block text-sm font-semibold text-care-ink">{label}</span>
       {children}
       {error?.map((msg) => (
-        <span key={msg} className="mt-0.5 block text-xs text-red-600">
+        <span key={msg} role="alert" className="mt-0.5 block text-xs text-red-700">
           {msg}
         </span>
       ))}
@@ -51,8 +52,8 @@ function Field({
   );
 }
 
-const inputClass = "w-full rounded border border-gray-300 px-3 py-2";
-const textClass = `${inputClass} min-h-20`;
+const inputClass = controlClass;
+const textClass = `${inputClass} min-h-24 resize-y`;
 
 interface MainForm {
   professional: string;
@@ -132,6 +133,7 @@ export function AssessmentForm({ mode }: { mode: "create" | "edit" }) {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
   const [submitting, setSubmitting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // Sub-form necessidade (TA-61 + TA-64).
   const [needType, setNeedType] = useState("");
@@ -207,6 +209,7 @@ export function AssessmentForm({ mode }: { mode: "create" | "edit" }) {
     event.preventDefault();
     setFieldErrors({});
     setActionError(null);
+    setSuccessMessage(null);
     setSubmitting(true);
     try {
       if (mode === "create" && !assessment) {
@@ -237,6 +240,7 @@ export function AssessmentForm({ mode }: { mode: "create" | "edit" }) {
           recommendation: form.recommendation.trim() || undefined,
         });
         setAssessment(created);
+        setSuccessMessage("Avaliação criada com sucesso.");
       } else if (assessment) {
         const payload = manager
           ? { professional: Number(form.professional) }
@@ -266,6 +270,7 @@ export function AssessmentForm({ mode }: { mode: "create" | "edit" }) {
         const updated = await updateAssessment(assessment.id, payload);
         setAssessment(updated);
         setForm(toMain(updated));
+        setSuccessMessage("Alterações salvas com sucesso.");
       }
     } catch (err) {
       if (err instanceof ApiError && err.status === 403) {
@@ -336,32 +341,19 @@ export function AssessmentForm({ mode }: { mode: "create" | "edit" }) {
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-3xl p-6">
-        <p className="text-sm text-gray-600">Carregando…</p>
-      </div>
+      <div className="mx-auto max-w-5xl"><LoadingState label="Carregando dados da avaliação…" /></div>
     );
   }
 
   if (loadError) {
     return (
-      <div className="mx-auto max-w-3xl p-6">
-        <p role="alert" className="mb-3 text-sm text-red-600">
-          {loadError}
-        </p>
-        <Link to="/pacientes" className="text-sm text-blue-600 underline">
-          Voltar para pacientes
-        </Link>
-      </div>
+      <div className="mx-auto max-w-5xl space-y-3"><ErrorState>{loadError}</ErrorState><BackLink to="/pacientes">Voltar para pacientes</BackLink></div>
     );
   }
 
   if (mode === "create" && !canCreateAssessment(user)) {
     return (
-      <div className="mx-auto max-w-3xl p-6">
-        <p role="alert" className="text-sm text-red-600">
-          Somente Médico ou Enfermeiro pode criar avaliações.
-        </p>
-      </div>
+      <div className="mx-auto max-w-5xl"><ErrorState>Somente Médico ou Enfermeiro pode criar avaliações.</ErrorState></div>
     );
   }
 
@@ -369,21 +361,8 @@ export function AssessmentForm({ mode }: { mode: "create" | "edit" }) {
     msg?.length ? msg : fieldErrors.detail;
 
   return (
-    <div className="mx-auto max-w-3xl p-6">
-      <h1 className="mb-1 text-2xl font-semibold">
-        {mode === "create" ? "Nova avaliação inicial" : "Editar avaliação"}
-      </h1>
-      {patient && (
-        <p className="mb-4 text-sm text-gray-600">
-          Paciente: {patient.full_name} ·{" "}
-          <Link
-            to={`/pacientes/${patient.id}/avaliacoes`}
-            className="text-blue-600 underline"
-          >
-            ver histórico
-          </Link>
-        </p>
-      )}
+    <div className="mx-auto max-w-5xl">
+      <PageHeader eyebrow="Cuidado clínico" title={mode === "create" ? "Nova avaliação inicial" : "Editar avaliação"} description={patient ? <>Paciente: <strong className="font-semibold text-care-ink">{patient.full_name}</strong>. Registre as informações desta avaliação; os registros anteriores permanecem preservados.</> : "Registre as informações clínicas desta avaliação. Os registros anteriores permanecem preservados."} actions={patient ? <BackLink to={`/pacientes/${patient.id}/avaliacoes`}>Voltar ao histórico</BackLink> : undefined} />
       {mode === "edit" && manager && (
         <p className="mb-3 rounded bg-amber-50 px-3 py-2 text-sm text-amber-800">
           Como gerente, você pode alterar apenas o profissional responsável.
@@ -394,6 +373,11 @@ export function AssessmentForm({ mode }: { mode: "create" | "edit" }) {
           {actionError}
         </p>
       )}
+      {successMessage && (
+        <p role="status" className="mb-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+          {successMessage}
+        </p>
+      )}
       {fieldErrors.detail && (
         <p role="alert" className="mb-3 text-sm text-red-600">
           {fieldErrors.detail.join(" ")}
@@ -402,7 +386,7 @@ export function AssessmentForm({ mode }: { mode: "create" | "edit" }) {
 
       <form
         onSubmit={(e) => void handleSubmit(e)}
-        className="grid grid-cols-1 gap-3 rounded-lg bg-white p-4 shadow sm:grid-cols-2"
+        className="grid grid-cols-1 gap-x-5 gap-y-4 rounded-2xl border border-care-line bg-white p-5 sm:grid-cols-2 sm:p-6"
       >
         <Field label="Tipo da avaliação">
           <input
@@ -544,7 +528,7 @@ export function AssessmentForm({ mode }: { mode: "create" | "edit" }) {
           <button
             type="submit"
             disabled={submitting}
-            className="rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+            className="min-h-11 rounded-xl bg-care-action px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-care-forest focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-care-action disabled:cursor-not-allowed disabled:opacity-50"
           >
             {submitting
               ? "Salvando…"
@@ -555,7 +539,7 @@ export function AssessmentForm({ mode }: { mode: "create" | "edit" }) {
           {assessment && (
             <Link
               to={`/avaliacoes/${assessment.id}`}
-              className="rounded border border-gray-300 px-4 py-2 text-sm"
+              className="inline-flex min-h-11 items-center rounded-xl border border-care-line px-4 py-2 text-sm font-semibold text-care-action hover:bg-care-soft"
             >
               Ver avaliação
             </Link>
@@ -563,7 +547,7 @@ export function AssessmentForm({ mode }: { mode: "create" | "edit" }) {
         </div>
       </form>
 
-      <section aria-labelledby="assessment-needs-heading" className="mt-4 rounded-lg bg-white p-4 shadow">
+      <section aria-labelledby="assessment-needs-heading" className="mt-4 rounded-2xl border border-care-line bg-white p-5 sm:p-6">
             <h2 id="assessment-needs-heading" className="mb-2 text-lg font-semibold">
               Necessidades identificadas ({assessment?.care_needs.length ?? 0})
             </h2>
@@ -647,7 +631,7 @@ export function AssessmentForm({ mode }: { mode: "create" | "edit" }) {
       </section>
 
       {assessment && clinical && (
-          <section className="mt-4 rounded-lg bg-white p-4 shadow">
+          <section className="mt-4 rounded-2xl border border-care-line bg-white p-5 sm:p-6">
             <h2 className="mb-3 text-sm font-semibold">
               Recursos ({assessment.assessment_resources.length})
             </h2>

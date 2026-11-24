@@ -1,1 +1,21 @@
 @import "tailwindcss";
+
+@theme {
+  --color-care-canvas: #f6f7f4;
+  --color-care-ink: #253431;
+  --color-care-muted: #78847f;
+  --color-care-forest: #173b3a;
+  --color-care-action: #347c70;
+  --color-care-soft: #e4f0ea;
+  --color-care-accent: #d9a66f;
+  --color-care-line: #e2e8e2;
+  --font-sans: "Inter", "Segoe UI", sans-serif;
+}
+
+@layer base {
+  :root { color: #253431; background: #f6f7f4; font-synthesis: none; }
+  body { min-width: 320px; margin: 0; font-family: var(--font-sans); }
+  button, input, select, textarea { font: inherit; }
+  button, a, input, select, textarea { outline-color: #347c70; }
+  ::selection { color: #173b3a; background: #e4f0ea; }
+}
