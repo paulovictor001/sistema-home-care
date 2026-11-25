@@ -45,6 +45,7 @@ export interface ManagedUser {
   id: number;
   cpf: string;
   email: string;
+  phone: string;
   first_name: string;
   last_name: string;
   category: number;
@@ -92,6 +93,7 @@ export interface UserCreateInput {
   cpf: string;
   password: string;
   email: string;
+  phone?: string;
   first_name?: string;
   last_name?: string;
   category: number;
@@ -110,6 +112,7 @@ export interface UserUpdateInput {
   first_name?: string;
   last_name?: string;
   email?: string;
+  phone?: string;
   password?: string;
 }
 

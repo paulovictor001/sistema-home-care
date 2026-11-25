@@ -1,4 +1,5 @@
 import {useEffect, useState, type FormEvent} from 'react';
+import {toast} from 'sonner';
 import {Link, useParams, useNavigate} from 'react-router-dom';
 import {useAuth} from '../contexts/useAuth';
 import {canScale, getScale, updateScale, scaleStatusLabels, scaleAuditActionLabels, type CareScale} from '../lib/careScales';
@@ -22,39 +23,39 @@ export function CareScaleDetail() {
       if (cancelled) return;
       setScale(null); setLoading(true); setError(''); setEditing(false);
       return getScale(Number(id));
-    }).then(value => {if (!cancelled && value) setScale(value);}).catch(err => {if (!cancelled) setError(err instanceof Error ? err.message : 'Falha ao carregar escala.');}).finally(() => {if (!cancelled) setLoading(false);});
+    }).then(value => {if (!cancelled && value) setScale(value);}).catch(err => {if (!cancelled) {const message = err instanceof Error ? err.message : 'Falha ao carregar escala.'; setError(message); toast.error(message);}}).finally(() => {if (!cancelled) setLoading(false);});
     return () => {cancelled = true;};
   }, [id]);
   async function save(event: FormEvent) {
     event.preventDefault(); if (!scale) return; setBusy(true); setError('');
-    try {changed(await updateScale(scale.id, {start_date: start, end_date: end, observation})); setEditing(false);}
-    catch (err) {setError(err instanceof Error ? err.message : 'Falha ao salvar escala.');} finally {setBusy(false);}
+    try {changed(await updateScale(scale.id, {start_date: start, end_date: end, observation})); setEditing(false); toast.success('Escala atualizada.');}
+    catch (err) {const message = err instanceof Error ? err.message : 'Falha ao salvar escala.'; setError(message); toast.error(message);} finally {setBusy(false);}
   }
   async function openNeeds() {
     if (!scale) return; setBusy(true); setError('');
-    try {const plans = await scalePlans(); setAvailable(plans.find(plan => plan.id === scale.care_plan)?.needs.filter(need => !scale.items.some(item => !item.removed_at && item.plan_need === need.id)) || []); setSelectedNeed('');}
-    catch (err) {setError(err instanceof Error ? err.message : 'Falha ao carregar necessidades.');} finally {setBusy(false);}
+    try {const plans = await scalePlans(); setAvailable(plans.find(plan => plan.id === scale.care_plan)?.needs.filter(need => !scale.items.some(item => !item.removed_at && item.plan_need === need.id)) || []); setSelectedNeed(''); toast.success('Necessidades disponíveis carregadas.');}
+    catch (err) {const message = err instanceof Error ? err.message : 'Falha ao carregar necessidades.'; setError(message); toast.error(message);} finally {setBusy(false);}
   }
   async function attachNeed(event: FormEvent) {
     event.preventDefault(); if (!scale || !selectedNeed) return; setBusy(true); setError('');
-    try {changed(await addScaleNeed(scale.id, Number(selectedNeed))); setAvailable(null);}
-    catch (err) {setError(err instanceof Error ? err.message : 'Falha ao incluir necessidade.');} finally {setBusy(false);}
+    try {changed(await addScaleNeed(scale.id, Number(selectedNeed))); setAvailable(null); toast.success('Necessidade adicionada à escala.');}
+    catch (err) {const message = err instanceof Error ? err.message : 'Falha ao incluir necessidade.'; setError(message); toast.error(message);} finally {setBusy(false);}
   }
   function changed(value: CareScale) {setScale(value); setSubstitutions(null); setEvents(null);}
   async function history() {
     if (!scale) return; setBusy(true); setError('');
-    try {const [substitutionList, auditList] = await Promise.all([scaleSubstitutions(scale.id), scaleAudit(scale.id)]); setSubstitutions(substitutionList); setEvents(auditList);}
-    catch (err) {setError(err instanceof Error ? err.message : 'Falha ao carregar histórico.');} finally {setBusy(false);}
+    try {const [substitutionList, auditList] = await Promise.all([scaleSubstitutions(scale.id), scaleAudit(scale.id)]); setSubstitutions(substitutionList); setEvents(auditList); toast.success('Histórico da escala carregado.');}
+    catch (err) {const message = err instanceof Error ? err.message : 'Falha ao carregar histórico.'; setError(message); toast.error(message);} finally {setBusy(false);}
   }
   async function status(event: FormEvent) {
     event.preventDefault(); if (!scale) return; setBusy(true); setError('');
-    try {changed(await changeScaleStatus(scale.id, targetStatus));}
-    catch (err) {setError(err instanceof Error ? err.message : 'Falha ao alterar status.');} finally {setBusy(false);}
+    try {changed(await changeScaleStatus(scale.id, targetStatus)); toast.success('Status da escala atualizado.');}
+    catch (err) {const message = err instanceof Error ? err.message : 'Falha ao alterar status.'; setError(message); toast.error(message);} finally {setBusy(false);}
   }
   async function remove() {
     if (!scale || !window.confirm('Excluir esta escala? Ela será retirada da listagem e seus registros serão preservados.')) return;
-    setBusy(true); setError(''); try {await deleteScale(scale.id); navigate('/escalas');}
-    catch (err) {setError(err instanceof Error ? err.message : 'Falha ao excluir escala.');} finally {setBusy(false);}
+    setBusy(true); setError(''); try {await deleteScale(scale.id); toast.success('Escala excluída.'); navigate('/escalas');}
+    catch (err) {const message = err instanceof Error ? err.message : 'Falha ao excluir escala.'; setError(message); toast.error(message);} finally {setBusy(false);}
   }
   if (loading) return <p>Carregando…</p>;
   if (!scale) return <p role="alert" className="text-red-700">{error || 'Escala não encontrada.'}</p>;

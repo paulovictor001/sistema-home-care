@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
+import { toast } from 'sonner';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/useAuth';
 import { canPlan, listPlans, createPlan, availableNeeds, planStatusLabels, type AvailableNeed, type CarePlan } from '../lib/carePlans';
@@ -41,7 +42,7 @@ export function CarePlans() {
         ]);
         if (!cancelled) { setName(patient.full_name); setItems(list.results); setNext(!!list.next); }
       } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : 'Falha ao carregar planos.');
+        if (!cancelled) { const message = err instanceof Error ? err.message : 'Falha ao carregar planos.'; setError(message); toast.error(message); }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -52,7 +53,7 @@ export function CarePlans() {
   async function openCreate() {
     setError(''); setCatalogLoading(true);
     try { setNeeds(await availableNeeds(Number(patientId))); setSelected([]); setCreating(true); }
-    catch (err) { setError(err instanceof Error ? err.message : 'Falha ao carregar necessidades.'); }
+    catch (err) { const message = err instanceof Error ? err.message : 'Falha ao carregar necessidades.'; setError(message); toast.error(message); }
     finally { setCatalogLoading(false); }
   }
   async function submit(event: FormEvent) {
@@ -61,8 +62,9 @@ export function CarePlans() {
     setBusy(true);
     try {
       const plan = await createPlan({ patient: Number(patientId), start_date: start, end_date: end || null, objective, needs: selected });
+      toast.success('Plano de cuidados criado.');
       navigate(`/planos-cuidados/${plan.id}`);
-    } catch (err) { setError(err instanceof Error ? err.message : 'Falha ao criar plano.'); }
+    } catch (err) { const message = err instanceof Error ? err.message : 'Falha ao criar plano.'; setError(message); toast.error(message); }
     finally { setBusy(false); }
   }
   if (!permitted) return <p role="alert" className="p-6">Você não tem permissão para visualizar planos.</p>;

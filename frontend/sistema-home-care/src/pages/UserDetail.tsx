@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ApiError } from "../lib/api";
 import { formatCpf } from "../lib/cpf";
+import { formatPhone } from "../lib/phone";
 import {
   deleteUser,
   getUser,
@@ -27,6 +29,7 @@ export function UserDetail() {
         if (!cancelled) setUser(data);
       } catch (err) {
         if (!cancelled) {
+          toast.error(err instanceof ApiError ? err.message : "Falha ao carregar usuário.");
           setError(
             err instanceof ApiError
               ? err.message
@@ -49,7 +52,9 @@ export function UserDetail() {
     try {
       const updated = await action();
       setUser(updated);
+      toast.success("Status do usuário atualizado.");
     } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Operação falhou.");
       setError(err instanceof ApiError ? err.message : "Operação falhou.");
     } finally {
       setActing(false);
@@ -61,8 +66,10 @@ export function UserDetail() {
     setActing(true);
     try {
       await deleteUser(user.id);
+      toast.success("Usuário excluído com sucesso.");
       navigate("/usuarios");
     } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Exclusão falhou.");
       setError(err instanceof ApiError ? err.message : "Exclusão falhou.");
       setActing(false);
       setConfirmDelete(false);
@@ -172,6 +179,10 @@ export function UserDetail() {
             <dd className="mt-1 break-words text-sm font-medium text-ink">
               {user.email}
             </dd>
+          </div>
+          <div>
+            <dt className="text-xs font-medium uppercase tracking-wide text-muted">Telefone</dt>
+            <dd className="mt-1 break-words text-sm font-medium text-ink">{user.phone ? formatPhone(user.phone) : "—"}</dd>
           </div>
         </dl>
       </section>

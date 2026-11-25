@@ -93,6 +93,7 @@ function App() {
             element={<UserForm mode="edit" />}
           />
           <Route path="/categorias" element={<Categories />} />
+          <Route path="/categorias/:id/permissoes" element={<Categories />} />
           <Route path="/profissoes" element={<Professions />} />
           <Route path="/recursos" element={<Resources />} />
         </Route>

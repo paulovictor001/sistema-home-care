@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { Link, useParams } from "react-router-dom";
+import { toast } from "sonner";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../contexts/useAuth";
 import { ApiError } from "../lib/api";
 import {
@@ -7,6 +8,7 @@ import {
   addResource,
   canCreateAssessment,
   canEditAssessment,
+  canCreateNeed,
   canAddAssessmentResource,
   canChangeProfessional,
   canViewAssessments,
@@ -119,11 +121,11 @@ function toMain(a: PatientAssessment): MainForm {
 
 export function AssessmentForm({ mode }: { mode: "create" | "edit" }) {
   const { patientId, id } = useParams<{ patientId: string; id: string }>();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const manager = isGerente(user?.groups);
   const clinical = isClinical(user?.groups);
-  const canAddNeeds = clinical && !!user?.permissions.includes("necessidades.create")
-    && !!user?.permissions.includes("avaliacoes.add_need");
+  const canAddNeeds = canCreateNeed(user);
 
   const [patient, setPatient] = useState<Patient | null>(null);
   const [assessment, setAssessment] = useState<PatientAssessment | null>(null);
@@ -137,6 +139,8 @@ export function AssessmentForm({ mode }: { mode: "create" | "edit" }) {
   const [submitting, setSubmitting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [step, setStep] = useState(1);
+  const [direction, setDirection] = useState<"forward" | "backward">("forward");
 
   // Sub-form necessidade (TA-61 + TA-64).
   const [needType, setNeedType] = useState("");
@@ -203,6 +207,36 @@ export function AssessmentForm({ mode }: { mode: "create" | "edit" }) {
 
   function set<K extends keyof MainForm>(key: K, value: string) {
     setForm((prev) => ({ ...prev, [key]: value }));
+    setFieldErrors((prev) => ({ ...prev, [key]: [] }));
+  }
+
+  const steps = [
+    { title: "Dados da avaliação", description: "Identifique o atendimento e o profissional responsável." },
+    { title: "Solicitação", description: "Registre o motivo, a queixa e o contexto inicial." },
+    { title: "Avaliação clínica", description: "Descreva o histórico e a situação clínica atual." },
+    { title: "Conclusão", description: "Registre a conclusão e a conduta recomendada." },
+    { title: "Necessidades e recursos", description: "Administre os registros vinculados à avaliação." },
+  ];
+
+  function moveToStep(next: number) {
+    setDirection(next > step ? "forward" : "backward");
+    setStep(next);
+  }
+
+  function validateCurrentStep() {
+    const requiredByStep: Record<number, (keyof MainForm)[]> = {
+      1: ["professional", "assessment_date", "assessment_time"],
+      2: ["request_reason", "chief_complaint"],
+    };
+    const missing = (requiredByStep[step] ?? []).filter((key) => !form[key].trim());
+    if (missing.length) {
+      setFieldErrors((prev) => ({
+        ...prev,
+        ...Object.fromEntries(missing.map((key) => [key, ["Este campo é obrigatório."]])),
+      }));
+      return false;
+    }
+    return true;
   }
 
   // Gerente no edit: só troca o profissional (backend dá 403 no resto).
@@ -242,8 +276,10 @@ export function AssessmentForm({ mode }: { mode: "create" | "edit" }) {
           conclusion: form.conclusion.trim() || undefined,
           recommendation: form.recommendation.trim() || undefined,
         });
+        toast.success("Avaliação inicial cadastrada com sucesso.");
         setAssessment(created);
         setSuccessMessage("Avaliação criada com sucesso.");
+        moveToStep(5);
       } else if (assessment) {
         const payload = manager
           ? { professional: Number(form.professional) }
@@ -271,11 +307,14 @@ export function AssessmentForm({ mode }: { mode: "create" | "edit" }) {
               recommendation: form.recommendation,
             };
         const updated = await updateAssessment(assessment.id, payload);
+        toast.success("Avaliação atualizada com sucesso.");
         setAssessment(updated);
         setForm(toMain(updated));
         setSuccessMessage("Alterações salvas com sucesso.");
+        if (step === 4) navigate(`/avaliacoes/${updated.id}`);
       }
     } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Falha ao salvar avaliação.");
       if (err instanceof ApiError && err.status === 403) {
         setActionError(err.message);
       } else {
@@ -306,7 +345,9 @@ export function AssessmentForm({ mode }: { mode: "create" | "edit" }) {
       setNeedType("");
       setNeedDesc("");
       setNeedPriority("MEDIUM");
+      toast.success("Necessidade adicionada à avaliação.");
     } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Falha ao adicionar necessidade.");
       setNeedError(
         err instanceof ApiError ? err.message : "Falha ao adicionar necessidade.",
       );
@@ -333,7 +374,9 @@ export function AssessmentForm({ mode }: { mode: "create" | "edit" }) {
       setResourceId("");
       setResourceQty("1");
       setResourceObs("");
+      toast.success("Recurso associado à avaliação.");
     } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Falha ao associar recurso.");
       setActionError(
         err instanceof ApiError ? err.message : "Falha ao associar recurso.",
       );
@@ -368,8 +411,13 @@ export function AssessmentForm({ mode }: { mode: "create" | "edit" }) {
     msg?.length ? msg : fieldErrors.detail;
 
   return (
-    <div className="mx-auto max-w-5xl">
-      <PageHeader eyebrow="Cuidado clínico" title={mode === "create" ? "Nova avaliação inicial" : "Editar avaliação"} description={patient ? <>Paciente: <strong className="font-semibold text-care-ink">{patient.full_name}</strong>. Registre as informações desta avaliação; os registros anteriores permanecem preservados.</> : "Registre as informações clínicas desta avaliação. Os registros anteriores permanecem preservados."} actions={patient ? <BackLink to={`/pacientes/${patient.id}/avaliacoes`}>Voltar ao histórico</BackLink> : undefined} />
+    <div className="mx-auto max-w-5xl px-4 py-7 sm:px-6 lg:py-10">
+      <PageHeader
+        eyebrow="Cuidado clínico"
+        title={mode === "create" ? "Nova avaliação inicial" : "Editar avaliação"}
+        description={patient ? <>Paciente: <strong className="font-semibold text-care-ink">{patient.full_name}</strong>. Registre as informações desta avaliação; os registros anteriores permanecem preservados.</> : "Registre as informações clínicas desta avaliação. Os registros anteriores permanecem preservados."}
+        actions={patient ? <BackLink to={`/pacientes/${patient.id}/avaliacoes`}>Voltar ao histórico</BackLink> : undefined}
+      />
       {mode === "edit" && manager && (
         <p className="mb-3 rounded bg-amber-50 px-3 py-2 text-sm text-amber-800">
           Como gerente, você pode alterar apenas o profissional responsável.
@@ -391,16 +439,23 @@ export function AssessmentForm({ mode }: { mode: "create" | "edit" }) {
         </p>
       )}
 
-      <form
-        onSubmit={(e) => void handleSubmit(e)}
-        className="grid grid-cols-1 gap-x-5 gap-y-4 rounded-2xl border border-care-line bg-white p-5 sm:grid-cols-2 sm:p-6"
-      >
+      <div className="mb-6 rounded-2xl border border-care-line bg-white p-5 shadow-sm sm:p-6" aria-label="Progresso da avaliação">
+        <div className="mb-5 flex items-center justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-[0.16em] text-care-action">Etapa {step} <span className="text-care-muted">de 5</span></p><h2 className="mt-1 text-xl font-bold tracking-tight">{steps[step - 1].title}</h2><p className="mt-1 text-sm text-care-muted">{steps[step - 1].description}</p></div><span className="rounded-full bg-care-soft px-3 py-1.5 text-sm font-bold text-care-action">{Math.round(step / 5 * 100)}%</span></div>
+        <div className="relative flex items-start justify-between" aria-label="Etapas">
+          <div className="absolute left-3 right-3 top-4 h-0.5 bg-care-canvas sm:left-5 sm:right-5"><div className="h-full bg-care-action transition-all duration-300" style={{ width: `${((step - 1) / 4) * 100}%` }} /></div>
+          {steps.map((item, index) => <div key={item.title} className="relative z-10 flex w-12 flex-col items-center gap-2 text-center sm:w-28"><span className={`grid size-8 place-items-center rounded-full border-2 text-xs font-bold transition-colors sm:size-10 ${index + 1 === step ? "border-care-action bg-care-action text-white shadow-md shadow-care-action/20" : index + 1 < step ? "border-care-action bg-care-soft text-care-action" : "border-care-line bg-white text-care-muted"}`}>{index + 1 < step ? "✓" : index + 1}</span><span className={`hidden text-xs font-semibold leading-tight sm:block ${index + 1 === step ? "text-care-action" : "text-care-muted"}`}>{item.title}</span></div>)}
+        </div>
+      </div>
+
+      <form onSubmit={(e) => { e.preventDefault(); if (step < 4) { if (validateCurrentStep()) moveToStep(step + 1); } else void handleSubmit(e); }} className="overflow-hidden rounded-2xl border border-care-line bg-white shadow-sm">
+        <div key={step} className="grid grid-cols-1 gap-x-5 gap-y-5 p-5 sm:grid-cols-2 sm:p-8" style={{ animation: `assessment-slide-${direction} 220ms ease-out both` }}>
+        {step === 1 && <>
         <Field label="Tipo da avaliação">
           <input
             value="Avaliação inicial"
             disabled
             title="Tipo único neste momento (RN-AVL-001)"
-            className={`${inputClass} bg-gray-100`}
+            className={`${inputClass} bg-care-canvas`}
           />
         </Field>
         <Field
@@ -417,7 +472,7 @@ export function AssessmentForm({ mode }: { mode: "create" | "edit" }) {
                 ? "Gerente altera apenas este campo"
                 : "Deve ser Médico ou Enfermeiro"
             }
-            className={`${inputClass} disabled:bg-gray-100`}
+            className={`${inputClass} disabled:bg-care-canvas`}
           >
             <option value="">Selecione…</option>
             {clinicos.map((c) => (
@@ -441,7 +496,7 @@ export function AssessmentForm({ mode }: { mode: "create" | "edit" }) {
             onChange={(e) => set("assessment_date", e.target.value)}
             required
             disabled={readOnlyMain}
-            className={`${inputClass} disabled:bg-gray-100`}
+            className={`${inputClass} disabled:bg-care-canvas`}
           />
         </Field>
         <Field label="Hora da avaliação *" error={detail(fieldErrors.assessment_time)}>
@@ -451,7 +506,7 @@ export function AssessmentForm({ mode }: { mode: "create" | "edit" }) {
             onChange={(e) => set("assessment_time", e.target.value)}
             required
             disabled={readOnlyMain}
-            className={`${inputClass} disabled:bg-gray-100`}
+            className={`${inputClass} disabled:bg-care-canvas`}
           />
         </Field>
         <Field label="Origem da solicitação" error={detail(fieldErrors.request_origin)}>
@@ -459,7 +514,7 @@ export function AssessmentForm({ mode }: { mode: "create" | "edit" }) {
             value={form.request_origin}
             onChange={(e) => set("request_origin", e.target.value)}
             disabled={readOnlyMain}
-            className={`${inputClass} disabled:bg-gray-100`}
+            className={`${inputClass} disabled:bg-care-canvas`}
           >
             <option value="">Selecione…</option>
             {REQUEST_ORIGINS.map((o) => (
@@ -475,9 +530,11 @@ export function AssessmentForm({ mode }: { mode: "create" | "edit" }) {
             value={form.need_start_date}
             onChange={(e) => set("need_start_date", e.target.value)}
             disabled={readOnlyMain}
-            className={`${inputClass} disabled:bg-gray-100`}
+            className={`${inputClass} disabled:bg-care-canvas`}
           />
         </Field>
+        </>}
+        {step === 2 && <>
         <div className="sm:col-span-2">
           <Field
             label="Motivo da solicitação *"
@@ -488,7 +545,7 @@ export function AssessmentForm({ mode }: { mode: "create" | "edit" }) {
               onChange={(e) => set("request_reason", e.target.value)}
               required
               disabled={readOnlyMain}
-              className={`${textClass} disabled:bg-gray-100`}
+              className={`${textClass} disabled:bg-care-canvas`}
             />
           </Field>
         </div>
@@ -502,21 +559,20 @@ export function AssessmentForm({ mode }: { mode: "create" | "edit" }) {
               onChange={(e) => set("chief_complaint", e.target.value)}
               required
               disabled={readOnlyMain}
-              className={`${textClass} disabled:bg-gray-100`}
+              className={`${textClass} disabled:bg-care-canvas`}
             />
           </Field>
         </div>
+        {([ ["administrative_observations", "Observações administrativas"], ["initial_need_description", "Descrição inicial da necessidade"] ] as [keyof MainForm, string][]).map(([key, label]) => <div key={key} className="sm:col-span-2"><Field label={label}><textarea value={form[key]} onChange={(e) => set(key, e.target.value)} disabled={readOnlyMain} className={`${textClass} disabled:bg-care-canvas`} /></Field></div>)}
+        </>}
+        {step === 3 && <>
         {(
           [
-            ["administrative_observations", "Observações administrativas"],
-            ["initial_need_description", "Descrição inicial da necessidade"],
             ["anamnesis", "Anamnese"],
             ["hda", "HDA"],
             ["current_condition", "Situação atual"],
             ["observations", "Observações"],
             ["relevant_information", "Informações relevantes"],
-            ["conclusion", "Conclusão"],
-            ["recommendation", "Recomendação / Conduta"],
           ] as [keyof MainForm, string][]
         ).map(([key, label]) => (
           <div key={key} className="sm:col-span-2">
@@ -525,42 +581,34 @@ export function AssessmentForm({ mode }: { mode: "create" | "edit" }) {
                 value={form[key]}
                 onChange={(e) => set(key, e.target.value)}
                 disabled={readOnlyMain}
-                className={`${textClass} disabled:bg-gray-100`}
+                className={`${textClass} disabled:bg-care-canvas`}
               />
             </Field>
           </div>
         ))}
+        </>}
+        {step === 4 && <>
+          {([ ["conclusion", "Conclusão"], ["recommendation", "Recomendação / Conduta"] ] as [keyof MainForm, string][]).map(([key, label]) => <div key={key} className="sm:col-span-2"><Field label={label}><textarea value={form[key]} onChange={(e) => set(key, e.target.value)} disabled={readOnlyMain} className={`${textClass} disabled:bg-care-canvas`} /></Field></div>)}
+        </>}
 
-        <div className="flex gap-2 sm:col-span-2">
-          <button
-            type="submit"
-            disabled={submitting}
-            className="min-h-11 rounded-xl bg-care-action px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-care-forest focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-care-action disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {submitting
-              ? "Salvando…"
-              : mode === "create" && !assessment
-                ? "Criar avaliação"
-                : "Salvar alterações"}
-          </button>
-          {assessment && (
-            <Link
-              to={`/avaliacoes/${assessment.id}`}
-              className="inline-flex min-h-11 items-center rounded-xl border border-care-line px-4 py-2 text-sm font-semibold text-care-action hover:bg-care-soft"
-            >
-              Ver avaliação
-            </Link>
-          )}
+        {step === 5 && <div className="sm:col-span-2 text-sm text-care-ink">A avaliação foi salva. Registre abaixo as necessidades identificadas e os recursos associados.</div>}
+
+        <div className="-mx-5 -mb-5 mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-care-line bg-care-canvas/70 px-5 py-4 sm:-mx-8 sm:-mb-8 sm:px-8 sm:col-span-2">
+          <button type="button" onClick={() => moveToStep(step - 1)} disabled={step === 1} className="rounded-xl border border-care-line bg-white px-4 py-2.5 text-sm font-semibold text-care-ink transition hover:border-care-action/40 hover:bg-care-soft disabled:cursor-not-allowed disabled:opacity-40">← Voltar</button>
+          {step < 4 ? <button type="button" onClick={() => { if (validateCurrentStep()) moveToStep(step + 1); }} className="rounded-xl bg-care-action px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-care-forest">Próxima etapa <span aria-hidden="true">→</span></button> : step === 4 ? <button type="submit" disabled={submitting} className="rounded-xl bg-care-action px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-care-forest disabled:opacity-50">{submitting ? "Salvando…" : mode === "create" && !assessment ? "Criar avaliação e continuar →" : "Salvar e concluir →"}</button> : <button type="button" onClick={() => navigate(`/avaliacoes/${assessment?.id}`)} className="rounded-xl bg-care-action px-5 py-2.5 text-sm font-bold text-white shadow-sm transition hover:bg-care-forest">Concluir e ver avaliação →</button>}
+          {assessment && step < 5 && <button type="button" onClick={() => moveToStep(5)} className="rounded-xl px-4 py-2.5 text-sm font-semibold text-care-action transition hover:bg-care-soft">Necessidades e recursos</button>}
+        </div>
         </div>
       </form>
 
-      <section aria-labelledby="assessment-needs-heading" className="mt-4 rounded-2xl border border-care-line bg-white p-5 sm:p-6">
+      {assessment && step === 5 && <>
+      <section aria-labelledby="assessment-needs-heading" className="mt-6 rounded-2xl border border-care-line bg-white p-5 shadow-sm sm:p-7">
             <h2 id="assessment-needs-heading" className="mb-2 text-lg font-semibold">
               Necessidades identificadas ({assessment?.care_needs.length ?? 0})
             </h2>
-            <p className="mb-3 text-sm text-gray-600">Registre os cuidados identificados nesta avaliação, como acompanhamento de enfermagem ou fisioterapia. Cada necessidade tem tipo, descrição e prioridade.</p>
-            {!assessment && <p className="mb-3 rounded bg-blue-50 p-3 text-sm text-blue-800">Salve a avaliação para adicionar necessidades. Elas ficarão vinculadas a esta avaliação.</p>}
-            {assessment && assessment.care_needs.length === 0 && <p className="mb-3 text-sm text-gray-600">Nenhuma necessidade registrada nesta avaliação.</p>}
+            <p className="mb-3 text-sm text-care-ink">Registre os cuidados identificados nesta avaliação, como acompanhamento de enfermagem ou fisioterapia. Cada necessidade tem tipo, descrição e prioridade.</p>
+            {!assessment && <p className="mb-3 rounded bg-care-soft p-3 text-sm text-care-ink">Salve a avaliação para adicionar necessidades. Elas ficarão vinculadas a esta avaliação.</p>}
+            {assessment && assessment.care_needs.length === 0 && <p className="mb-3 text-sm text-care-ink">Nenhuma necessidade registrada nesta avaliação.</p>}
             {assessment && assessment.care_needs.length > 0 && (
               <ul className="mb-3 space-y-2">
                 {assessment.care_needs.map((n) => (
@@ -572,7 +620,7 @@ export function AssessmentForm({ mode }: { mode: "create" | "edit" }) {
                     {NEED_PRIORITIES.find((p) => p.value === n.priority)?.label ??
                       n.priority}{" "}
                     · {n.status === "IDENTIFIED" ? "Identificada" : n.status}
-                    <span className={`ml-2 rounded px-2 py-0.5 ${n.is_active ? "bg-green-100" : "bg-gray-200"}`}>{n.is_active ? "Ativa" : "Inativa"}</span>
+                    <span className={`ml-2 rounded px-2 py-0.5 ${n.is_active ? "bg-green-100" : "bg-care-canvas"}`}>{n.is_active ? "Ativa" : "Inativa"}</span>
                   </li>
                 ))}
               </ul>
@@ -581,7 +629,7 @@ export function AssessmentForm({ mode }: { mode: "create" | "edit" }) {
             {canAddNeeds ? <fieldset disabled={!assessment || addingNeed}>
             <legend className="mb-2 text-sm font-semibold">Adicionar necessidade</legend>
             {needCatalogError && <p role="alert" className="mb-2 text-sm text-red-600">Não foi possível carregar os tipos. Recarregue a página para tentar novamente.</p>}
-            {!needCatalogError && needTypes.length === 0 && <p className="mb-2 text-sm text-gray-600">Nenhum tipo ativo disponível para seleção.</p>}
+            {!needCatalogError && needTypes.length === 0 && <p className="mb-2 text-sm text-care-ink">Nenhum tipo ativo disponível para seleção.</p>}
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               <label className="block">
                 <span className="mb-1 block text-sm font-medium">Tipo *</span>
@@ -622,23 +670,23 @@ export function AssessmentForm({ mode }: { mode: "create" | "edit" }) {
               </label>
               <label className="block">
                 <span className="mb-1 block text-sm font-medium">Status inicial</span>
-                <input value="Identificada" readOnly className={`${inputClass} bg-gray-100`} />
+                <input value="Identificada" readOnly className={`${inputClass} bg-care-canvas`} />
               </label>
             </div>
             <button
               type="button"
               disabled={addingNeed || !needType || !needDesc.trim()}
               onClick={() => void handleAddNeed()}
-              className="mt-2 rounded border border-gray-300 px-4 py-2 text-sm disabled:opacity-50"
+              className="mt-2 rounded border border-care-line px-4 py-2 text-sm disabled:opacity-50"
             >
               {addingNeed ? "Adicionando…" : "Adicionar necessidade"}
             </button>
-            </fieldset> : <p className="text-sm text-gray-600">Seu perfil não tem permissão para adicionar necessidades.</p>}
-            {assessment && <Link to={`/avaliacoes/${assessment.id}`} className="mt-3 inline-block text-sm text-blue-600 underline">Ver necessidades e histórico da avaliação</Link>}
+            </fieldset> : <p className="text-sm text-care-ink">Seu perfil não tem permissão para adicionar necessidades.</p>}
+            {assessment && <Link to={`/avaliacoes/${assessment.id}`} className="mt-3 inline-block text-sm text-care-action underline">Ver necessidades e histórico da avaliação</Link>}
       </section>
 
       {assessment && canAddAssessmentResource(user) && (
-          <section className="mt-4 rounded-2xl border border-care-line bg-white p-5 sm:p-6">
+          <section className="mt-5 rounded-2xl border border-care-line bg-white p-5 shadow-sm sm:p-7">
             <h2 className="mb-3 text-sm font-semibold">
               Recursos ({assessment.assessment_resources.length})
             </h2>
@@ -694,12 +742,14 @@ export function AssessmentForm({ mode }: { mode: "create" | "edit" }) {
               type="button"
               disabled={addingResource || !resourceId}
               onClick={() => void handleAddResource()}
-              className="mt-2 rounded border border-gray-300 px-4 py-2 text-sm disabled:opacity-50"
+              className="mt-2 rounded border border-care-line px-4 py-2 text-sm disabled:opacity-50"
             >
               {addingResource ? "Associando…" : "Associar recurso"}
             </button>
           </section>
       )}
+      </>}
+      <style>{`@keyframes assessment-slide-forward { from { opacity: 0; transform: translateX(1.25rem); } to { opacity: 1; transform: translateX(0); } } @keyframes assessment-slide-backward { from { opacity: 0; transform: translateX(-1.25rem); } to { opacity: 1; transform: translateX(0); } } @media (prefers-reduced-motion: reduce) { [style*="assessment-slide-"] { animation: none !important; } }`}</style>
     </div>
   );
 }

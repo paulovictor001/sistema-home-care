@@ -105,6 +105,7 @@ class User(AbstractUser):
         unique=True,
         help_text="E-mail do usuario (unico, usado para contato/recuperacao).",
     )
+    phone = models.CharField(max_length=20, blank=True, default="")
     # Exatamente uma categoria por usuario (RN-USU). PROTECT: categoria com
     # usuarios nao pode ser excluida. Legado: `groups` continua espelhado
     # (GERENTE/MEDICO/ENFERMEIRO) ate os endpoints clinicos migrarem.
@@ -123,9 +124,11 @@ class User(AbstractUser):
     def clean(self):
         super().clean()
         self.cpf = normalize_cpf(self.cpf or "")
+        self.phone = "".join(char for char in (self.phone or "") if char.isdigit())
 
     def save(self, *args, **kwargs):
         self.cpf = normalize_cpf(self.cpf or "")
+        self.phone = "".join(char for char in (self.phone or "") if char.isdigit())
         return super().save(*args, **kwargs)
 
     def __str__(self):
