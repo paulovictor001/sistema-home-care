@@ -1,4 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { toast } from "sonner";
+
 import { ApiError } from "../lib/api";
 import { createResource, listResources, updateResource, type ResourceCatalog } from "../lib/assessments";
 
@@ -13,7 +15,8 @@ export function Resources() {
     try {
       setResources(await listResources());
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Não foi possível carregar os recursos.");
+      const message = cause instanceof Error ? cause.message : "Não foi possível carregar os recursos."; setError(message); toast.error(message);
+
     }
   }
 
@@ -30,12 +33,13 @@ export function Resources() {
     setLoading(true);
     setError("");
     try {
-      if (editingId === null) await createResource(name.trim());
-      else await updateResource(editingId, name.trim());
+      if (editingId === null) { await createResource(name.trim()); toast.success("Recurso cadastrado com sucesso."); }
+      else { await updateResource(editingId, name.trim()); toast.success("Recurso atualizado com sucesso."); }
       cancelEdit();
       await load();
     } catch (cause) {
-      setError(cause instanceof ApiError ? cause.message : "Não foi possível salvar o recurso.");
+      const message = cause instanceof ApiError ? cause.message : "Não foi possível salvar o recurso."; setError(message); toast.error(message);
+
     } finally {
       setLoading(false);
     }

@@ -1,5 +1,6 @@
-﻿import { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
+import { toast } from "sonner";
 import { apiJson } from "../lib/api";
 import {
   changeNeedTypeStatus,
@@ -30,6 +31,7 @@ export function NeedTypes() {
 
       setTypes(Array.isArray(data) ? data : data.results);
     } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível carregar os tipos.");
       setError(
         err instanceof Error
           ? err.message
@@ -75,16 +77,19 @@ export function NeedTypes() {
           name: name.trim(),
           description: description.trim(),
         });
+        toast.success("Tipo de necessidade atualizado.");
       } else {
         await createNeedType({
           name: name.trim(),
           description: description.trim(),
         });
+        toast.success("Tipo de necessidade cadastrado.");
       }
 
       cancelEdit();
       await loadTypes();
     } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível salvar o tipo.");
       setError(
         err instanceof Error ? err.message : "Não foi possível salvar o tipo.",
       );
@@ -99,9 +104,11 @@ export function NeedTypes() {
 
     try {
       await changeNeedTypeStatus(item.id, item.status !== "ACTIVE");
+      toast.success(item.status === "ACTIVE" ? "Tipo de necessidade inativado." : "Tipo de necessidade ativado.");
 
       await loadTypes();
     } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Não foi possível alterar o status.");
       setError(
         err instanceof Error
           ? err.message

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { ApiError } from "../lib/api";
 import {
   createProfession,
@@ -29,9 +30,8 @@ export function Professions() {
 
   useEffect(() => {
     Promise.resolve().then(refresh)
-      .catch((err) =>
-        setError(err instanceof ApiError ? err.message : "Falha ao carregar."),
-      )
+      .catch((err) => { const message = err instanceof ApiError ? err.message : "Falha ao carregar."; setError(message); toast.error(message); })
+
       .finally(() => setLoading(false));
   }, []);
 
@@ -46,8 +46,10 @@ export function Professions() {
       setNewName("");
       await refresh();
       setNotice("Profissão criada (categoria correspondente sem permissões).");
+      toast.success("Profissão criada com sucesso.");
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Falha ao criar profissão.");
+      const message = err instanceof ApiError ? err.message : "Falha ao criar profissão."; setError(message); toast.error(message);
+
     } finally {
       setSaving(false);
     }
@@ -59,12 +61,41 @@ export function Professions() {
     try {
       await updateProfession(p.id, { is_active: !p.is_active });
       await refresh();
+      toast.success(p.is_active ? "Profissão inativada." : "Profissão reativada.");
     } catch (err) {
-      setError(
-        err instanceof ApiError
+      const message = err instanceof ApiError
           ? err.message
-          : "Falha ao alterar status. Transfira os profissionais antes.",
-      );
+          : "Falha ao alterar status. Transfira os profissionais antes."; setError(message); toast.error(message);
+    }
+  }
+
+  function startEditing(p: Profession) {
+    setEditingId(p.id);
+    setEditingName(p.name);
+    setError(null);
+    setNotice(null);
+  }
+
+  async function handleRename(e: React.FormEvent, p: Profession) {
+    e.preventDefault();
+    const name = editingName.trim();
+    if (!name) {
+      setError("Informe o nome da profissão.");
+      return;
+    }
+    setSavingEdit(true);
+    setError(null);
+    setNotice(null);
+    try {
+      await updateProfession(p.id, { name });
+      await refresh();
+      setEditingId(null);
+      setNotice("Profissão e categoria correspondente atualizadas.");
+      toast.success("Profissão atualizada com sucesso.");
+    } catch (err) {
+      const message = err instanceof ApiError ? err.message : "Falha ao atualizar profissão."; setError(message); toast.error(message);
+    } finally {
+      setSavingEdit(false);
     }
   }
 
@@ -104,12 +135,11 @@ export function Professions() {
     try {
       await deleteProfession(p.id);
       await refresh();
+      toast.success("Profissão excluída com sucesso.");
     } catch (err) {
-      setError(
-        err instanceof ApiError
+      const message = err instanceof ApiError
           ? err.message
-          : "Falha ao excluir. Transfira os profissionais antes.",
-      );
+          : "Falha ao excluir. Transfira os profissionais antes."; setError(message); toast.error(message);
     }
   }
 
@@ -127,8 +157,10 @@ export function Professions() {
       setNotice(
         `${result.transferidos} profissional(is) transferido(s). As categorias dos usuários foram atualizadas.`,
       );
+      toast.success("Transferência de profissionais concluída.");
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Falha na transferência.");
+      const message = err instanceof ApiError ? err.message : "Falha na transferência."; setError(message); toast.error(message);
+
     } finally {
       setSaving(false);
     }

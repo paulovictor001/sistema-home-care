@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { toast } from "sonner";
 import { Link, useParams } from "react-router-dom";
 import { useAuth } from "../contexts/useAuth";
 import { ApiError } from "../lib/api";
@@ -50,6 +51,7 @@ export function AssessmentDetail() {
     } : previous);
     setEditingNeed(null);
     setNeedMessage("Necessidade atualizada.");
+    toast.success("Necessidade atualizada.");
   }
 
   async function changeNeedState(id: number, active: boolean) {
@@ -63,6 +65,7 @@ export function AssessmentDetail() {
         ...previous, care_needs: previous.care_needs.map((need) => need.id === id ? { ...need, ...result } : need),
       } : previous);
       setNeedMessage(active ? "Necessidade reativada." : "Necessidade inativada.");
+      toast.success(active ? "Necessidade reativada." : "Necessidade inativada.");
       setHistory((previous) => {
         const updated = { ...previous };
         delete updated[id];
@@ -70,6 +73,7 @@ export function AssessmentDetail() {
       });
     } catch {
       setNeedError(`Não foi possível ${active ? "reativar" : "inativar"} a necessidade. Tente novamente.`);
+      toast.error(`Não foi possível ${active ? "reativar" : "inativar"} a necessidade.`);
     } finally {
       setBusyNeed(null);
     }
@@ -82,8 +86,36 @@ export function AssessmentDetail() {
       setHistory((previous) => ({ ...previous, [id]: [] }));
       const events = await getNeedHistory(id);
       setHistory((previous) => ({ ...previous, [id]: events }));
+      toast.success("Histórico da necessidade carregado.");
     } catch {
       setNeedError("Não foi possível carregar o histórico.");
+      toast.error("Não foi possível carregar o histórico.");
+    } finally {
+      setBusyNeed(null);
+    }
+  }
+
+  async function removeNeed(need: CareNeed) {
+    if (!window.confirm("Excluir permanentemente esta necessidade? A ação não pode ser desfeita.")) return;
+    setBusyNeed(need.id);
+    setNeedError(null);
+    setNeedMessage(null);
+    try {
+      await deleteNeed(need.id);
+      setAssessment((previous) => previous ? {
+        ...previous,
+        care_needs: previous.care_needs.filter((item) => item.id !== need.id),
+      } : previous);
+      setHistory((previous) => {
+        const updated = { ...previous };
+        delete updated[need.id];
+        return updated;
+      });
+      setNeedMessage("Necessidade excluída.");
+      toast.success("Necessidade excluída.");
+    } catch (err) {
+      setNeedError(err instanceof ApiError ? err.message : "Não foi possível excluir a necessidade.");
+      toast.error(err instanceof ApiError ? err.message : "Não foi possível excluir a necessidade.");
     } finally {
       setBusyNeed(null);
     }

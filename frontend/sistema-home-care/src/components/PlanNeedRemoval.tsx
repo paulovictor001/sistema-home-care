@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { toast } from 'sonner';
 import { removePlanNeed, type CarePlan } from '../lib/carePlans';
 
 export function PlanNeedRemoval({ planId, linkId, onSave, onCancel, onBusy }: {
@@ -11,8 +12,8 @@ export function PlanNeedRemoval({ planId, linkId, onSave, onCancel, onBusy }: {
     event.preventDefault(); setError('');
     if (!reason.trim()) { setError('Informe o motivo da remoção.'); return; }
     setBusy(true); onBusy(true);
-    try { onSave(await removePlanNeed(planId, linkId, reason)); }
-    catch (err) { setError(err instanceof Error ? err.message : 'Falha ao remover vínculo.'); }
+    try { onSave(await removePlanNeed(planId, linkId, reason)); toast.success('Necessidade removida do plano.'); }
+    catch (err) { const message = err instanceof Error ? err.message : 'Falha ao remover vínculo.'; setError(message); toast.error(message); }
     finally { setBusy(false); onBusy(false); }
   }
   return <form onSubmit={submit} className="mt-3 space-y-3 border-t pt-3">

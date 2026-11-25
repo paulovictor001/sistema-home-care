@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
+import { toast } from 'sonner';
 import { configurePlanNeed, planProfessionals, planResources, frequencyLabels, type CarePlan, type PlanNeed, type PlanProfessional, type CatalogResource, type FrequencyPeriod } from '../lib/carePlans';
 
 export function PlanNeedConfiguration({ planId, need, onSave, onCancel, onBusy }: {
@@ -19,7 +20,7 @@ export function PlanNeedConfiguration({ planId, need, onSave, onCancel, onBusy }
     let cancelled = false;
     Promise.all([planProfessionals(), planResources()]).then(([people, catalog]) => {
       if (!cancelled) { setProfessionals(people); setResources(catalog); }
-    }).catch(err => { if (!cancelled) setError(err instanceof Error ? err.message : 'Falha ao carregar cadastros.'); })
+    }).catch(err => { if (!cancelled) { const message = err instanceof Error ? err.message : 'Falha ao carregar cadastros.'; setError(message); toast.error(message); } })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, []);
@@ -30,8 +31,8 @@ export function PlanNeedConfiguration({ planId, need, onSave, onCancel, onBusy }
     }
     setBusy(true); onBusy(true);
     try { onSave(await configurePlanNeed(planId, need.id, { required_professional: Number(professional), frequency_quantity: Number(quantity), frequency_period: period,
-      resources: rows.map(row => ({ resource: Number(row.resource), quantity: Number(row.quantity), observation: row.observation })) })); }
-    catch (err) { setError(err instanceof Error ? err.message : 'Falha ao salvar configuração.'); }
+      resources: rows.map(row => ({ resource: Number(row.resource), quantity: Number(row.quantity), observation: row.observation })) })); toast.success('Configuração da necessidade salva.'); }
+    catch (err) { const message = err instanceof Error ? err.message : 'Falha ao salvar configuração.'; setError(message); toast.error(message); }
     finally { setBusy(false); onBusy(false); }
   }
   return <form onSubmit={submit} className="mt-3 space-y-3 border-t pt-3">

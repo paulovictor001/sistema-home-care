@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { toast } from "sonner";
 import {
   Link,
   useNavigate,
@@ -163,9 +164,7 @@ export function CareScales() {
       })
       .catch((err) => {
         if (!cancelled) {
-          setError(
-            err instanceof Error ? err.message : "Falha ao carregar escalas.",
-          );
+          const message = err instanceof Error ? err.message : "Falha ao carregar escalas."; setError(message); toast.error(message);
         }
       })
       .finally(() => {
@@ -196,9 +195,7 @@ export function CareScales() {
       setObservation("");
       setCreating(true);
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Falha ao carregar planos.",
-      );
+      const message = err instanceof Error ? err.message : "Falha ao carregar planos."; setError(message); toast.error(message);
     } finally {
       setBusy(false);
     }
@@ -223,9 +220,10 @@ export function CareScales() {
         observation,
       });
 
+      toast.success("Escala criada com sucesso.");
       navigate(`/escalas/${scale.id}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Falha ao criar escala.");
+      const message = err instanceof Error ? err.message : "Falha ao criar escala."; setError(message); toast.error(message);
     } finally {
       setBusy(false);
     }
