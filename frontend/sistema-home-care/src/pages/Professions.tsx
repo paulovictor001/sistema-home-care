@@ -99,35 +99,6 @@ export function Professions() {
     }
   }
 
-  function startEditing(p: Profession) {
-    setEditingId(p.id);
-    setEditingName(p.name);
-    setError(null);
-    setNotice(null);
-  }
-
-  async function handleRename(e: React.FormEvent, p: Profession) {
-    e.preventDefault();
-    const name = editingName.trim();
-    if (!name) {
-      setError("Informe o nome da profissão.");
-      return;
-    }
-    setSavingEdit(true);
-    setError(null);
-    setNotice(null);
-    try {
-      await updateProfession(p.id, { name });
-      await refresh();
-      setEditingId(null);
-      setNotice("Profissão e categoria correspondente atualizadas.");
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Falha ao atualizar profissão.");
-    } finally {
-      setSavingEdit(false);
-    }
-  }
-
   async function handleDelete(p: Profession) {
     if (!window.confirm(`Excluir a profissão "${p.name}"?`)) return;
     setError(null);

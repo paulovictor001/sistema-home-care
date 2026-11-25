@@ -11,6 +11,17 @@
  *   accent     → bg-accent          surface   → bg-surface   line → border-line
  */
 @theme {
+  /* Aliases kept for screens introduced on main during this merge. */
+  --color-background: #f6f7f4;
+  --color-sidebar: #173b3a;
+  --color-primary: #347c70;
+  --color-primary-dark: #2a655b;
+  --color-primary-light: #e4f0ea;
+  --color-ink: #253431;
+  --color-muted: #78847f;
+  --color-accent: #d9a66f;
+  --color-surface: #ffffff;
+  --color-line: #e5eae5;
   --color-background: #f6f7f4;
   --color-sidebar: #173b3a;
   --color-primary: #347c70;

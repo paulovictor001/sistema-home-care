@@ -8,7 +8,7 @@ import { canManageNeedTypes } from "../lib/assessments";
 import { canVisit } from "../lib/visits";
 
 function navClasses({ isActive }: { isActive: boolean }): string {
-  return `flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+  return `flex min-h-11 items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-care-action ${
     isActive
       ? "bg-primary text-white"
       : "text-white/75 hover:bg-white/10 hover:text-white"
@@ -137,13 +137,8 @@ export function AppLayout() {
     .join("");
 
   const current =
-    location.pathname.includes("/avaliacoes")
-      ? {
-          title: "Avaliações",
-          crumb: "Painel / Pacientes / Avaliações",
-        }
-      : (PAGE_TITLES.find((p) => location.pathname.startsWith(p.prefix)) ??
-        PAGE_TITLES[PAGE_TITLES.length - 1]);
+    PAGE_TITLES.find((page) => location.pathname.startsWith(page.prefix)) ??
+    PAGE_TITLES[PAGE_TITLES.length - 1];
 
   function closeMenu() {
     setMenuOpen(false);
@@ -154,6 +149,7 @@ export function AppLayout() {
       <div className="flex">
         {/* Sidebar */}
         <aside
+          id="primary-sidebar"
           className={`${
             menuOpen ? "fixed inset-y-0 left-0 z-40 flex" : "hidden"
           } w-64 shrink-0 flex-col bg-sidebar p-4 md:sticky md:top-0 md:flex md:h-screen`}
@@ -162,7 +158,7 @@ export function AppLayout() {
             <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent text-sm font-bold text-sidebar">
               HC
             </span>
-            <span className="text-lg font-semibold text-white">Home Care</span>
+            <span className="text-lg font-semibold text-white">LarVita</span>
           </Link>
 
           <nav className="mt-2 flex-1 overflow-y-auto" aria-label="Navegação principal">
@@ -248,11 +244,14 @@ export function AppLayout() {
             <button
               type="button"
               onClick={() => setMenuOpen((open) => !open)}
+              aria-controls="primary-sidebar"
               aria-expanded={menuOpen}
               aria-label={menuOpen ? "Fechar menu" : "Abrir menu"}
               className="rounded-lg border border-line px-3 py-1.5 text-sm md:hidden"
             >
-              {menuOpen ? "Fechar" : "Menu"}
+              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" className="h-5 w-5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+                {menuOpen ? <><path d="m6 6 12 12M18 6 6 18" /></> : <><path d="M4 7h16M4 12h16M4 17h16" /></>}
+              </svg>
             </button>
             <div className="min-w-0">
               <h1 className="truncate text-lg font-semibold text-ink">
@@ -271,7 +270,7 @@ export function AppLayout() {
             </div>
           </header>
 
-          <main className="p-4 md:p-6">
+          <main className="mx-auto w-full max-w-[1440px] p-4 sm:p-6 lg:p-8">
             <Outlet />
           </main>
 

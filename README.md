@@ -1,4 +1,4 @@
-# Sistema Home Care
+# LarVita
 
 Sistema de atendimento domiciliar desenvolvido como projeto acadêmico, com frontend em React e backend em Django REST Framework.
 
