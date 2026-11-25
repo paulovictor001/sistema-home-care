@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { ApiError } from "../lib/api";
 import { listNeedTypes, NEED_PRIORITIES, updateNeed, type CareNeed, type NeedType } from "../lib/assessments";
 import { parseFieldErrors } from "../lib/patients";
@@ -40,11 +41,13 @@ export function NeedEditForm({ need, onSave, onCancel }: {
     setSaving(true);
     setErrors({});
     try {
-      onSave(await updateNeed(need.id, {
+      const updated = await updateNeed(need.id, {
         need_type: Number(type), description: description.trim(), priority,
-      }));
+      });
+      toast.success("Necessidade atualizada.");
+      onSave(updated);
     } catch (error) {
-      setErrors(parseFieldErrors(error instanceof ApiError ? error.message : "Não foi possível salvar a necessidade."));
+      const message = error instanceof ApiError ? error.message : "Não foi possível salvar a necessidade."; setErrors(parseFieldErrors(message)); toast.error(message);
     } finally {
       setSaving(false);
     }

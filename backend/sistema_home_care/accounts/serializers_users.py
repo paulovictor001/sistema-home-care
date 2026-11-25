@@ -140,6 +140,7 @@ class UserSerializer(serializers.ModelSerializer):
             "id",
             "cpf",
             "email",
+            "phone",
             "first_name",
             "last_name",
             "category",
@@ -162,6 +163,9 @@ class UserSerializer(serializers.ModelSerializer):
         if not is_valid_cpf(cpf):
             raise serializers.ValidationError("CPF invalido.")
         return cpf
+
+    def validate_phone(self, value):
+        return "".join(char for char in (value or "") if char.isdigit())
 
     def validate(self, attrs):
         if self.instance is None:
@@ -241,6 +245,10 @@ class UserSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 exc.message_dict if hasattr(exc, "message_dict") else str(exc)
             )
+        phone = validated_data.get("phone", "")
+        if phone:
+            user.phone = phone
+            user.save(update_fields=["phone"])
         return user
 
     def update(self, instance, validated_data):

@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ApiError } from "../lib/api";
 import { formatCpf, stripCpf } from "../lib/cpf";
+import { formatPhone, stripPhone } from "../lib/phone";
 import { parseFieldErrors } from "../lib/patients";
 import {
   createUser,
@@ -47,7 +49,9 @@ export function UserForm({ mode }: { mode: "create" | "edit" }) {
 
   const [cpf, setCpf] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [categoryId, setCategoryId] = useState("");
@@ -86,6 +90,7 @@ export function UserForm({ mode }: { mode: "create" | "edit" }) {
           if (cancelled) return;
           setCpf(formatCpf(user.cpf));
           setEmail(user.email);
+          setPhone(formatPhone(user.phone));
           setFirstName(user.first_name);
           setLastName(user.last_name);
           setLockedCategory(user.category_detail?.name ?? null);
@@ -132,6 +137,7 @@ export function UserForm({ mode }: { mode: "create" | "edit" }) {
           cpf: stripCpf(cpf),
           password,
           email: email.trim(),
+          phone: stripPhone(phone),
           first_name: firstName.trim(),
           last_name: lastName.trim(),
           category: Number(categoryId),
@@ -145,17 +151,21 @@ export function UserForm({ mode }: { mode: "create" | "edit" }) {
             : { professional_id: Number(freeProId) }),
         };
         const created = await createUser(payload);
+        toast.success("Usuário criado com sucesso.");
         navigate(`/usuarios/${created.id}`);
       } else if (id) {
         await updateUser(Number(id), {
           first_name: firstName.trim(),
           last_name: lastName.trim(),
           email: email.trim(),
+          phone: stripPhone(phone),
           ...(password ? { password } : {}),
         });
+        toast.success("Usuário atualizado com sucesso.");
         navigate(`/usuarios/${id}`);
       }
     } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Falha ao salvar usuário.");
       if (err instanceof ApiError) {
         const parsed = parseFieldErrors(err.message);
         if (parsed.detail && Object.keys(parsed).length === 1) {
@@ -234,18 +244,44 @@ export function UserForm({ mode }: { mode: "create" | "edit" }) {
               <FieldError messages={errors.cpf} />
             </label>
 
-            <label className="block">
-              <span className="mb-1.5 block text-sm font-medium text-ink">
+            <div>
+              <label
+                htmlFor="user-password"
+                className="mb-1.5 block text-sm font-medium text-ink"
+              >
                 {isCreate ? "Senha *" : "Nova senha (opcional)"}
-              </span>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className={inputClasses}
-              />
+              </label>
+              <div className="relative">
+                <input
+                  id="user-password"
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="new-password"
+                  className={`${inputClasses} pr-16`}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((visible) => !visible)}
+                  aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
+                  aria-pressed={showPassword}
+                  className="absolute inset-y-0 right-0 flex items-center gap-1.5 px-3 text-xs font-medium text-muted transition-colors hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-primary"
+                >
+                  {showPassword ? (
+                    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 3l18 18M10.6 10.6a2 2 0 002.8 2.8M9.9 5.2A10.8 10.8 0 0112 5c5 0 8.5 4.2 9.5 7-.4 1.1-1.2 2.4-2.4 3.6M6.2 6.2C4.2 7.5 2.9 9.5 2.5 12c.6 1.8 2.2 4 5.2 5.7A10.8 10.8 0 0012 19c1 0 1.9-.1 2.8-.4" />
+                    </svg>
+                  ) : (
+                    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-4 w-4">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M2.5 12S6 5 12 5s9.5 7 9.5 7-3.5 7-9.5 7-9.5-7-9.5-7z" />
+                      <circle cx="12" cy="12" r="2.5" />
+                    </svg>
+                  )}
+                  <span>{showPassword ? "Ocultar" : "Mostrar"}</span>
+                </button>
+              </div>
               <FieldError messages={errors.password} />
-            </label>
+            </div>
           </div>
 
           <label className="block">
@@ -259,6 +295,10 @@ export function UserForm({ mode }: { mode: "create" | "edit" }) {
               className={inputClasses}
             />
             <FieldError messages={errors.email} />
+          </label>
+          <label className="block">
+            <span className="mb-1.5 block text-sm font-medium text-ink">Telefone</span>
+            <input type="tel" value={phone} onChange={(e) => setPhone(formatPhone(e.target.value))} className={inputClasses} />
           </label>
         </section>
 

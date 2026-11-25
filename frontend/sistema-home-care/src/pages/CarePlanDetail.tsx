@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react';
+import { toast } from 'sonner';
 import { Link, useParams } from 'react-router-dom';
 import { useAuth } from '../contexts/useAuth';
 import { canPlan, canManagePlanNeeds, getPlan, updatePlan, planHistory, planStatusLabels, frequencyLabels, availableNeeds, attachPlanNeed, allowedStatusActions, changePlanStatus, statusActionLabels, type PlanStatusAction, type AvailableNeed, type CarePlan, type PlanHistory } from '../lib/carePlans';
@@ -45,29 +46,29 @@ export function CarePlanDetail() {
   async function save(event: FormEvent) {
     event.preventDefault(); if (!plan) return;
     setBusy(true); setError('');
-    try { setPlan(await updatePlan(plan.id, { start_date: start, end_date: end || null, objective })); setEditing(false); setEvents(null); }
-    catch (err) { setError(err instanceof Error ? err.message : 'Falha ao salvar plano.'); }
+    try { setPlan(await updatePlan(plan.id, { start_date: start, end_date: end || null, objective })); setEditing(false); setEvents(null); toast.success('Plano atualizado.'); }
+    catch (err) { const message = err instanceof Error ? err.message : 'Falha ao salvar plano.'; setError(message); toast.error(message); }
     finally { setBusy(false); }
   }
   async function showHistory() {
     if (!plan) return;
     setBusy(true); setError('');
-    try { setEvents(await planHistory(plan.id)); }
-    catch (err) { setError(err instanceof Error ? err.message : 'Falha ao carregar histórico.'); }
+    try { setEvents(await planHistory(plan.id)); toast.success('Histórico do plano carregado.'); }
+    catch (err) { const message = err instanceof Error ? err.message : 'Falha ao carregar histórico.'; setError(message); toast.error(message); }
     finally { setBusy(false); }
   }
   async function openAdd() {
     if (!plan) return;
     setBusy(true); setError('');
-    try { const needs = await availableNeeds(plan.patient); setAvailable(needs.filter(need => !plan.need_links.some(link => !link.removed_at && link.care_need === need.id))); setSelectedNeed(''); setAdding(true); }
-    catch (err) { setError(err instanceof Error ? err.message : 'Falha ao carregar necessidades.'); }
+    try { const needs = await availableNeeds(plan.patient); setAvailable(needs.filter(need => !plan.need_links.some(link => !link.removed_at && link.care_need === need.id))); setSelectedNeed(''); setAdding(true); toast.success('Necessidades disponíveis carregadas.'); }
+    catch (err) { const message = err instanceof Error ? err.message : 'Falha ao carregar necessidades.'; setError(message); toast.error(message); }
     finally { setBusy(false); }
   }
   async function addNeed(event: FormEvent) {
     event.preventDefault(); if (!plan || !selectedNeed) return;
     setBusy(true); setError('');
-    try { setPlan(await attachPlanNeed(plan.id, Number(selectedNeed))); setAdding(false); setEvents(null); }
-    catch (err) { setError(err instanceof Error ? err.message : 'Falha ao vincular necessidade.'); }
+    try { setPlan(await attachPlanNeed(plan.id, Number(selectedNeed))); setAdding(false); setEvents(null); toast.success('Necessidade vinculada ao plano.'); }
+    catch (err) { const message = err instanceof Error ? err.message : 'Falha ao vincular necessidade.'; setError(message); toast.error(message); }
     finally { setBusy(false); }
   }
   async function changeStatus(action: PlanStatusAction) {
@@ -77,8 +78,8 @@ export function CarePlanDetail() {
       : 'Todas as necessidades devem ter profissional e frequência configurados.';
     if (!window.confirm(`${statusActionLabels[action]} este plano? ${description}`)) return;
     setBusy(true); setError(''); setMessage('');
-    try { const updated = await changePlanStatus(plan.id, action); setPlan(updated); setEvents(null); setMessage(`Plano ${planStatusLabels[updated.status].toLowerCase()}.`); }
-    catch (err) { setError(err instanceof Error ? err.message : 'Falha ao alterar status.'); }
+    try { const updated = await changePlanStatus(plan.id, action); setPlan(updated); setEvents(null); setMessage(`Plano ${planStatusLabels[updated.status].toLowerCase()}.`); toast.success(`Plano ${planStatusLabels[updated.status].toLowerCase()}.`); }
+    catch (err) { const message = err instanceof Error ? err.message : 'Falha ao alterar status.'; setError(message); toast.error(message); }
     finally { setBusy(false); }
   }
   if (!permitted) return <p role="alert" className="p-6">Você não tem permissão para visualizar planos.</p>;

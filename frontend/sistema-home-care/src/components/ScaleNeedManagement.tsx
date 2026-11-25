@@ -1,4 +1,5 @@
 import {useState, type FormEvent} from 'react';
+import {toast} from 'sonner';
 import {frequencyLabels, type FrequencyPeriod} from '../lib/carePlans';
 import {configureScaleNeed, scaleProfessionals, addScaleProfessional, removeScaleProfessional, substituteScaleProfessional, removeScaleNeed, saveProfessionalPlanning, type CareScale, type ScaleNeed, type ScaleProfessional} from '../lib/careScales';
 
@@ -9,7 +10,7 @@ export function ScaleNeedManagement({scale, item, onChange}: {scale: CareScale; 
   const [reason, setReason] = useState(item.frequency_reason); const [observation, setObservation] = useState(item.observation);
   const [regions, setRegions] = useState(''); const [availability, setAvailability] = useState('');
   async function execute(operation: () => Promise<CareScale>) {
-    setBusy(true); setError(''); try {onChange(await operation());} catch (err) {setError(err instanceof Error ? err.message : 'Falha ao alterar necessidade.');} finally {setBusy(false);}
+    setBusy(true); setError(''); try {onChange(await operation()); toast.success('Necessidade da escala atualizada.');} catch (err) {const message = err instanceof Error ? err.message : 'Falha ao alterar necessidade.'; setError(message); toast.error(message);} finally {setBusy(false);}
   }
   async function load() {
     setBusy(true); setError(''); try {setOptions(await scaleProfessionals(scale.id, item.id)); setOpen(true);} catch (err) {setError(err instanceof Error ? err.message : 'Falha ao carregar profissionais.');} finally {setBusy(false);}
@@ -17,8 +18,8 @@ export function ScaleNeedManagement({scale, item, onChange}: {scale: CareScale; 
   function frequency(event: FormEvent) {event.preventDefault(); void execute(() => configureScaleNeed(scale.id, item.id, {frequency_quantity: quantity, frequency_period: period, frequency_reason: reason, observation}));}
   async function planning(event: FormEvent) {
     event.preventDefault(); if (!selected) return; setBusy(true); setError('');
-    try {await saveProfessionalPlanning(Number(selected), regions.split(',').map(value => value.trim()).filter(Boolean), availability); setOptions(await scaleProfessionals(scale.id, item.id));}
-    catch (err) {setError(err instanceof Error ? err.message : 'Falha ao salvar planejamento.');} finally {setBusy(false);}
+    try {await saveProfessionalPlanning(Number(selected), regions.split(',').map(value => value.trim()).filter(Boolean), availability); setOptions(await scaleProfessionals(scale.id, item.id)); toast.success('Planejamento profissional salvo.');}
+    catch (err) {const message = err instanceof Error ? err.message : 'Falha ao salvar planejamento.'; setError(message); toast.error(message);} finally {setBusy(false);}
   }
   const professional = options.find(value => value.id === Number(selected));
   return <div className="space-y-3">

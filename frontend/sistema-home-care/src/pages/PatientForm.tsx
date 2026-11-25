@@ -1,8 +1,10 @@
 import { useEffect, useState, type ReactNode } from "react";
+import { toast } from "sonner";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useAuth } from "../contexts/useAuth";
 import { ApiError } from "../lib/api";
 import { formatCpf, stripCpf } from "../lib/cpf";
+import { formatPhone, stripPhone } from "../lib/phone";
 import {
   createPatient,
   createHealthCondition,
@@ -42,6 +44,11 @@ function Field({
 
 const inputClass = "min-h-11 w-full rounded-lg border border-line bg-white px-3.5 text-sm text-ink outline-none transition placeholder:text-muted/80 focus:border-primary focus:ring-2 focus:ring-primary/15 disabled:bg-background disabled:text-muted";
 const genderOptions = ["Masculino", "Feminino", "Prefiro não dizer"];
+
+function formatCep(value: string) {
+  const digits = value.replace(/\D/g, "").slice(0, 8);
+  return digits.length > 5 ? `${digits.slice(0, 5)}-${digits.slice(5)}` : digits;
+}
 
 function FormSection({ title, description, children }: { title: string; description: string; children: ReactNode }) {
   return (
@@ -117,6 +124,10 @@ export function PatientForm({ mode }: { mode: "create" | "edit" }) {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [cepLoading, setCepLoading] = useState(false);
+  const [cepMessage, setCepMessage] = useState<string | null>(null);
+  const [step, setStep] = useState(1);
+  const [stepDirection, setStepDirection] = useState<"forward" | "backward">("forward");
 
   useEffect(() => {
     async function load() {
@@ -145,7 +156,7 @@ export function PatientForm({ mode }: { mode: "create" | "edit" }) {
             cpf: formatCpf(patient.cpf),
             rg: patient.rg,
             age: String(patient.age),
-            phone: patient.phone,
+            phone: formatPhone(patient.phone),
             gender: patient.gender,
             responsible_doctor: patient.responsible_doctor?.toString() ?? "",
             responsible_team:
@@ -181,6 +192,63 @@ export function PatientForm({ mode }: { mode: "create" | "edit" }) {
 
   function set<K extends keyof FormState>(key: K, value: string) {
     setForm((prev) => ({ ...prev, [key]: value }));
+    setFieldErrors((previous) => {
+      if (!previous[key]) return previous;
+      const next = { ...previous };
+      delete next[key];
+      return next;
+    });
+  }
+
+  function moveToStep(next: number) {
+    setStepDirection(next > step ? "forward" : "backward");
+    setStep(next);
+  }
+
+  function validateCurrentStep() {
+    const requiredByStep: Record<number, (keyof FormState)[]> = {
+      1: ["full_name", "birth_date", "cpf", "rg", "age", "phone", "gender"],
+      2: mode === "create" ? ["health_condition", "responsible_doctor"] : [],
+      3: mode === "create" ? ["zip_code", "state", "city", "neighborhood", "street", "number"] : [],
+    };
+    const errors: Record<string, string[]> = {};
+    for (const key of requiredByStep[step]) {
+      if (!String(form[key]).trim()) errors[key] = ["Este campo é obrigatório."];
+    }
+    setFieldErrors((previous) => {
+      const next = { ...previous };
+      for (const key of requiredByStep[step]) delete next[key];
+      return { ...next, ...errors };
+    });
+    return Object.keys(errors).length === 0;
+  }
+
+  async function lookupCep(value: string) {
+    const cep = value.replace(/\D/g, "");
+    setCepMessage(null);
+    if (cep.length !== 8) return;
+    setCepLoading(true);
+    try {
+      const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+      if (!response.ok) throw new Error("Consulta indisponível");
+      const data: { erro?: boolean; logradouro?: string; bairro?: string; localidade?: string; uf?: string } = await response.json();
+      if (data.erro) {
+        setCepMessage("CEP não encontrado. Confira o número ou preencha o endereço manualmente.");
+        return;
+      }
+      setForm((previous) => ({
+        ...previous,
+        street: data.logradouro ?? "",
+        neighborhood: data.bairro ?? "",
+        city: data.localidade ?? "",
+        state: data.uf ?? "",
+      }));
+      setCepMessage("Endereço preenchido pelo CEP. Confira os dados e informe o número.");
+    } catch {
+      setCepMessage("Não foi possível consultar o CEP. Preencha o endereço manualmente.");
+    } finally {
+      setCepLoading(false);
+    }
   }
 
   async function addCondition() {
@@ -192,8 +260,10 @@ export function PatientForm({ mode }: { mode: "create" | "edit" }) {
       setConditions((previous) => [...previous, created].sort((a, b) => a.name.localeCompare(b.name)));
       set("health_condition", String(created.id));
       setNewCondition("");
+      toast.success("Condição de saúde cadastrada.");
     } catch {
       setConditionsError("Não foi possível cadastrar a condição de saúde. Tente novamente.");
+      toast.error("Não foi possível cadastrar a condição de saúde.");
     } finally {
       setAddingCondition(false);
     }
@@ -222,13 +292,14 @@ export function PatientForm({ mode }: { mode: "create" | "edit" }) {
           cpf: stripCpf(form.cpf),
           rg: form.rg.trim(),
           age: Number(form.age),
-          phone: form.phone.trim(),
+          phone: stripPhone(form.phone),
           gender: form.gender.trim(),
           responsible_doctor: Number(form.responsible_doctor),
           responsible_team: form.responsible_team.trim() || undefined,
           health_condition: Number(form.health_condition),
           address,
         });
+        toast.success("Paciente cadastrado com sucesso.");
         navigate(`/pacientes/${created.id}`);
       } else {
         // Médico/enfermeiro não envia médico/equipe (backend responde 403).
@@ -238,7 +309,7 @@ export function PatientForm({ mode }: { mode: "create" | "edit" }) {
           cpf: stripCpf(form.cpf),
           rg: form.rg.trim(),
           age: Number(form.age),
-          phone: form.phone.trim(),
+          phone: stripPhone(form.phone),
           gender: form.gender.trim(),
           health_condition: form.health_condition
             ? Number(form.health_condition)
@@ -254,9 +325,11 @@ export function PatientForm({ mode }: { mode: "create" | "edit" }) {
             : {}),
         };
         const updated = await updatePatient(Number(id), payload);
+        toast.success("Cadastro do paciente atualizado.");
         navigate(`/pacientes/${updated.id}`);
       }
     } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Falha ao salvar o paciente.");
       setFieldErrors(
         parseFieldErrors(
           err instanceof ApiError ? err.message : "Falha ao salvar.",
@@ -307,11 +380,15 @@ export function PatientForm({ mode }: { mode: "create" | "edit" }) {
         </p>
       )}
 
-      <form
-        onSubmit={(e) => void handleSubmit(e)}
-        className="space-y-6 rounded-2xl border border-line bg-surface p-4 shadow-sm sm:p-6"
-      >
-        <FormSection title="Dados pessoais" description="Identificação e formas de contato do paciente.">
+      <div className="mb-5 rounded-2xl border border-line bg-white p-4 shadow-sm sm:p-5">
+        <div className="mb-3 flex items-center justify-between text-sm"><span className="font-semibold text-ink">Etapa {step} de 3</span><span className="text-muted">{Math.round((step / 3) * 100)}% concluído</span></div>
+        <div className="h-2 overflow-hidden rounded-full bg-background"><div className="h-full rounded-full bg-primary transition-all duration-300" style={{ width: `${(step / 3) * 100}%` }} /></div>
+        <div className="mt-4 grid grid-cols-3 gap-2">{["Dados pessoais", "Informações clínicas e responsáveis", "Endereço"].map((title, index) => <div key={title} className={`text-xs sm:text-sm ${step === index + 1 ? "font-semibold text-primary" : "text-muted"}`}><span className={`mr-1 inline-flex h-6 w-6 items-center justify-center rounded-full ${step >= index + 1 ? "bg-primary text-white" : "bg-background text-muted"}`}>{index + 1}</span><span className="hidden sm:inline">{title}</span></div>)}</div>
+      </div>
+      <form noValidate onSubmit={(e) => { e.preventDefault(); if (step < 3) { if (validateCurrentStep()) moveToStep(step + 1); } else if (validateCurrentStep()) void handleSubmit(e); }} className="overflow-hidden rounded-2xl border border-line bg-surface shadow-sm">
+        <div key={step} className={`space-y-6 p-4 sm:p-6 ${stepDirection === "forward" ? "patient-slide-forward" : "patient-slide-backward"}`}>
+        <div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">Etapa {step}</p><h2 className="mt-1 text-xl font-semibold text-ink">{["Dados pessoais", "Informações clínicas e responsáveis", "Endereço"][step - 1]}</h2><p className="mt-1 text-sm text-muted">{["Identificação e formas de contato do paciente.", "Condição de saúde e equipe responsável pelo acompanhamento.", "Localização e referências para atendimento domiciliar."][step - 1]}</p></div>
+        {step === 1 && <FormSection title="Dados pessoais" description="Identificação e formas de contato do paciente.">
         <Field label="Nome completo" error={detail(fieldErrors.full_name)}>
           <input
             value={form.full_name}
@@ -363,7 +440,9 @@ export function PatientForm({ mode }: { mode: "create" | "edit" }) {
         <Field label="Telefone" error={detail(fieldErrors.phone)}>
           <input
             value={form.phone}
-            onChange={(e) => set("phone", e.target.value)}
+            onChange={(e) => set("phone", formatPhone(e.target.value))}
+            placeholder="(11) 91234-5678"
+            inputMode="tel"
             required
             className={inputClass}
           />
@@ -382,9 +461,9 @@ export function PatientForm({ mode }: { mode: "create" | "edit" }) {
             {genderOptions.map((gender) => <option key={gender} value={gender}>{gender}</option>)}
           </select>
         </Field>
-        </FormSection>
+        </FormSection>}
 
-        <FormSection title="Informações clínicas e responsáveis" description="Condição de saúde e equipe responsável pelo acompanhamento.">
+        {step === 2 && <FormSection title="Informações clínicas e responsáveis" description="Condição de saúde e equipe responsável pelo acompanhamento.">
         <Field
           label="Condição de saúde"
           error={detail(fieldErrors.health_condition)}
@@ -455,19 +534,26 @@ export function PatientForm({ mode }: { mode: "create" | "edit" }) {
             className={`${inputClass} disabled:bg-line`}
           />
         </Field>
-        </FormSection>
+        </FormSection>}
 
-        <FormSection title="Endereço" description="Localização e referências para atendimento domiciliar.">
+        {step === 3 && <FormSection title="Endereço" description="Localização e referências para atendimento domiciliar.">
         <Field label="CEP" error={detail(fieldErrors.address)}>
           <input
             value={form.zip_code}
-            onChange={(e) => set("zip_code", e.target.value)}
+            onChange={(e) => {
+              set("zip_code", formatCep(e.target.value));
+              setCepMessage(null);
+            }}
+            onBlur={(e) => void lookupCep(e.target.value)}
             required={mode === "create"}
             inputMode="numeric"
+            placeholder="00000-000"
             className={inputClass}
           />
         </Field>
-        <Field label="Estado (UF)">
+        {cepLoading && <p role="status" className="text-sm text-muted">Consultando CEP…</p>}
+        {cepMessage && <p role="status" className="text-sm text-muted sm:col-span-2">{cepMessage}</p>}
+        <Field label="Estado (UF)" error={detail(fieldErrors.state)}>
           <input
             value={form.state}
             onChange={(e) => set("state", e.target.value.toUpperCase())}
@@ -477,7 +563,7 @@ export function PatientForm({ mode }: { mode: "create" | "edit" }) {
             className={inputClass}
           />
         </Field>
-        <Field label="Cidade">
+        <Field label="Cidade" error={detail(fieldErrors.city)}>
           <input
             value={form.city}
             onChange={(e) => set("city", e.target.value)}
@@ -485,7 +571,7 @@ export function PatientForm({ mode }: { mode: "create" | "edit" }) {
             className={inputClass}
           />
         </Field>
-        <Field label="Bairro">
+        <Field label="Bairro" error={detail(fieldErrors.neighborhood)}>
           <input
             value={form.neighborhood}
             onChange={(e) => set("neighborhood", e.target.value)}
@@ -493,7 +579,7 @@ export function PatientForm({ mode }: { mode: "create" | "edit" }) {
             className={inputClass}
           />
         </Field>
-        <Field label="Rua">
+        <Field label="Rua" error={detail(fieldErrors.street)}>
           <input
             value={form.street}
             onChange={(e) => set("street", e.target.value)}
@@ -501,7 +587,7 @@ export function PatientForm({ mode }: { mode: "create" | "edit" }) {
             className={inputClass}
           />
         </Field>
-        <Field label="Número">
+        <Field label="Número" error={detail(fieldErrors.number)}>
           <input
             value={form.number}
             onChange={(e) => set("number", e.target.value)}
@@ -531,20 +617,12 @@ export function PatientForm({ mode }: { mode: "create" | "edit" }) {
             className={inputClass}
           />
         </Field>
-        </FormSection>
+        </FormSection>}
 
-        <div className="flex flex-col-reverse gap-3 border-t border-line pt-5 sm:flex-row sm:justify-end">
-          <button
-            type="submit"
-            disabled={submitting}
-            className="min-h-11 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-dark disabled:cursor-wait disabled:opacity-50"
-          >
-            {submitting
-              ? "Salvando…"
-              : mode === "create"
-                ? "Cadastrar"
-                : "Salvar alterações"}
-          </button>
+        </div>
+        <div className="flex flex-col-reverse gap-3 border-t border-line bg-background/70 p-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <button type="button" onClick={() => moveToStep(step - 1)} disabled={step === 1} className="min-h-11 rounded-lg border border-line bg-white px-5 py-2.5 text-sm font-semibold text-ink disabled:cursor-not-allowed disabled:opacity-40">← Voltar</button>
+          {step < 3 ? <button type="button" onClick={() => { if (validateCurrentStep()) moveToStep(step + 1); }} className="min-h-11 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-dark">Próxima etapa →</button> : <button type="submit" disabled={submitting} className="min-h-11 rounded-lg bg-primary px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-primary-dark disabled:cursor-wait disabled:opacity-50">{submitting ? "Salvando…" : mode === "create" ? "Cadastrar" : "Salvar alterações"}</button>}
           <Link
             to={mode === "create" ? "/pacientes" : `/pacientes/${id}`}
             className="inline-flex min-h-11 items-center justify-center rounded-lg border border-line px-5 py-2.5 text-sm font-medium text-ink transition hover:bg-background"
@@ -553,6 +631,7 @@ export function PatientForm({ mode }: { mode: "create" | "edit" }) {
           </Link>
         </div>
       </form>
+      <style>{`@keyframes patient-slide-forward { from { opacity: 0; transform: translateX(1rem); } to { opacity: 1; transform: translateX(0); } } @keyframes patient-slide-backward { from { opacity: 0; transform: translateX(-1rem); } to { opacity: 1; transform: translateX(0); } } .patient-slide-forward { animation: patient-slide-forward 220ms ease-out; } .patient-slide-backward { animation: patient-slide-backward 220ms ease-out; } @media (prefers-reduced-motion: reduce) { .patient-slide-forward, .patient-slide-backward { animation: none; } }`}</style>
     </div>
   );
 }
