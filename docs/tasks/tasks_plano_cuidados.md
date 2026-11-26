@@ -36,6 +36,8 @@ Implementada a modelagem `CarePlanNeed`: vínculo com plano/necessidade protegid
 
 Os campos são nullable para preservar vínculos existentes sem inventar profissional ou frequência, e permitir configuração posterior. Obrigatoriedade de preenchimento segue nas TASK 08/09; API, autorização e histórico automático seguem nas TASK 13/14/19. A configuração é própria de cada vínculo e permanece armazenada após sua remoção lógica.
 
+Na configuração, a frequência expressa o número de atendimentos necessários para aquela necessidade por dia, semana ou mês. Cada vínculo é configurado individualmente; a escala define depois os profissionais executores e a frequência aplicada. Não há limite máximo definido para a quantidade.
+
 - Armazenar profissional específico necessário.
 - Armazenar quantidade da frequência.
 - Armazenar período da frequência.
@@ -43,6 +45,7 @@ Os campos são nullable para preservar vínculos existentes sem inventar profiss
   - Dia
   - Semana
   - Mês
+- Interpretar a quantidade como atendimentos necessários dentro do período selecionado.
 
 ### TASK 04 — Modelar recursos do plano
 **Catálogo confirmado existente:** `GET /api/planos-cuidados/recursos/` e o CRUD `/api/recursos/` com tela `/recursos` já permitem selecionar e manter recursos cadastrados. O gerenciamento é restrito ao Gerente via `avaliacoes.manage_resources`; nenhum estoque ou logística é incluído.

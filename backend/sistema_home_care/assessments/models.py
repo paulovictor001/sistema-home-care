@@ -10,7 +10,7 @@ Pendencias registradas (nao implementar por inferencia):
   (TASK-AVL-BE-002); aqui os campos seguem permissivos como em Patient
   (nullable/blank), exceto os com default.
 - Estrutura detalhada de `Resource`: pendente (RN-AVL-016/017 cobrem so
-  o vinculo); stub minimo como HealthCondition, sem inventar atributos
+  o vinculo); contexto de saúde do paciente é texto livre no próprio Patient
   de estoque/farmacia/logistica.
 - Status da avaliacao: nao possui (RN-AVL-010). Transicoes de status da
   necessidade ficam para o Plano de Cuidados.

@@ -9,6 +9,7 @@ globalThis.__patientApiJson = async (path, options) => {
   return { id: 12, status: 'ACTIVE' };
 };
 const source = await readFile(new URL('../src/lib/patients.ts', import.meta.url), 'utf8');
+const formSource = await readFile(new URL('../src/pages/PatientForm.tsx', import.meta.url), 'utf8');
 const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.ESNext } }).outputText
   .replace(/import \{ apiJson \} from ['"]\.\/api['"];?/, 'const apiJson = globalThis.__patientApiJson;');
 const patients = await import(`data:text/javascript;base64,${Buffer.from(compiled).toString('base64')}`);
@@ -49,4 +50,11 @@ test('status actions use dedicated endpoints', async () => {
   assert.equal(requests.at(-1).path, '/api/pacientes/12/inativar/');
   await patients.reativarPaciente(12);
   assert.equal(requests.at(-1).path, '/api/pacientes/12/reativar/');
+});
+
+test('health conditions are plain text and the catalog UI and API helpers are gone', () => {
+  assert.match(source, /health_condition: string/);
+  assert.doesNotMatch(source, /condicoes-saude|createHealthCondition|listHealthConditions/);
+  assert.match(formSource, /<textarea[\s\S]*?value=\{form\.health_condition\}/);
+  assert.doesNotMatch(formSource, /Cadastrar nova condição de saúde|createHealthCondition|listHealthConditions/);
 });

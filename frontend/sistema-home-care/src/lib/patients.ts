@@ -1,26 +1,14 @@
 import { apiJson } from "./api";
 
-export interface HealthCondition {
-  id: number;
-  name: string;
-}
-
-export function listHealthConditions(): Promise<HealthCondition[]> {
-  return apiJson<HealthCondition[]>("/api/condicoes-saude/");
-}
-
-export function createHealthCondition(name: string): Promise<HealthCondition> {
-  return apiJson<HealthCondition>("/api/condicoes-saude/", {
-    method: "POST", json: { name },
-  });
-}
-
 /** Espelha `patients.serializers.PatientSerializer` (read). */
 export interface PatientAddress {
   zip_code: string;
   state: string;
   city: string;
   neighborhood: string;
+  neighborhood_id?: number | null;
+  region_id?: number | null;
+  legacy_region?: string;
   street: string;
   number: string;
   complement: string;
@@ -42,9 +30,13 @@ export interface Patient {
   status: PatientStatus;
   responsible_doctor: number | null;
   responsible_doctor_name: string | null;
-  responsible_team: unknown;
-  health_condition: number | null;
-  health_condition_name: string | null;
+  responsible_team: number | null;
+  responsible_team_name: string | null;
+  health_condition: string;
+  allergies: string;
+  restrictions: string;
+  special_needs: string;
+  important_observations: string;
   address: PatientAddress | null;
   created_at: string;
   updated_at: string;
@@ -107,12 +99,17 @@ export interface PatientAddressInput {
   state: string;
   city: string;
   neighborhood: string;
+  neighborhood_id?: number | null;
   street: string;
   number: string;
   complement?: string;
   reference_point?: string;
-  region?: string;
 }
+
+export interface ManagedRegion { id: number; name: string; is_active: boolean; neighborhood_count?: number }
+export interface ManagedNeighborhood { id: number; region: number; region_name: string; state: string; city: string; name: string; is_active: boolean }
+export const listRegions = () => apiJson<ManagedRegion[]>('/api/regioes/');
+export const listNeighborhoods = (state?: string, city?: string) => { const q = new URLSearchParams(); if (state) q.set('state', state); if (city) q.set('city', city); return apiJson<ManagedNeighborhood[]>(`/api/bairros/${q.size ? `?${q}` : ''}`); };
 
 export interface PatientCreateInput {
   full_name: string;
@@ -123,9 +120,12 @@ export interface PatientCreateInput {
   phone: string;
   gender: string;
   responsible_doctor: number;
-  /** JSON provisório até o módulo de profissionais (TASK-CAD-PAC-005). */
-  responsible_team?: unknown;
-  health_condition: number;
+  responsible_team?: number | null;
+  health_condition: string;
+  allergies?: string;
+  restrictions?: string;
+  special_needs?: string;
+  important_observations?: string;
   address: PatientAddressInput;
 }
 
@@ -136,11 +136,10 @@ export function createPatient(input: PatientCreateInput): Promise<Patient> {
 export type PatientUpdateInput = Partial<
   Omit<
     PatientCreateInput,
-    "address" | "responsible_doctor" | "health_condition"
+    "address" | "responsible_doctor"
   > & {
     address: Partial<PatientAddressInput>;
     responsible_doctor?: number | null;
-    health_condition?: number | null;
   }
 >;
 
@@ -166,6 +165,9 @@ export function reativarPaciente(id: number): Promise<Patient> {
 export function listMedicos(): Promise<Medico[]> {
   return apiJson<Medico[]>("/api/medicos/");
 }
+
+export interface Team { id: number; name: string; is_active: boolean; professionals: number[]; members: {id:number; name:string; profession:string}[] }
+export function listTeams(): Promise<Team[]> { return apiJson<Team[]>('/api/equipes/'); }
 
 export function isGerente(groups: string[] | undefined): boolean {
   return groups?.includes("GERENTE") ?? false;

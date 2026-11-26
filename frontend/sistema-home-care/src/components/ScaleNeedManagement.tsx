@@ -1,24 +1,24 @@
 import {useState, type FormEvent} from 'react';
 import {toast} from 'sonner';
 import {frequencyLabels, type FrequencyPeriod} from '../lib/carePlans';
-import {configureScaleNeed, scaleProfessionals, addScaleProfessional, removeScaleProfessional, substituteScaleProfessional, removeScaleNeed, saveProfessionalPlanning, type CareScale, type ScaleNeed, type ScaleProfessional} from '../lib/careScales';
+import {configureScaleNeed, scaleProfessionals, addScaleProfessional, removeScaleProfessional, substituteScaleProfessional, removeScaleNeed, saveProfessionalPlanning, planningRegions, type CareScale, type ScaleNeed, type ScaleProfessional, type ScaleRegion} from '../lib/careScales';
 
 export function ScaleNeedManagement({scale, item, onChange}: {scale: CareScale; item: ScaleNeed; onChange: (value: CareScale) => void}) {
   const [open, setOpen] = useState(false); const [busy, setBusy] = useState(false); const [error, setError] = useState('');
   const [options, setOptions] = useState<ScaleProfessional[]>([]); const [selected, setSelected] = useState('');
   const [quantity, setQuantity] = useState(item.frequency_quantity || 1); const [period, setPeriod] = useState<FrequencyPeriod>(item.frequency_period || 'WEEK');
   const [reason, setReason] = useState(item.frequency_reason); const [observation, setObservation] = useState(item.observation);
-  const [regions, setRegions] = useState(''); const [availability, setAvailability] = useState('');
+  const [regions, setRegions] = useState<number[]>([]); const [regionOptions, setRegionOptions] = useState<ScaleRegion[]>([]); const [availability, setAvailability] = useState('');
   async function execute(operation: () => Promise<CareScale>) {
     setBusy(true); setError(''); try {onChange(await operation()); toast.success('Necessidade da escala atualizada.');} catch (err) {const message = err instanceof Error ? err.message : 'Falha ao alterar necessidade.'; setError(message); toast.error(message);} finally {setBusy(false);}
   }
   async function load() {
-    setBusy(true); setError(''); try {setOptions(await scaleProfessionals(scale.id, item.id)); setOpen(true);} catch (err) {setError(err instanceof Error ? err.message : 'Falha ao carregar profissionais.');} finally {setBusy(false);}
+    setBusy(true); setError(''); try {const [available, managed] = await Promise.all([scaleProfessionals(scale.id, item.id), planningRegions()]); setOptions(available); setRegionOptions(managed); setOpen(true);} catch (err) {setError(err instanceof Error ? err.message : 'Falha ao carregar profissionais.');} finally {setBusy(false);}
   }
   function frequency(event: FormEvent) {event.preventDefault(); void execute(() => configureScaleNeed(scale.id, item.id, {frequency_quantity: quantity, frequency_period: period, frequency_reason: reason, observation}));}
   async function planning(event: FormEvent) {
     event.preventDefault(); if (!selected) return; setBusy(true); setError('');
-    try {await saveProfessionalPlanning(Number(selected), regions.split(',').map(value => value.trim()).filter(Boolean), availability); setOptions(await scaleProfessionals(scale.id, item.id)); toast.success('Planejamento profissional salvo.');}
+    try {await saveProfessionalPlanning(Number(selected), regions, availability); setOptions(await scaleProfessionals(scale.id, item.id)); toast.success('Planejamento profissional salvo.');}
     catch (err) {const message = err instanceof Error ? err.message : 'Falha ao salvar planejamento.'; setError(message); toast.error(message);} finally {setBusy(false);}
   }
   const professional = options.find(value => value.id === Number(selected));
@@ -32,10 +32,10 @@ export function ScaleNeedManagement({scale, item, onChange}: {scale: CareScale; 
         <label className="block">Observação da necessidade (opcional)<textarea className="block w-full rounded border p-2" value={observation} onChange={e => setObservation(e.target.value)} /></label>
         <button className="rounded border p-2" type="submit">Salvar frequência e observação</button>
       </form>
-      <label className="block">Profissional ativo compatível<select className="ml-2 rounded border p-2" value={selected} onChange={e => {setSelected(e.target.value); const option = options.find(value => value.id === Number(e.target.value)); setRegions(option?.regions.join(', ') || ''); setAvailability(option?.availability_notes || '');}}><option value="">Selecione</option>{options.map(value => <option key={value.id} value={value.id}>{value.full_name} · {value.profession_name}</option>)}</select></label>
+      <label className="block">Profissional ativo compatível<select className="ml-2 rounded border p-2" value={selected} onChange={e => {setSelected(e.target.value); const option = options.find(value => value.id === Number(e.target.value)); setRegions(option?.regions.map(region => region.id) || []); setAvailability(option?.availability_notes || '');}}><option value="">Selecione</option>{options.map(value => <option key={value.id} value={value.id}>{value.full_name} · {value.profession_name}</option>)}</select></label>
       {!options.length && <p>Nenhum profissional ativo compatível. Verifique a profissão necessária no plano.</p>}
-      {professional && <div className="space-y-2 rounded bg-background p-3"><p>Região do paciente: {professional.patient_region || 'Não informada'} · {professional.region_match === null ? 'Regiões atendidas não informadas' : professional.region_match ? 'Região atendida' : 'Verifique atendimento nesta região'}</p><p>Disponibilidade: {professional.availability_notes || 'Não informada'}</p>
-        <details><summary>Editar informações de planejamento</summary><form onSubmit={planning} className="space-y-2"><label className="block">Regiões atendidas (separadas por vírgula)<input className="block w-full rounded border p-2" value={regions} onChange={e => setRegions(e.target.value)} /></label><label className="block">Observações de disponibilidade<textarea className="block w-full rounded border p-2" value={availability} onChange={e => setAvailability(e.target.value)} /></label><button className="rounded border p-2" type="submit">Salvar planejamento</button></form></details>
+      {professional && <div className="space-y-2 rounded bg-background p-3"><p>Região do paciente: {professional.patient_region || 'Não informada'} · {professional.region_status === 'unknown' ? 'Sem informação suficiente para comparar' : professional.region_match ? 'Região atendida (indicativo)' : 'Região divergente (indicativo)'}</p><p>Disponibilidade: {professional.availability_notes || 'Não informada'}</p>
+        <details><summary>Editar informações de planejamento</summary><form onSubmit={planning} className="space-y-2"><fieldset><legend>Regiões atendidas (indicativo)</legend>{regionOptions.map(region => <label key={region.id} className="mr-3 inline-flex gap-1"><input type="checkbox" checked={regions.includes(region.id)} onChange={e => setRegions(current => e.target.checked ? [...current, region.id] : current.filter(id => id !== region.id))}/>{region.name}</label>)}</fieldset><label className="block">Observações de disponibilidade<textarea className="block w-full rounded border p-2" value={availability} onChange={e => setAvailability(e.target.value)} /></label><button className="rounded border p-2" type="submit">Salvar planejamento</button></form></details>
       </div>}
       <button className="rounded border p-2" disabled={!selected} onClick={() => void execute(() => addScaleProfessional(scale.id, item.id, Number(selected)))}>Adicionar profissional</button>
       <ul className="space-y-2">{item.assignments.filter(assignment => !assignment.removed_at).map(assignment => <li key={assignment.id} className="flex flex-wrap items-center gap-2"><span>{assignment.full_name}</span><button className="rounded border p-2" onClick={() => void execute(() => removeScaleProfessional(scale.id, item.id, assignment.id))}>Remover {assignment.full_name}</button><button className="rounded border p-2" disabled={!selected || Number(selected) === assignment.professional} onClick={() => void execute(() => substituteScaleProfessional(scale.id, item.id, assignment.id, Number(selected)))}>Substituir {assignment.full_name}</button></li>)}</ul>

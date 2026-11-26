@@ -35,7 +35,7 @@ Os casos descrevem o contexto e o resultado esperado. Não são um passo a passo
 
 | ID | Perfil | Caso de uso e resultado esperado |
 |---|---|---|
-| PAC-01 | Gerente | Cadastrar um paciente fictício com médico responsável, condição de saúde e endereço. O paciente aparece como ativo e seus dados ficam disponíveis para os processos clínicos. |
+| PAC-01 | Gerente | Cadastrar um paciente fictício com médico responsável, condição(ões) de saúde em texto livre e endereço. O paciente aparece como ativo e seus dados ficam disponíveis para os processos clínicos. |
 | PAC-02 | Médico e Enfermeiro | Consultar o paciente e editar dados clínicos permitidos. As alterações ficam associadas ao paciente correto. |
 | PAC-03 | Médico e Enfermeiro | Tentar cadastrar, inativar ou reativar paciente, ou alterar o médico/equipe responsáveis. As operações administrativas são recusadas e os dados permanecem inalterados. |
 | PAC-04 | Gerente | Inativar e reativar o paciente. O status muda, o registro é preservado e os filtros permitem encontrá-lo em cada situação. |
@@ -72,6 +72,7 @@ Os casos descrevem o contexto e o resultado esperado. Não são um passo a passo
 | PLA-03 | Gerente | Consultar o plano, seu estado, necessidades, configurações e histórico. A interface não oferece criação de plano para o Gerente neste fluxo. |
 | PLA-04 | Médico e Enfermeiro | Tentar transições não autorizadas ao perfil, como Enfermeiro criar/ativar plano ou Médico executar ação sem a permissão necessária. A operação é recusada e o estado não muda. |
 | PLA-05 | Médico e Enfermeiro | Tentar manter mais de um plano ativo para o mesmo paciente ou necessidade. O sistema impede a duplicidade conforme a regra vigente. |
+| PLA-06 | Médico e Enfermeiro | Em um plano com várias necessidades, configurar cada uma separadamente com profissional ativo e quantidade de atendimentos por dia, semana ou mês; salvar, reabrir e confirmar que cada configuração persiste sem alterar as demais. Recursos são opcionais. Ativar só é permitido quando todas as necessidades vigentes têm profissional e frequência. Confirmar que o perfil sem `planos_cuidados.manage_needs` não vê a ação e recebe recusa da API. |
 
 ### 6. Escala
 

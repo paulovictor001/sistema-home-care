@@ -25,6 +25,8 @@ urlpatterns = [
     path('api/medicos/', MedicoListView.as_view(), name='medicos-list'),
     path('api/clinicos/', ClinicoListView.as_view(), name='clinicos-list'),
     path('api/', include('accounts.urls_users')),
+    path('api/', include('professionals.urls')),
+    path('api/', include('geography.urls')),
     path('api/', include('patients.urls')),
     path('api/', include('assessments.urls')),
     path('api/', include('care_plans.urls')),

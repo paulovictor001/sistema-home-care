@@ -169,7 +169,11 @@ Representa o cadastro principal e permanente do paciente.
 | `photo` | Foto, quando utilizada |
 | `status` | Ativo/inativo |
 | `responsible_professional_id` | Médico/equipe responsável, conforme modelagem definida |
-| `health_condition_id` | Doença/estado de saúde, conforme modelagem definida |
+| `health_condition` | Condições de saúde relevantes em texto livre (até 2.000 caracteres) |
+| `allergies` | Alergias relevantes (texto opcional) |
+| `restrictions` | Restrições relevantes (texto opcional) |
+| `special_needs` | Necessidades especiais (texto opcional) |
+| `important_observations` | Observações importantes (texto opcional) |
 | `created_at` | Data de criação |
 | `updated_at` | Data de atualização |
 
@@ -1074,6 +1078,8 @@ professional_planning_info
 
 `care_scales` representa a escala vinculada a paciente e plano; `care_scale_needs` registra os itens do plano e a frequência definida na escala; `care_scale_assignments` mantém os profissionais por necessidade. `care_scale_audit_events` guarda autor, data e snapshots das alterações, enquanto `care_scale_substitutions` preserva substituições. `professional_planning_info` mantém informações de região e disponibilidade usadas como apoio informativo pela Escala.
 
+`Patient.health_condition` é texto livre obrigatório no cadastro e editável depois, com limite de 2.000 caracteres; pode registrar uma ou mais condições. A migração copia para cada paciente o nome de sua condição anterior (sem nome passa a texto vazio), inclusive quando vários pacientes compartilhavam o mesmo registro, e remove o catálogo. Alergias, restrições, necessidades especiais e observações importantes continuam como campos de texto opcionais e separados.
+
 ### Modelo implementado para Agendamento/Visit e decisões para Visita/Atendimento
 
 `Visit` é a própria ocorrência agendada e está persistida em `visits`, relacionada a paciente, Plano, `CarePlanNeed`, item da Escala e profissional herdado da atribuição vigente. Guarda data, início/fim programados, tipo único inicial (`Atendimento domiciliar`), status, observação, motivo de cancelamento, confirmação (autor/data), criação/atualização e autoria. O endereço usado é um snapshot integral por visita; corrigir o snapshot de uma visita não altera o cadastro nem outras visitas. `VisitHistory` preserva alterações relevantes com ator, instante e valores anterior/novo. As tarefas de Agendamento foram concluídas em 23/11/2026; início/fim operacionais e autoria de início/conclusão serão adicionados no processo Visita.
@@ -1126,3 +1132,7 @@ UserAuditLog ── referências opcionais ao usuário/ator, preservadas após e
 ## 16.4 Limites
 
 Política de senha além dos validadores vigentes, MFA, expiração de sessão, retenção detalhada de auditoria e campos completos de profissionais permanecem fora das decisões deste processo. Agendamento, visita, atendimento e evolução são tratados em seus próprios processos.
+# Regiões e bairros
+
+`geography.Region` e `geography.Neighborhood` formam o cadastro organizacional gerenciado. Cada bairro é identificado por UF + município + nome e pertence a uma região. Endereços de pacientes podem referenciar um bairro cadastrado; a região é derivada dessa relação. Endereços legados sem associação mantêm seu texto histórico consultável, sem região calculada. A comparação entre a região do paciente e as áreas atendidas do profissional apoia a decisão na Escala e não bloqueia atribuição nem agendamento.
+

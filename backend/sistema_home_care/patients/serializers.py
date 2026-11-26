@@ -3,8 +3,8 @@
 Cobre em nivel de endpoint (DRF):
 - TASK-CAD-PAC-004/031: `responsible_doctor` deve ser usuario do grupo
   MEDICO (checagem via `accounts.permissions.GroupNames`).
-- TASK-CAD-PAC-005: `responsible_team` aceito como JSON livre provisorio
-  (sem validacao de conteudo; estrutura real no modulo de profissionais).
+- `responsible_team` referencia uma equipe ativa cadastrada no modulo de
+  profissionais.
 - TASK-CAD-PAC-008: no cadastro, `responsible_doctor`, `health_condition`
   e `address` sao obrigatorios; CPF normalizado antes da validacao de
   unicidade (mascara nao burla duplicado).
@@ -20,8 +20,10 @@ from rest_framework.exceptions import PermissionDenied
 
 from accounts.permissions import GroupNames
 from accounts.validators import normalize_cpf
+from professionals.models import Team
+from geography.models import Neighborhood
 
-from .models import HealthCondition, Patient, PatientAddress
+from .models import Patient, PatientAddress
 
 User = get_user_model()
 
@@ -38,9 +40,36 @@ def _is_gerente(user) -> bool:
 
 
 class PatientAddressSerializer(serializers.ModelSerializer):
+    neighborhood_id = serializers.PrimaryKeyRelatedField(source="neighborhood_record", queryset=Neighborhood.objects.filter(is_active=True), required=False, allow_null=True)
+    region = serializers.SerializerMethodField()
+    region_id = serializers.IntegerField(source="neighborhood_record.region_id", read_only=True, allow_null=True)
+    legacy_region = serializers.CharField(source="region", read_only=True)
     class Meta:
         model = PatientAddress
-        exclude = ("id", "patient")
+        exclude = ("id", "patient", "neighborhood_record")
+        read_only_fields = ("region", "region_id", "legacy_region")
+
+    def get_region(self, address):
+        if address.neighborhood_record_id:
+            return address.neighborhood_record.region.name
+        return address.region
+
+    def validate(self, attrs):
+        neighborhood = attrs.get('neighborhood_record')
+        state = attrs.get('state', getattr(self.instance, 'state', ''))
+        city = attrs.get('city', getattr(self.instance, 'city', ''))
+        name = attrs.get('neighborhood', getattr(self.instance, 'neighborhood', ''))
+        if neighborhood and (neighborhood.state.casefold() != state.casefold() or neighborhood.city.casefold() != city.casefold() or neighborhood.name.casefold() != name.casefold()):
+            raise serializers.ValidationError({'neighborhood_id': 'O bairro cadastrado deve corresponder ao bairro, município e UF do endereço.'})
+        return attrs
+
+    def create(self, validated_data):
+        validated_data.pop('region', None)
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        validated_data.pop('region', None)
+        return super().update(instance, validated_data)
 
 
 class PatientSerializer(serializers.ModelSerializer):
@@ -49,11 +78,17 @@ class PatientSerializer(serializers.ModelSerializer):
     responsible_doctor = serializers.PrimaryKeyRelatedField(
         queryset=User.objects.all(), required=False, allow_null=True
     )
-    health_condition = serializers.PrimaryKeyRelatedField(
-        queryset=HealthCondition.objects.all(), required=False, allow_null=True
+    health_condition = serializers.CharField(
+        max_length=2000,
+        required=False,
+        allow_blank=True,
+        trim_whitespace=True,
     )
     responsible_doctor_name = serializers.SerializerMethodField()
-    health_condition_name = serializers.SerializerMethodField()
+    responsible_team = serializers.PrimaryKeyRelatedField(
+        queryset=Team.objects.filter(is_active=True), required=False, allow_null=True
+    )
+    responsible_team_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Patient
@@ -70,15 +105,19 @@ class PatientSerializer(serializers.ModelSerializer):
             "responsible_doctor",
             "responsible_doctor_name",
             "responsible_team",
+            "responsible_team_name",
             "health_condition",
-            "health_condition_name",
+            "allergies",
+            "restrictions",
+            "special_needs",
+            "important_observations",
             "address",
             "created_at",
             "updated_at",
         )
         read_only_fields = (
             "id", "status", "created_at", "updated_at",
-            "responsible_doctor_name", "health_condition_name",
+            "responsible_doctor_name",
         )
 
     def get_responsible_doctor_name(self, patient):
@@ -87,11 +126,8 @@ class PatientSerializer(serializers.ModelSerializer):
             return None
         return f"{doctor.first_name} {doctor.last_name}".strip() or doctor.cpf
 
-    def get_health_condition_name(self, patient):
-        condition = patient.health_condition
-        if condition is None:
-            return None
-        return condition.name.strip() or f"Condição de saúde #{condition.pk}"
+    def get_responsible_team_name(self, patient):
+        return patient.responsible_team.name if patient.responsible_team_id else None
 
     def validate_cpf(self, value):
         """Normaliza antes do UniqueValidator (TASK-CAD-PAC-006/029)."""
@@ -126,6 +162,8 @@ class PatientSerializer(serializers.ModelSerializer):
             for field in ("responsible_doctor", "health_condition"):
                 if attrs.get(field) is None:
                     errors[field] = "Obrigatorio no cadastro."
+            if not attrs.get("health_condition", "").strip():
+                errors["health_condition"] = "Informe ao menos uma condição de saúde."
             if "address" not in attrs:
                 errors["address"] = "Endereco obrigatorio no cadastro."
             if errors:
@@ -153,12 +191,3 @@ class PatientSerializer(serializers.ModelSerializer):
                 patient=instance, defaults=address_data
             )
         return instance
-
-
-class HealthConditionSerializer(serializers.ModelSerializer):
-    name = serializers.CharField(max_length=255, allow_blank=False)
-
-    class Meta:
-        model = HealthCondition
-        fields = ("id", "name")
-        read_only_fields = ("id",)

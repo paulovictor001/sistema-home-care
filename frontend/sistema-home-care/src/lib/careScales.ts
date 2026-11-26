@@ -28,7 +28,9 @@ export const updateScale = (id: number, data: Partial<ScaleInput>) => apiJson<Ca
 export const deleteScale = async (id: number) => {const response = await api(`${base}${id}/`, {method: 'DELETE'}); if (!response.ok) throw new ApiError(response.status, 'Não foi possível excluir a escala.');};
 export const scaleAccess = () => apiJson<Record<ScaleAction, boolean>>(`${base}acesso/`);
 export const changeScaleStatus = (id: number, status: ScaleStatus) => apiJson<CareScale>(`${base}${id}/status/`, {method: 'POST', json: {status}});
-export interface ScaleProfessional {id: number; full_name: string; profession_name: string; regions: string[]; availability_notes: string; patient_region: string; region_match: boolean | null}
+export interface ScaleProfessional {id: number; full_name: string; profession_name: string; regions: {id:number; name:string}[]; availability_notes: string; patient_region: string; region_match: boolean | null; region_status: 'unknown'|'match'|'mismatch'}
+export interface ScaleRegion {id: number; name: string}
+export const planningRegions = () => apiJson<ScaleRegion[]>('/api/regioes/');
 export const addScaleNeed = (id: number, plan_need: number) => apiJson<CareScale>(`${base}${id}/necessidades/`, {method: 'POST', json: {plan_need}});
 export const removeScaleNeed = (id: number, item: number) => apiJson<CareScale>(`${base}${id}/necessidades/${item}/remover/`, {method: 'POST'});
 export const configureScaleNeed = (id: number, item: number, data: {frequency_quantity: number; frequency_period: FrequencyPeriod; frequency_reason: string; observation: string}) => apiJson<CareScale>(`${base}${id}/necessidades/${item}/configurar/`, {method: 'POST', json: data});
@@ -36,7 +38,7 @@ export const scaleProfessionals = (id: number, item: number) => apiJson<ScalePro
 export const addScaleProfessional = (id: number, item: number, professional: number) => apiJson<CareScale>(`${base}${id}/necessidades/${item}/profissionais/`, {method: 'POST', json: {professional}});
 export const removeScaleProfessional = (id: number, item: number, assignment: number) => apiJson<CareScale>(`${base}${id}/necessidades/${item}/profissionais/${assignment}/remover/`, {method: 'POST'});
 export const substituteScaleProfessional = (id: number, item: number, assignment: number, professional: number) => apiJson<CareScale>(`${base}${id}/necessidades/${item}/profissionais/${assignment}/substituir/`, {method: 'POST', json: {professional}});
-export const saveProfessionalPlanning = (professional: number, regions: string[], availability_notes: string) => apiJson<{regions: string[]; availability_notes: string}>(`${base}profissionais/${professional}/planejamento/`, {method: 'PUT', json: {regions, availability_notes}});
+export const saveProfessionalPlanning = (professional: number, regions: number[], availability_notes: string) => apiJson<{regions: number[]; availability_notes: string}>(`${base}profissionais/${professional}/planejamento/`, {method: 'PUT', json: {regions, availability_notes}});
 export interface ScaleSubstitution {id: number; item: number | null; previous_name: string; new_name: string; actor_name: string; created_at: string}
 export interface ScaleAudit {id: number; actor_name: string; action: string; created_at: string; previous_data: unknown; new_data: unknown}
 export const scaleSubstitutions = (id: number) => apiJson<ScaleSubstitution[]>(`${base}${id}/substituicoes/`);

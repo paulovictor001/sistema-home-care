@@ -7,17 +7,18 @@ import { formatCpf, stripCpf } from "../lib/cpf";
 import { formatPhone, stripPhone } from "../lib/phone";
 import {
   createPatient,
-  createHealthCondition,
-  listHealthConditions,
-  type HealthCondition,
   getPatient,
   isGerente,
   canManagePatientAssignments,
   listMedicos,
+  listTeams,
   medicoDisplayName,
   parseFieldErrors,
   updatePatient,
+  listNeighborhoods,
+  type ManagedNeighborhood,
   type Medico,
+  type Team,
 } from "../lib/patients";
 
 function Field({
@@ -73,15 +74,19 @@ interface FormState {
   responsible_doctor: string;
   responsible_team: string;
   health_condition: string;
+  allergies: string;
+  restrictions: string;
+  special_needs: string;
+  important_observations: string;
   zip_code: string;
   state: string;
   city: string;
   neighborhood: string;
+  neighborhood_id: string;
   street: string;
   number: string;
   complement: string;
   reference_point: string;
-  region: string;
 }
 
 const EMPTY: FormState = {
@@ -95,15 +100,19 @@ const EMPTY: FormState = {
   responsible_doctor: "",
   responsible_team: "",
   health_condition: "",
+  allergies: "",
+  restrictions: "",
+  special_needs: "",
+  important_observations: "",
   zip_code: "",
   state: "",
   city: "",
   neighborhood: "",
+  neighborhood_id: "",
   street: "",
   number: "",
   complement: "",
   reference_point: "",
-  region: "",
 };
 
 export function PatientForm({ mode }: { mode: "create" | "edit" }) {
@@ -115,11 +124,8 @@ export function PatientForm({ mode }: { mode: "create" | "edit" }) {
 
   const [form, setForm] = useState<FormState>(EMPTY);
   const [medicos, setMedicos] = useState<Medico[]>([]);
-  const [conditions, setConditions] = useState<HealthCondition[]>([]);
-  const [conditionsLoading, setConditionsLoading] = useState(true);
-  const [conditionsError, setConditionsError] = useState<string | null>(null);
-  const [newCondition, setNewCondition] = useState("");
-  const [addingCondition, setAddingCondition] = useState(false);
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [managedNeighborhoods, setManagedNeighborhoods] = useState<ManagedNeighborhood[]>([]);
   const [loading, setLoading] = useState(mode === "edit");
   const [loadError, setLoadError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string[]>>({});
@@ -131,13 +137,6 @@ export function PatientForm({ mode }: { mode: "create" | "edit" }) {
 
   useEffect(() => {
     async function load() {
-      try {
-        setConditions(await listHealthConditions());
-      } catch {
-        setConditionsError("Falha ao carregar condições de saúde. Recarregue a página para tentar novamente.");
-      } finally {
-        setConditionsLoading(false);
-      }
       // O select de médicos só é acessível ao gerente (GET /api/medicos/).
       if (manager) {
         try {
@@ -145,6 +144,7 @@ export function PatientForm({ mode }: { mode: "create" | "edit" }) {
         } catch {
           setMedicos([]);
         }
+        try { setTeams(await listTeams()); } catch { setTeams([]); }
       }
       if (mode === "edit" && id) {
         try {
@@ -159,22 +159,21 @@ export function PatientForm({ mode }: { mode: "create" | "edit" }) {
             phone: formatPhone(patient.phone),
             gender: patient.gender,
             responsible_doctor: patient.responsible_doctor?.toString() ?? "",
-            responsible_team:
-              typeof patient.responsible_team === "string"
-                ? patient.responsible_team
-                : (patient.responsible_team
-                    ? JSON.stringify(patient.responsible_team)
-                    : ""),
-            health_condition: patient.health_condition?.toString() ?? "",
+            responsible_team: patient.responsible_team?.toString() ?? "",
+            health_condition: patient.health_condition ?? "",
+            allergies: patient.allergies ?? "",
+            restrictions: patient.restrictions ?? "",
+            special_needs: patient.special_needs ?? "",
+            important_observations: patient.important_observations ?? "",
             zip_code: address?.zip_code ?? "",
             state: address?.state ?? "",
             city: address?.city ?? "",
             neighborhood: address?.neighborhood ?? "",
+            neighborhood_id: address?.neighborhood_id?.toString() ?? "",
             street: address?.street ?? "",
             number: address?.number ?? "",
             complement: address?.complement ?? "",
             reference_point: address?.reference_point ?? "",
-            region: address?.region ?? "",
           });
         } catch (err) {
           setLoadError(
@@ -189,6 +188,11 @@ export function PatientForm({ mode }: { mode: "create" | "edit" }) {
     }
     void load();
   }, [mode, id, manager]);
+
+  useEffect(() => {
+    if (!form.state || !form.city) { setManagedNeighborhoods([]); return; }
+    void listNeighborhoods(form.state, form.city).then(setManagedNeighborhoods).catch(() => setManagedNeighborhoods([]));
+  }, [form.state, form.city]);
 
   function set<K extends keyof FormState>(key: K, value: string) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -240,6 +244,7 @@ export function PatientForm({ mode }: { mode: "create" | "edit" }) {
         ...previous,
         street: data.logradouro ?? "",
         neighborhood: data.bairro ?? "",
+        neighborhood_id: "",
         city: data.localidade ?? "",
         state: data.uf ?? "",
       }));
@@ -248,24 +253,6 @@ export function PatientForm({ mode }: { mode: "create" | "edit" }) {
       setCepMessage("Não foi possível consultar o CEP. Preencha o endereço manualmente.");
     } finally {
       setCepLoading(false);
-    }
-  }
-
-  async function addCondition() {
-    if (!newCondition.trim()) return;
-    setAddingCondition(true);
-    setConditionsError(null);
-    try {
-      const created = await createHealthCondition(newCondition.trim());
-      setConditions((previous) => [...previous, created].sort((a, b) => a.name.localeCompare(b.name)));
-      set("health_condition", String(created.id));
-      setNewCondition("");
-      toast.success("Condição de saúde cadastrada.");
-    } catch {
-      setConditionsError("Não foi possível cadastrar a condição de saúde. Tente novamente.");
-      toast.error("Não foi possível cadastrar a condição de saúde.");
-    } finally {
-      setAddingCondition(false);
     }
   }
 
@@ -279,11 +266,11 @@ export function PatientForm({ mode }: { mode: "create" | "edit" }) {
         state: form.state.trim(),
         city: form.city.trim(),
         neighborhood: form.neighborhood.trim(),
+        neighborhood_id: form.neighborhood_id ? Number(form.neighborhood_id) : null,
         street: form.street.trim(),
         number: form.number.trim(),
         complement: form.complement.trim(),
         reference_point: form.reference_point.trim(),
-        region: form.region.trim(),
       };
       if (mode === "create") {
         const created = await createPatient({
@@ -295,8 +282,12 @@ export function PatientForm({ mode }: { mode: "create" | "edit" }) {
           phone: stripPhone(form.phone),
           gender: form.gender.trim(),
           responsible_doctor: Number(form.responsible_doctor),
-          responsible_team: form.responsible_team.trim() || undefined,
-          health_condition: Number(form.health_condition),
+          responsible_team: form.responsible_team ? Number(form.responsible_team) : null,
+          health_condition: form.health_condition.trim(),
+          allergies: form.allergies.trim(),
+          restrictions: form.restrictions.trim(),
+          special_needs: form.special_needs.trim(),
+          important_observations: form.important_observations.trim(),
           address,
         });
         toast.success("Paciente cadastrado com sucesso.");
@@ -311,16 +302,18 @@ export function PatientForm({ mode }: { mode: "create" | "edit" }) {
           age: Number(form.age),
           phone: stripPhone(form.phone),
           gender: form.gender.trim(),
-          health_condition: form.health_condition
-            ? Number(form.health_condition)
-            : null,
+          health_condition: form.health_condition.trim(),
+          allergies: form.allergies.trim(),
+          restrictions: form.restrictions.trim(),
+          special_needs: form.special_needs.trim(),
+          important_observations: form.important_observations.trim(),
           address,
           ...(canManageAssignments
             ? {
                 responsible_doctor: form.responsible_doctor
                   ? Number(form.responsible_doctor)
                   : null,
-                responsible_team: form.responsible_team.trim() || null,
+                responsible_team: form.responsible_team ? Number(form.responsible_team) : null,
               }
             : {}),
         };
@@ -468,39 +461,28 @@ export function PatientForm({ mode }: { mode: "create" | "edit" }) {
           label="Condição de saúde"
           error={detail(fieldErrors.health_condition)}
         >
-          <select
+          <textarea
             value={form.health_condition}
             onChange={(e) => set("health_condition", e.target.value)}
+            maxLength={2000}
+            rows={3}
             required={mode === "create"}
-            disabled={conditionsLoading || addingCondition}
             className={inputClass}
-          >
-            <option value="">{conditionsLoading ? "Carregando…" : "Selecione…"}</option>
-            {form.health_condition && !conditions.some((condition) => String(condition.id) === form.health_condition) && (
-              <option value={form.health_condition}>Condição atual (cadastro sem nome)</option>
-            )}
-            {conditions.map((condition) => (
-              <option key={condition.id} value={condition.id}>
-                {condition.name || `Condição sem nome — registro ${condition.id}`}
-              </option>
-            ))}
-          </select>
+            placeholder="Ex.: hipertensão, diabetes"
+          />
         </Field>
-        {manager && (
-          <div className="sm:col-span-2">
-            <label htmlFor="new-condition" className="mb-1 block text-sm font-medium">Cadastrar nova condição de saúde</label>
-            <div className="flex gap-2">
-              <input id="new-condition" value={newCondition} onChange={(event) => setNewCondition(event.target.value)}
-                maxLength={255} placeholder="Nome da condição de saúde" className={inputClass} />
-              <button type="button" onClick={() => void addCondition()} disabled={addingCondition || !newCondition.trim() || conditionsLoading}
-                className="shrink-0 rounded border border-primary px-3 py-2 text-sm text-primary disabled:opacity-50">
-                {addingCondition ? "Cadastrando…" : "Adicionar"}
-              </button>
-            </div>
-            {!conditionsLoading && conditions.length === 0 && !conditionsError && <p className="mt-1 text-sm text-ink">Cadastre uma condição para selecioná-la no paciente.</p>}
-          </div>
-        )}
-        {conditionsError && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-700 sm:col-span-2">{conditionsError}</p>}
+        <Field label="Alergias" error={detail(fieldErrors.allergies)}>
+          <textarea value={form.allergies} onChange={(e) => set("allergies", e.target.value)} rows={3} className={inputClass} />
+        </Field>
+        <Field label="Restrições" error={detail(fieldErrors.restrictions)}>
+          <textarea value={form.restrictions} onChange={(e) => set("restrictions", e.target.value)} rows={3} className={inputClass} />
+        </Field>
+        <Field label="Necessidades especiais" error={detail(fieldErrors.special_needs)}>
+          <textarea value={form.special_needs} onChange={(e) => set("special_needs", e.target.value)} rows={3} className={inputClass} />
+        </Field>
+        <Field label="Observações importantes" error={detail(fieldErrors.important_observations)}>
+          <textarea value={form.important_observations} onChange={(e) => set("important_observations", e.target.value)} rows={3} className={inputClass} />
+        </Field>
         <Field
           label="Médico responsável"
           error={detail(fieldErrors.responsible_doctor)}
@@ -525,14 +507,16 @@ export function PatientForm({ mode }: { mode: "create" | "edit" }) {
           label="Equipe responsável"
           error={detail(fieldErrors.responsible_team)}
         >
-          <input
+          <select
             value={form.responsible_team}
             onChange={(e) => set("responsible_team", e.target.value)}
-            placeholder="Texto livre (provisório)"
             disabled={mode === "edit" ? !canManageAssignments : !manager}
             title={mode === "edit" && !canManageAssignments ? "Somente gerente com permissão para alterar responsáveis" : undefined}
             className={`${inputClass} disabled:bg-line`}
-          />
+          >
+            <option value="">Sem equipe</option>
+            {teams.map((team) => <option key={team.id} value={team.id}>{team.name}</option>)}
+          </select>
         </Field>
         </FormSection>}
 
@@ -571,10 +555,13 @@ export function PatientForm({ mode }: { mode: "create" | "edit" }) {
             className={inputClass}
           />
         </Field>
-        <Field label="Bairro" error={detail(fieldErrors.neighborhood)}>
+        <Field label="Bairro cadastrado (opcional)">
+          <select value={form.neighborhood_id} onChange={(e) => { set("neighborhood_id", e.target.value); const item = managedNeighborhoods.find((n) => String(n.id) === e.target.value); if (item) set("neighborhood", item.name); }} className={inputClass}><option value="">Sem mapeamento cadastrado</option>{managedNeighborhoods.map((item) => <option key={item.id} value={item.id}>{item.name} · {item.region_name}</option>)}</select>
+        </Field>
+        <Field label="Bairro do endereço" error={detail(fieldErrors.neighborhood)}>
           <input
             value={form.neighborhood}
-            onChange={(e) => set("neighborhood", e.target.value)}
+            onChange={(e) => { set("neighborhood", e.target.value); set("neighborhood_id", ""); }}
             required={mode === "create"}
             className={inputClass}
           />
@@ -609,14 +596,7 @@ export function PatientForm({ mode }: { mode: "create" | "edit" }) {
             className={inputClass}
           />
         </Field>
-        <Field label="Região">
-          <input
-            value={form.region}
-            onChange={(e) => set("region", e.target.value)}
-            placeholder="Usada no filtro por região"
-            className={inputClass}
-          />
-        </Field>
+        <p className="text-sm text-muted sm:col-span-2">A região vem do bairro cadastrado. Endereços sem mapeamento podem ser salvos e ficam sem região.</p>
         </FormSection>}
 
         </div>

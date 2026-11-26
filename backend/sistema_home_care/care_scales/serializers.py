@@ -3,6 +3,7 @@ from .models import CareScale, ScaleNeed, ScaleAssignment, ScaleStatus, ScaleAud
 from professionals.models import Professional
 from care_plans.models import CarePlanNeed
 from care_plans.models import FrequencyPeriod
+from geography.models import Region
 
 
 class StatusSerializer(serializers.Serializer):
@@ -10,11 +11,9 @@ class StatusSerializer(serializers.Serializer):
 
 
 class PlanningInfoSerializer(serializers.Serializer):
-    regions = serializers.ListField(child=serializers.CharField(max_length=100), required=False)
+    regions = serializers.PrimaryKeyRelatedField(queryset=Region.objects.filter(is_active=True), many=True, required=False)
     availability_notes = serializers.CharField(allow_blank=True, required=False)
 
-    def validate_regions(self, value):
-        return list(dict.fromkeys(region.strip() for region in value))
 
 
 class NeedConfigurationSerializer(serializers.Serializer):

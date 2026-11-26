@@ -389,3 +389,7 @@ dependências com o cadastro do paciente.
 
 Até lá, o cadastro deverá permanecer limitado às regras explicitamente
 definidas neste documento.
+# Região do endereço
+
+O endereço seleciona opcionalmente um bairro do cadastro organizacional, identificado por UF e município. A região decorre do bairro; não é editada manualmente. Endereço sem bairro mapeado pode ser salvo e não possui região derivada. Dados anteriores não associados permanecem consultáveis até correção.
+
