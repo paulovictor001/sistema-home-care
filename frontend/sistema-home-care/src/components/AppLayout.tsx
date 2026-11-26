@@ -229,6 +229,9 @@ export function AppLayout() {
           >
             <span className="flex size-11 shrink-0 items-center justify-center rounded-xl bg-accent text-sm font-extrabold tracking-tight text-sidebar shadow-md shadow-black/10">
               HC
+            </span>
+
+            <span className="min-w-0">
               <span className="block text-base font-bold tracking-wide text-white">
                 LarVita
               </span>
@@ -473,7 +476,7 @@ export function AppLayout() {
             </div>
           </header>
 
-          <main className="mx-auto w-full max-w-[1440px] p-4 sm:p-6 lg:p-8">
+          <main className="mx-auto min-w-0 w-full max-w-[1440px] p-4 sm:p-6 lg:p-8">
             <Outlet />
           </main>
 
