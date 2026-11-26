@@ -151,6 +151,7 @@ const PAGE_TITLES: { prefix: string; title: string; crumb: string }[] = [
   { prefix: "/usuarios", title: "Usuários", crumb: "Painel / Usuários" },
   { prefix: "/categorias", title: "Categorias", crumb: "Painel / Categorias" },
   { prefix: "/profissoes", title: "Profissões", crumb: "Painel / Profissões" },
+  { prefix: "/equipes", title: "Equipes", crumb: "Painel / Administração / Equipes" },
   {
     prefix: "/tipos",
     title: "Tipos de necessidade",
@@ -330,6 +331,16 @@ export function AppLayout() {
                       >
                         <NavIcon name="briefcaseMedical" />
                         <span>Profissões</span>
+                      </NavLink>
+
+                      <NavLink
+                        to="/equipes"
+                        end
+                        className={navClasses}
+                        onClick={closeMenu}
+                      >
+                        <NavIcon name="users" />
+                        <span>Equipes</span>
                       </NavLink>
 
                       <NavLink

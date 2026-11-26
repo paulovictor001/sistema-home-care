@@ -1,40 +1,58 @@
-from django.test import TestCase
+from datetime import date
+
+from django.db import connection
+from django.db.migrations.executor import MigrationExecutor
+from django.test import TransactionTestCase
 from rest_framework.test import APIClient
-from accounts.models import GranularPermission
-from assessments.tests_api import make_api_users, auth_client, GERENTE_CPF, MEDICO_CPF, ENFERMEIRO_CPF, SEM_GRUPO_CPF
-from .models import HealthCondition
 
 
-class HealthConditionCatalogTests(TestCase):
-    def setUp(self):
-        self.users = make_api_users()
+class HealthConditionEndpointRemovalTests(TransactionTestCase):
+    def test_catalog_endpoint_is_not_registered(self):
+        response = APIClient().get("/api/condicoes-saude/")
+        self.assertEqual(response.status_code, 404)
 
-    def test_manager_creates_named_condition_and_care_team_lists(self):
-        response = auth_client(self.users[GERENTE_CPF]).post(
-            '/api/condicoes-saude/', {'name': ' Condição de teste '}, format='json')
-        self.assertEqual(response.status_code, 201)
-        condition = HealthCondition.objects.get(pk=response.data['id'])
-        self.assertEqual(condition.name, 'Condição de teste')
-        for cpf in (GERENTE_CPF, MEDICO_CPF, ENFERMEIRO_CPF):
-            response = auth_client(self.users[cpf]).get('/api/condicoes-saude/')
-            self.assertEqual(response.status_code, 200)
-            self.assertIn({'id': condition.pk, 'name': condition.name}, response.data)
+    def test_migration_copies_shared_and_unnamed_condition_names(self):
+        executor = MigrationExecutor(connection)
+        executor.migrate([("patients", "0008_patient_health_context")])
+        old_apps = executor.loader.project_state(
+            [("patients", "0008_patient_health_context")]
+        ).apps
+        Patient = old_apps.get_model("patients", "Patient")
+        HealthCondition = old_apps.get_model("patients", "HealthCondition")
 
-    def test_blank_and_missing_names_rejected(self):
-        client = auth_client(self.users[GERENTE_CPF])
-        for payload in ({}, {'name': '  '}, {'name': None}, {'name': 'a' * 256}):
-            self.assertEqual(client.post('/api/condicoes-saude/', payload, format='json').status_code, 400)
+        shared = HealthCondition.objects.create(name="Hipertensão")
+        unnamed = HealthCondition.objects.create(name="")
+        patients = [
+            Patient.objects.create(
+                full_name=f"Paciente {index}",
+                birth_date=date(1960, 1, 1),
+                cpf=cpf,
+                rg="1",
+                age=66,
+                phone="91",
+                gender="Feminino",
+                health_condition=condition,
+            )
+            for index, (cpf, condition) in enumerate(
+                [
+                    ("52998224725", shared),
+                    ("11144477735", shared),
+                    ("12345678909", unnamed),
+                ],
+                1,
+            )
+        ]
+        patient_ids = [patient.pk for patient in patients]
 
-    def test_creation_and_read_permissions(self):
-        for cpf in (MEDICO_CPF, ENFERMEIRO_CPF, SEM_GRUPO_CPF):
-            self.assertEqual(auth_client(self.users[cpf]).post('/api/condicoes-saude/', {'name': 'Teste'}, format='json').status_code, 403)
-        self.assertEqual(APIClient().get('/api/condicoes-saude/').status_code, 401)
-        self.assertEqual(auth_client(self.users[SEM_GRUPO_CPF]).get('/api/condicoes-saude/').status_code, 403)
-        manager = self.users[GERENTE_CPF]
-        manager.category.permissions.remove(GranularPermission.objects.get(codename='pacientes.create'))
-        self.assertEqual(auth_client(manager).post('/api/condicoes-saude/', {'name': 'Teste'}, format='json').status_code, 403)
-
-    def test_legacy_unnamed_condition_remains_available(self):
-        condition = HealthCondition.objects.create()
-        response = auth_client(self.users[GERENTE_CPF]).get('/api/condicoes-saude/')
-        self.assertIn({'id': condition.pk, 'name': ''}, response.data)
+        executor = MigrationExecutor(connection)
+        executor.migrate(executor.loader.graph.leaf_nodes())
+        current_apps = executor.loader.project_state(executor.loader.graph.leaf_nodes()).apps
+        CurrentPatient = current_apps.get_model("patients", "Patient")
+        self.assertEqual(
+            list(
+                CurrentPatient.objects.filter(pk__in=patient_ids)
+                .order_by("pk")
+                .values_list("health_condition", flat=True)
+            ),
+            ["Hipertensão", "Hipertensão", ""],
+        )

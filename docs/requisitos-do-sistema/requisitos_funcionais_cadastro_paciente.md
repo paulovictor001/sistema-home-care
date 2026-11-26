@@ -366,3 +366,7 @@ estabelecer suas relações com o cadastro do paciente.
 
 Até essa definição, qualquer dependência deverá ser registrada como
 **pendência ou dependência futura**, sem assumir uma regra operacional.
+# Região derivada
+
+O sistema deve permitir selecionar bairro cadastrado compatível com UF e município do endereço e exibir sua região derivada. O mapeamento é mantido por gerente. Endereços sem mapeamento podem ser salvos; a listagem continua filtrável pela região derivada e permite consulta dos valores legados.
+

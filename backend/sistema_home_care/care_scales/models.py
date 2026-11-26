@@ -104,6 +104,7 @@ class ScaleSubstitution(models.Model):
 
 class ProfessionalPlanningInfo(models.Model):
     professional = models.OneToOneField('professionals.Professional', on_delete=models.CASCADE, related_name='scale_planning')
-    regions = models.JSONField(default=list, blank=True)
+    regions = models.ManyToManyField('geography.Region', blank=True, related_name='professional_plannings')
+    legacy_regions = models.JSONField(default=list, blank=True)
     availability_notes = models.TextField(blank=True)
     updated_at = models.DateTimeField(auto_now=True)

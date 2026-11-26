@@ -1,7 +1,7 @@
 """Modelos do Cadastro do Paciente.
 
-Cobre TASK-CAD-PAC-001 (Patient), 002 (PatientAddress), 003
-(HealthCondition minima), 004 (FK do medico responsavel; checagem "e
+Cobre TASK-CAD-PAC-001 (Patient), 002 (PatientAddress), 004
+(FK do medico responsavel; checagem "e
 medico" no serializer), 005 (`responsible_team` como JSON provisorio ate
 o modulo de profissionais), 006 (unicidade do CPF no banco +
 normalizacao na aplicacao) e 028-031 em nivel de model (obrigatoriedade,
@@ -12,7 +12,6 @@ Pendencias registradas (nao implementar por inferencia):
   TASK-CAD-PAC-005 (modulo de profissionais).
 - Obrigatoriedade de `responsible_doctor`/`health_condition` no endpoint:
   TASK-CAD-PAC-008/031 (aqui sao nullable para a fase de modelagem).
-- Estrutura detalhada de `HealthCondition`: pendente (RN-CAD-PAC-005).
 - Atualizacao automatica de `age` e regra bairro->`region`.
 """
 
@@ -71,25 +70,6 @@ class PatientAuditLog(models.Model):
         return f"PatientAuditLog #{self.pk} {self.action}"
 
 
-class HealthCondition(models.Model):
-    """Doenca/estado de saude (entidade cadastravel).
-
-    Nome adicionado para seleção e cadastro no formulário de pacientes.
-    Estrutura clínica detalhada permanece pendente (RN-CAD-PAC-005).
-    Registros legados podem continuar sem nome, preservando vínculos.
-    """
-
-    name = models.CharField(max_length=255, blank=True, default="")
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        db_table = "health_conditions"
-
-    def __str__(self):
-        return self.name or f"Condição de saúde #{self.pk}"
-
-
 class Patient(models.Model):
     """Cadastro principal e permanente do paciente (TASK-CAD-PAC-001)."""
 
@@ -128,23 +108,20 @@ class Patient(models.Model):
         on_delete=models.PROTECT,
         related_name="patients",
     )
-    # TODO(TASK-CAD-PAC-005): `responsible_team` provisorio como JSON ate o
-    # modulo de profissionais definir a entidade Equipe. Sem validacao de
-    # conteudo nesta fase.
-    responsible_team = models.JSONField(
+    responsible_team = models.ForeignKey(
+        "professionals.Team",
         null=True,
         blank=True,
-        default=dict,
-        help_text="Equipe responsavel (JSON provisorio ate TASK-CAD-PAC-005).",
+        on_delete=models.SET_NULL,
+        related_name="patients",
+        help_text="Equipe atual responsavel pelo paciente.",
     )
     # TODO(TASK-CAD-PAC-008/031): tornar obrigatorio no endpoint de cadastro.
-    health_condition = models.ForeignKey(
-        HealthCondition,
-        null=True,
-        blank=True,
-        on_delete=models.PROTECT,
-        related_name="patients",
-    )
+    health_condition = models.TextField(blank=True, default="", max_length=2000)
+    allergies = models.TextField(blank=True, default="")
+    restrictions = models.TextField(blank=True, default="")
+    special_needs = models.TextField(blank=True, default="")
+    important_observations = models.TextField(blank=True, default="")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -182,8 +159,9 @@ class PatientAddress(models.Model):
     number = models.CharField(max_length=20)
     complement = models.CharField(max_length=255, blank=True)
     reference_point = models.CharField(max_length=255, blank=True)
-    # Regra bairro->regiao pendente: campo livre e opcional por ora.
     region = models.CharField(max_length=100, blank=True)
+    neighborhood_record = models.ForeignKey('geography.Neighborhood', null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='patient_addresses')
 
     class Meta:
         db_table = "patient_addresses"

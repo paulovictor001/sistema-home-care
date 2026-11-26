@@ -37,3 +37,18 @@ class Professional(models.Model):
 
     def __str__(self):
         return self.full_name
+
+
+class Team(models.Model):
+    name = models.CharField(max_length=255, unique=True)
+    professionals = models.ManyToManyField(Professional, blank=True, related_name="teams")
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "teams"
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name

@@ -41,6 +41,26 @@ export interface FreeProfessional {
   profession__name: string;
 }
 
+export interface TeamRecord {
+  id: number; name: string; is_active: boolean; professionals: number[];
+  members: { id: number; name: string; profession: string }[];
+}
+export interface TeamProfessional { id: number; full_name: string; profession__name: string }
+export function listTeams(status: "ativo" | "inativo" | "todos" = "todos"): Promise<TeamRecord[]> {
+  return apiJson<TeamRecord[]>(`/api/equipes/?status=${status}`);
+}
+export function listTeamProfessionals(): Promise<TeamProfessional[]> {
+  return apiJson<TeamProfessional[]>("/api/equipe-profissionais/");
+}
+export function saveTeam(input: { name: string; professionals: number[] }, id?: number): Promise<TeamRecord> {
+  return apiJson<TeamRecord>(id ? `/api/equipes/${id}/` : "/api/equipes/", {
+    method: id ? "PATCH" : "POST", json: input,
+  });
+}
+export function setTeamStatus(id: number, action: "inativar" | "reativar"): Promise<TeamRecord> {
+  return apiJson<TeamRecord>(`/api/equipes/${id}/${action}/`, { method: "POST" });
+}
+
 export interface ManagedUser {
   id: number;
   cpf: string;

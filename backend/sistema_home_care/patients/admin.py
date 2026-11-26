@@ -1,7 +1,6 @@
 from django.contrib import admin
 
 from .models import (
-    HealthCondition,
     Patient,
     PatientAddress,
     PatientAuditLog,
@@ -20,12 +19,6 @@ class PatientAddressAdmin(admin.ModelAdmin):
     list_display = ("patient", "city", "neighborhood", "region")
     search_fields = ("patient__full_name", "patient__cpf", "city", "neighborhood")
     list_filter = ("state",)
-
-
-@admin.register(HealthCondition)
-class HealthConditionAdmin(admin.ModelAdmin):
-    list_display = ("id", "name", "created_at", "updated_at")
-    search_fields = ("name",)
 
 
 @admin.register(PatientAuditLog)

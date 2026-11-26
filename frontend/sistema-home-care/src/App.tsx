@@ -13,6 +13,7 @@ import { PatientDetail } from "./pages/PatientDetail";
 import { PatientForm } from "./pages/PatientForm";
 import { PatientsList } from "./pages/PatientsList";
 import { Professions } from "./pages/Professions";
+import { Teams } from "./pages/Teams";
 import { Resources } from "./pages/Resources";
 import { UserDetail } from "./pages/UserDetail";
 import { UserForm } from "./pages/UserForm";
@@ -95,6 +96,7 @@ function App() {
           <Route path="/categorias" element={<Categories />} />
           <Route path="/categorias/:id/permissoes" element={<Categories />} />
           <Route path="/profissoes" element={<Professions />} />
+          <Route path="/equipes" element={<Teams />} />
           <Route path="/recursos" element={<Resources />} />
         </Route>
         <Route path="/tipos" element={<NeedTypesOnly />} />

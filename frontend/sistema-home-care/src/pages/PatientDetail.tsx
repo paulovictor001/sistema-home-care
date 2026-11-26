@@ -174,18 +174,16 @@ export function PatientDetail() {
           <Field label="Médico responsável" value={patient.responsible_doctor_name ?? ""} />
           <Field
             label="Equipe responsável"
-            value={
-              typeof patient.responsible_team === "string"
-                ? patient.responsible_team
-                : patient.responsible_team
-                  ? JSON.stringify(patient.responsible_team)
-                  : ""
-            }
+            value={patient.responsible_team_name ?? ""}
           />
           <Field
             label="Condição de saúde"
-            value={patient.health_condition_name ?? ""}
+            value={patient.health_condition}
           />
+          <Field label="Alergias" value={patient.allergies} />
+          <Field label="Restrições" value={patient.restrictions} />
+          <Field label="Necessidades especiais" value={patient.special_needs} />
+          <Field label="Observações importantes" value={patient.important_observations} />
         </dl>
       </section>}
 

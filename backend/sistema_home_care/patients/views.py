@@ -16,7 +16,7 @@ para nao-gerentes e aplicado no serializer (403).
 
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.shortcuts import get_object_or_404
-from rest_framework import mixins, status, viewsets
+from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError as DRFValidationError
 from rest_framework.pagination import PageNumberPagination
@@ -30,8 +30,8 @@ from accounts.permissions import (
 )
 from accounts.validators import normalize_cpf
 
-from .models import HealthCondition, Patient, PatientAuditAction, PatientStatus
-from .serializers import HealthConditionSerializer, PatientSerializer
+from .models import Patient, PatientAuditAction, PatientStatus
+from .serializers import PatientSerializer
 from .audit import log_patient_event
 
 # Gerente + equipe clinica (leitura e edicao clinica).
@@ -51,11 +51,7 @@ class PatientViewSet(viewsets.ModelViewSet):
     http_method_names = ["get", "post", "put", "patch", "head", "options"]
 
     def get_queryset(self):
-        return (
-            Patient.objects.select_related(
-                "responsible_doctor", "health_condition", "address"
-            ).order_by("full_name")
-        )
+        return Patient.objects.select_related("responsible_doctor", "responsible_team", "address").order_by("full_name")
 
     def get_permissions(self):
         if self.action == "create":
@@ -119,7 +115,8 @@ class PatientViewSet(viewsets.ModelViewSet):
 
         regiao = params.get("regiao")
         if regiao:
-            queryset = queryset.filter(address__region__icontains=regiao)
+            from django.db.models import Q
+            queryset = queryset.filter(Q(address__neighborhood_record__region__name__icontains=regiao) | Q(address__neighborhood_record__isnull=True, address__region__icontains=regiao))
 
         return queryset
 
@@ -138,19 +135,19 @@ class PatientViewSet(viewsets.ModelViewSet):
     def perform_update(self, serializer):
         before = self.get_object()
         before_doctor = before.responsible_doctor_id
-        before_team = before.responsible_team
+        before_team = before.responsible_team_id
         try:
             patient = serializer.save()
         except DjangoValidationError as exc:
             raise DRFValidationError(exc.message_dict)
         if (
             patient.responsible_doctor_id != before_doctor
-            or patient.responsible_team != before_team
+            or patient.responsible_team_id != before_team
         ):
             action = PatientAuditAction.DOCTOR_TEAM_CHANGE
             changes = {
                 "responsible_doctor": [before_doctor, patient.responsible_doctor_id],
-                "responsible_team": [before_team, patient.responsible_team],
+                "responsible_team": [before_team, patient.responsible_team_id],
             }
         else:
             action = PatientAuditAction.UPDATE
@@ -193,15 +190,3 @@ class PatientViewSet(viewsets.ModelViewSet):
     def reativar(self, request, pk=None):
         """Reativa o paciente (TASK-CAD-PAC-013, so gerente)."""
         return self._set_status(request, pk, PatientStatus.ACTIVE)
-
-
-class HealthConditionViewSet(mixins.ListModelMixin, mixins.CreateModelMixin, viewsets.GenericViewSet):
-    queryset = HealthCondition.objects.order_by("name", "pk")
-    serializer_class = HealthConditionSerializer
-    pagination_class = None
-    http_method_names = ["get", "post", "head", "options"]
-
-    def get_permissions(self):
-        if self.action == "create":
-            return [IsGerente(), RequirePermission("pacientes.create")()]
-        return [IsCareTeam(), RequirePermission("pacientes.view")()]

@@ -31,3 +31,7 @@ A Escala organiza quais profissionais realizarão as necessidades previstas no P
 - **RN-ESC-25:** Escala encerrada permanece para consulta histórica e não gera novos agendamentos.
 - **RN-ESC-26:** Para ativar, a escala deve ter paciente, Plano de Cuidados, ao menos uma necessidade e profissional compatível.
 - **RN-ESC-27:** Alterações relevantes registram usuário e data.
+# Uso informativo de regiões
+
+A Escala pode exibir se a região derivada do endereço do paciente corresponde às regiões cadastradas no planejamento do profissional. Correspondência, divergência e ausência de informação são apenas indicativas; não bloqueiam atribuição ou agendamento. Agendamento define o local e o horário efetivos.
+

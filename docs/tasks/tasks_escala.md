@@ -54,3 +54,7 @@
 - O catálogo de planos mantém todos os planos visíveis conforme a implementação atual.
 - `ProfessionalPlanningInfo` permanece dentro do processo Escala.
 - A integração com Agendamento fica pendente até existir o processo consumidor.
+# Áreas atendidas e comparação regional
+
+- [x] Selecionar regiões cadastradas no planejamento do profissional e preservar valores antigos para consulta.
+- [x] Exibir correspondência, divergência ou falta de informação como apoio humano, sem bloqueio de atribuição ou agendamento.

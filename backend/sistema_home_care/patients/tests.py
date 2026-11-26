@@ -22,9 +22,9 @@ from rest_framework.test import APIClient
 
 from accounts.models import GranularPermission
 from assessments.models import INITIAL_NEED_TYPES, NeedType, NeedTypeStatus
+from professionals.models import Team
 
 from .models import (
-    HealthCondition,
     Patient,
     PatientAddress,
     PatientAuditAction,
@@ -138,22 +138,13 @@ class PatientModelTests(TestCase):
         with self.assertRaises(ValidationError):
             patient.full_clean()
 
-    def test_associate_doctor_and_health_condition(self):
+    def test_health_condition_is_stored_as_text(self):
         doctor = make_staff_user(CPF_C, "MEDICO")
-        condition = HealthCondition.objects.create()
         patient = make_patient(
-            cpf=CPF_B, responsible_doctor=doctor, health_condition=condition
+            cpf=CPF_B, responsible_doctor=doctor, health_condition="Hipertensão, diabetes"
         )
         self.assertEqual(patient.responsible_doctor_id, doctor.pk)
-        self.assertEqual(patient.health_condition_id, condition.pk)
-
-    def test_health_condition_is_protected(self):
-        from django.db.models import ProtectedError
-
-        condition = HealthCondition.objects.create()
-        make_patient(cpf=CPF_B, health_condition=condition)
-        with self.assertRaises(ProtectedError):
-            condition.delete()
+        self.assertEqual(patient.health_condition, "Hipertensão, diabetes")
 
 
 class PatientAddressModelTests(TestCase):
@@ -220,7 +211,7 @@ def make_api_client(user=None):
     return client
 
 
-def make_payload(cpf=PACIENTE_CPF, doctor_pk=None, condition_pk=None, **overrides):
+def make_payload(cpf=PACIENTE_CPF, doctor_pk=None, condition_text="Hipertensão", **overrides):
     payload = {
         "full_name": "Maria da Silva",
         "birth_date": "1960-05-20",
@@ -229,7 +220,7 @@ def make_payload(cpf=PACIENTE_CPF, doctor_pk=None, condition_pk=None, **override
         "age": 66,
         "phone": "91999998888",
         "gender": "Feminino",
-        "responsible_team": {"nome": "Equipe 1"},
+        "responsible_team": None,
         "address": {
             "zip_code": "66000000",
             "state": "PA",
@@ -242,8 +233,8 @@ def make_payload(cpf=PACIENTE_CPF, doctor_pk=None, condition_pk=None, **override
     }
     if doctor_pk is not None:
         payload["responsible_doctor"] = doctor_pk
-    if condition_pk is not None:
-        payload["health_condition"] = condition_pk
+    if condition_text is not None:
+        payload["health_condition"] = condition_text
     payload.update(overrides)
     return payload
 
@@ -251,11 +242,10 @@ def make_payload(cpf=PACIENTE_CPF, doctor_pk=None, condition_pk=None, **override
 class PatientCreateAPITests(TestCase):
     def setUp(self):
         self.users = make_api_users()
-        self.condition = HealthCondition.objects.create()
 
     def _payload(self, **overrides):
         overrides.setdefault("doctor_pk", self.users[MEDICO_CPF].pk)
-        overrides.setdefault("condition_pk", self.condition.pk)
+        overrides.setdefault("condition_text", "Hipertensão")
         return make_payload(**overrides)
 
     def _login_client(self, cpf):
@@ -282,10 +272,26 @@ class PatientCreateAPITests(TestCase):
         self.assertEqual(response.status_code, 201)
         patient = Patient.objects.get()
         self.assertEqual(patient.address.city, "Belem")
-        self.assertEqual(patient.responsible_team, {"nome": "Equipe 1"})
+        self.assertIsNone(patient.responsible_team)
         self.assertEqual(
             patient.responsible_doctor_id, self.users[MEDICO_CPF].pk
         )
+        self.assertEqual(response.data["health_condition"], "Hipertensão")
+
+    def test_create_accepts_multiple_conditions_and_rejects_blank_text(self):
+        client = self._login_client(GERENTE_CPF)
+        response = client.post(
+            "/api/pacientes/",
+            self._payload(condition_text="Hipertensão; diabetes tipo 2"),
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["health_condition"], "Hipertensão; diabetes tipo 2")
+
+        payload = self._payload(condition_text="   ", cpf="12345678909")
+        response = client.post("/api/pacientes/", payload, format="json")
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("health_condition", response.data)
 
     def test_non_gerente_cannot_create(self):
         for cpf in (MEDICO_CPF, ENFERMEIRO_CPF, SEM_GRUPO_CPF):
@@ -337,13 +343,13 @@ class PatientCreateAPITests(TestCase):
 
     def test_create_requires_doctor_health_condition_and_address(self):
         client = self._login_client(GERENTE_CPF)
-        payload = make_payload(condition_pk=self.condition.pk)  # sem medico
+        payload = make_payload(condition_text="Hipertensão")  # sem medico
         response = client.post("/api/pacientes/", payload, format="json")
         self.assertEqual(response.status_code, 400)
         self.assertIn("responsible_doctor", response.data)
 
         payload = make_payload(
-            doctor_pk=self.users[MEDICO_CPF].pk
+            doctor_pk=self.users[MEDICO_CPF].pk, condition_text=None
         )  # sem condicao nem endereco
         payload.pop("address", None)
         response = client.post("/api/pacientes/", payload, format="json")
@@ -396,13 +402,12 @@ class PatientListAPITests(TestCase):
     def setUp(self):
         self.users = make_api_users()
         self.client = make_api_client(self.users[GERENTE_CPF])
-        condition = HealthCondition.objects.create()
         doctor = self.users[MEDICO_CPF]
         self.active = make_patient(
             cpf=PACIENTE_CPF,
             full_name="Maria da Silva",
             responsible_doctor=doctor,
-            health_condition=condition,
+            health_condition="Hipertensão, diabetes",
         )
         make_address(self.active, region="Regiao Norte")
         self.inactive = make_patient(
@@ -410,7 +415,7 @@ class PatientListAPITests(TestCase):
             full_name="Joao Souza",
             status="INACTIVE",
             responsible_doctor=doctor,
-            health_condition=condition,
+            health_condition="Hipertensão, diabetes",
         )
         make_address(self.inactive, region="Regiao Sul", city="Sao Paulo")
 
@@ -470,11 +475,10 @@ class PatientListAPITests(TestCase):
 class PatientDetailUpdateAPITests(TestCase):
     def setUp(self):
         self.users = make_api_users()
-        self.condition = HealthCondition.objects.create()
         self.patient = make_patient(
             cpf=PACIENTE_CPF,
             responsible_doctor=self.users[MEDICO_CPF],
-            health_condition=self.condition,
+            health_condition="Hipertensão, diabetes",
         )
         make_address(self.patient)
         self.url = f"/api/pacientes/{self.patient.pk}/"
@@ -514,7 +518,7 @@ class PatientDetailUpdateAPITests(TestCase):
         response = make_api_client(self.users[GERENTE_CPF]).get(self.url)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data["responsible_doctor_name"], self.users[MEDICO_CPF].cpf)
-        self.assertEqual(response.data["health_condition_name"], f"Condição de saúde #{self.condition.pk}")
+        self.assertEqual(response.data["health_condition"], "Hipertensão, diabetes")
 
     def test_legacy_gender_can_be_preserved_while_editing_other_fields(self):
         self.patient.gender = "Outro valor legado"
@@ -536,11 +540,12 @@ class PatientDetailUpdateAPITests(TestCase):
         self.assertEqual(response.status_code, 403)
 
     def test_manager_assignment_change_succeeds_with_granular_permission(self):
+        team = Team.objects.create(name="Equipe nova")
         response = make_api_client(self.users[GERENTE_CPF]).patch(
-            self.url, {"responsible_team": {"nome": "Equipe nova"}}, format="json"
+            self.url, {"responsible_team": team.pk}, format="json"
         )
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data["responsible_team"], {"nome": "Equipe nova"})
+        self.assertEqual(response.data["responsible_team"], team.pk)
 
     def test_care_team_can_list_and_view_detail(self):
         # TA-21: gerente/medico/enfermeiro visualizam; sem grupo 403.
@@ -566,7 +571,7 @@ class PatientDetailUpdateAPITests(TestCase):
         )
         self.assertEqual(response.status_code, 403)
         response = client.patch(
-            self.url, {"responsible_team": {"nome": "Outra"}}, format="json"
+            self.url, {"responsible_team": 987654}, format="json"
         )
         self.assertEqual(response.status_code, 403)
 
@@ -589,7 +594,7 @@ class PatientDetailUpdateAPITests(TestCase):
         )
         self.assertEqual(response.status_code, 403)
         response = client.patch(
-            self.url, {"responsible_team": {"nome": "Outra"}}, format="json"
+            self.url, {"responsible_team": 987654}, format="json"
         )
         self.assertEqual(response.status_code, 403)
 
@@ -654,12 +659,11 @@ class PatientAuditLogTests(TestCase):
 
     def setUp(self):
         self.users = make_api_users()
-        self.condition = HealthCondition.objects.create()
         self.gerente = make_api_client(self.users[GERENTE_CPF])
 
     def _create_patient(self):
         payload = make_payload(
-            doctor_pk=self.users[MEDICO_CPF].pk, condition_pk=self.condition.pk
+            doctor_pk=self.users[MEDICO_CPF].pk, condition_text="Hipertensão, diabetes"
         )
         response = self.gerente.post("/api/pacientes/", payload, format="json")
         self.assertEqual(response.status_code, 201)

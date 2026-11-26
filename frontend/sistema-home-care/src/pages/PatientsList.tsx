@@ -57,7 +57,7 @@ function PatientIdentity({ patient }: { patient: Patient }) {
           {patient.full_name}
         </span>
         <span className="mt-0.5 block text-xs text-muted md:hidden">
-          CPF {formatCpf(patient.cpf)}
+          CPF {formatCpf(patient.cpf)}{patient.responsible_team_name ? ` · ${patient.responsible_team_name}` : ""}
         </span>
       </span>
     </div>
@@ -309,6 +309,7 @@ export function PatientsList() {
                 <th scope="col" className="px-5 py-3.5 font-semibold">Paciente</th>
                 <th scope="col" className="px-5 py-3.5 font-semibold">CPF</th>
                 <th scope="col" className="px-5 py-3.5 font-semibold">Região</th>
+                <th scope="col" className="px-5 py-3.5 font-semibold">Equipe</th>
                 <th scope="col" className="px-5 py-3.5 font-semibold">Status</th>
                 <th scope="col" className="px-5 py-3.5 text-right font-semibold">Ação</th>
               </tr>
@@ -316,13 +317,13 @@ export function PatientsList() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="px-5 py-14 text-center text-muted" aria-live="polite">
+                  <td colSpan={7} className="px-5 py-14 text-center text-muted" aria-live="polite">
                     Carregando pacientes…
                   </td>
                 </tr>
               ) : results.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-5 py-14 text-center">
+                  <td colSpan={7} className="px-5 py-14 text-center">
                     <p className="font-semibold text-ink">Nenhum paciente encontrado</p>
                     <p className="mt-1 text-sm text-muted">Ajuste os filtros para tentar novamente.</p>
                   </td>
@@ -336,6 +337,7 @@ export function PatientsList() {
                     <td className="px-5 py-3.5"><PatientIdentity patient={patient} /></td>
                     <td className="px-5 py-3.5 tabular-nums text-ink">{formatCpf(patient.cpf)}</td>
                     <td className="px-5 py-3.5 text-ink">{patient.address?.region || "—"}</td>
+                    <td className="px-5 py-3.5 text-ink">{patient.responsible_team_name || "—"}</td>
                     <td className="px-5 py-3.5"><PatientStatus status={patient.status} /></td>
                     <td className="px-5 py-3.5 text-right">
                       <Link

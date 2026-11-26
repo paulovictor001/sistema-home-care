@@ -604,3 +604,9 @@ Os campos devem ser tratados dentro das funcionalidades de:
 
 Essa abordagem segue a orientação da documentação do projeto para
 transformar processos em tasks técnicas. fileciteturn1file6
+# Região padronizada
+
+- [x] Manter cadastro gerencial de regiões e bairros por UF + município, sem inventário geográfico presumido.
+- [x] Permitir endereço sem mapeamento; derivar região quando houver bairro selecionado e filtrar pacientes pela relação.
+- [x] Preservar texto histórico de região para consulta e correção posterior.
+

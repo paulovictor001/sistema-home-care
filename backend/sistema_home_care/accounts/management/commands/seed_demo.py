@@ -16,7 +16,7 @@ from care_plans.models import CarePlan
 from care_scales import services as scales
 from care_scales.models import CareScale, ProfessionalPlanningInfo
 from assessments.models import NeedType
-from patients.models import HealthCondition, Patient, PatientAuditLog
+from patients.models import Patient, PatientAuditLog
 from patients.serializers import PatientSerializer
 from professionals.models import Professional
 
@@ -136,15 +136,14 @@ class Command(BaseCommand):
         for index, (name, condition, plan_status, scale_status) in enumerate(PATIENTS, 1):
             patient = Patient.objects.filter(cpf=demo_cpf(index, patient=True)).first()
             if patient is None:
-                health, _ = HealthCondition.objects.get_or_create(name=f'{condition} (Demo)')
                 birth = date(1954 + index * 4, 3, 15)
                 serializer = PatientSerializer(data={'full_name': f'{name} (Demo)',
                     'cpf': demo_cpf(index, patient=True), 'birth_date': birth.isoformat(),
                     'age': today.year - birth.year - ((today.month, today.day) < (birth.month, birth.day)),
                     'rg': f'DEMO-{index:04d}', 'phone': '(91) 00000-0000',
                     'gender': 'Feminino' if index in (1, 3, 5) else 'Masculino',
-                    'responsible_doctor': users['medico'].pk, 'health_condition': health.pk,
-                    'responsible_team': {'observacao': 'Equipe fictícia de apresentação'},
+                    'responsible_doctor': users['medico'].pk, 'health_condition': f'{condition} (Demo)',
+                    'responsible_team': None,
                     'address': {'zip_code': '00000-000', 'state': 'PA', 'city': 'Belém',
                         'neighborhood': 'Bairro de demonstração', 'street': 'Rua Fictícia',
                         'number': str(index * 10), 'complement': 'Endereço fictício',

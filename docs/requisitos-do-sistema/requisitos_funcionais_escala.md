@@ -24,3 +24,7 @@
 - **RF-ESC-22:** Manter escala encerrada para consulta e impedir novos agendamentos.
 - **RF-ESC-23:** Validar condições mínimas antes da ativação.
 - **RF-ESC-24:** Registrar usuário/data nas alterações relevantes.
+# Apoio regional
+
+Na seleção de profissionais, a Escala deve exibir a comparação informativa da região derivada do bairro do paciente com as regiões selecionadas no planejamento profissional. Regiões atendidas são selecionadas do cadastro comum. A comparação não é regra de cobertura nem bloqueio.
+
