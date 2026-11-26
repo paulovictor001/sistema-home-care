@@ -106,10 +106,30 @@ export interface PatientAddressInput {
   reference_point?: string;
 }
 
-export interface ManagedRegion { id: number; name: string; is_active: boolean; neighborhood_count?: number }
-export interface ManagedNeighborhood { id: number; region: number; region_name: string; state: string; city: string; name: string; is_active: boolean }
-export const listRegions = () => apiJson<ManagedRegion[]>('/api/regioes/');
-export const listNeighborhoods = (state?: string, city?: string) => { const q = new URLSearchParams(); if (state) q.set('state', state); if (city) q.set('city', city); return apiJson<ManagedNeighborhood[]>(`/api/bairros/${q.size ? `?${q}` : ''}`); };
+export interface ManagedRegion {
+  id: number;
+  name: string;
+  is_active: boolean;
+  neighborhood_count?: number;
+}
+export interface ManagedNeighborhood {
+  id: number;
+  region: number;
+  region_name: string;
+  state: string;
+  city: string;
+  name: string;
+  is_active: boolean;
+}
+export const listRegions = () => apiJson<ManagedRegion[]>("/api/regioes/");
+export const listNeighborhoods = (state?: string, city?: string) => {
+  const q = new URLSearchParams();
+  if (state) q.set("state", state);
+  if (city) q.set("city", city);
+  return apiJson<ManagedNeighborhood[]>(
+    `/api/bairros/${q.size ? `?${q}` : ""}`,
+  );
+};
 
 export interface PatientCreateInput {
   full_name: string;
@@ -134,10 +154,7 @@ export function createPatient(input: PatientCreateInput): Promise<Patient> {
 }
 
 export type PatientUpdateInput = Partial<
-  Omit<
-    PatientCreateInput,
-    "address" | "responsible_doctor"
-  > & {
+  Omit<PatientCreateInput, "address" | "responsible_doctor"> & {
     address: Partial<PatientAddressInput>;
     responsible_doctor?: number | null;
   }
@@ -166,8 +183,16 @@ export function listMedicos(): Promise<Medico[]> {
   return apiJson<Medico[]>("/api/medicos/");
 }
 
-export interface Team { id: number; name: string; is_active: boolean; professionals: number[]; members: {id:number; name:string; profession:string}[] }
-export function listTeams(): Promise<Team[]> { return apiJson<Team[]>('/api/equipes/'); }
+export interface Team {
+  id: number;
+  name: string;
+  is_active: boolean;
+  professionals: number[];
+  members: { id: number; name: string; profession: string }[];
+}
+export function listTeams(): Promise<Team[]> {
+  return apiJson<Team[]>("/api/equipes/");
+}
 
 export function isGerente(groups: string[] | undefined): boolean {
   return groups?.includes("GERENTE") ?? false;
@@ -178,18 +203,37 @@ export interface PatientAccessUser {
   permissions: string[];
 }
 
-export function canViewPatients(user: PatientAccessUser | null | undefined): boolean {
-  return !!user && user.groups.some((group) => ["GERENTE", "MEDICO", "ENFERMEIRO"].includes(group))
-    && user.permissions.includes("pacientes.view");
+export function canViewPatients(
+  user: PatientAccessUser | null | undefined,
+): boolean {
+  return (
+    !!user &&
+    user.groups.some((group) =>
+      ["GERENTE", "MEDICO", "ENFERMEIRO"].includes(group),
+    ) &&
+    user.permissions.includes("pacientes.view")
+  );
 }
 
-export function canUpdatePatientClinically(user: PatientAccessUser | null | undefined): boolean {
-  return !!user && user.groups.some((group) => ["GERENTE", "MEDICO", "ENFERMEIRO"].includes(group))
-    && user.permissions.includes("pacientes.update_clinical");
+export function canUpdatePatientClinically(
+  user: PatientAccessUser | null | undefined,
+): boolean {
+  return (
+    !!user &&
+    user.groups.some((group) =>
+      ["GERENTE", "MEDICO", "ENFERMEIRO"].includes(group),
+    ) &&
+    user.permissions.includes("pacientes.update_clinical")
+  );
 }
 
-export function canManagePatientAssignments(user: PatientAccessUser | null | undefined): boolean {
-  return isGerente(user?.groups) && !!user?.permissions.includes("pacientes.update_manager");
+export function canManagePatientAssignments(
+  user: PatientAccessUser | null | undefined,
+): boolean {
+  return (
+    isGerente(user?.groups) &&
+    !!user?.permissions.includes("pacientes.update_manager")
+  );
 }
 
 /** Erros 400 por campo vindos do DRF (`{campo: [msgs]}` ou `{detail}`). */

@@ -1,5 +1,6 @@
 import { Navigate, Outlet, Route, Routes } from "react-router-dom";
 import { AppLayout } from "./components/AppLayout";
+import { PatientPortal } from "./pages/PatientPortal";
 import { RequireAuth } from "./components/RequireAuth";
 import { RequireGerente } from "./components/RequireGerente";
 import { AssessmentDetail } from "./pages/AssessmentDetail";
@@ -18,10 +19,10 @@ import { Resources } from "./pages/Resources";
 import { UserDetail } from "./pages/UserDetail";
 import { UserForm } from "./pages/UserForm";
 import { UsersList } from "./pages/UsersList";
-import { CarePlans } from './pages/CarePlans';
-import { CarePlanDetail } from './pages/CarePlanDetail';
-import { CareScales } from './pages/CareScales';
-import { CareScaleDetail } from './pages/CareScaleDetail';
+import { CarePlans } from "./pages/CarePlans";
+import { CarePlanDetail } from "./pages/CarePlanDetail";
+import { CareScales } from "./pages/CareScales";
+import { CareScaleDetail } from "./pages/CareScaleDetail";
 import { useAuth } from "./contexts/useAuth";
 import { canManageNeedTypes } from "./lib/assessments";
 import { Visits } from "./pages/Visits";
@@ -51,6 +52,14 @@ function App() {
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
+      <Route
+        path="/portal-paciente/:patientId"
+        element={
+          <RequireAuth>
+            <PatientPortal />
+          </RequireAuth>
+        }
+      />
       <Route element={<ProtectedLayout />}>
         <Route path="/" element={<Home />} />
         <Route path="/pacientes" element={<PatientsList />} />
@@ -61,7 +70,10 @@ function App() {
           />
         </Route>
         <Route path="/pacientes/:id" element={<PatientDetail />} />
-        <Route path="/pacientes/:patientId/planos-cuidados" element={<CarePlans />} />
+        <Route
+          path="/pacientes/:patientId/planos-cuidados"
+          element={<CarePlans />}
+        />
         <Route path="/planos-cuidados/:id" element={<CarePlanDetail />} />
         <Route path="/escalas" element={<CareScales />} />
         <Route path="/pacientes/:patientId/escalas" element={<CareScales />} />
