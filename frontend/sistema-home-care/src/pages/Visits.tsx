@@ -56,6 +56,8 @@ export function Visits() {
   const [series, setSeries] = useState(false);
   const [patientFilter, setPatientFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
   const [scaleId, setScaleId] = useState("");
   const [itemId, setItemId] = useState("");
   const [professionalId, setProfessionalId] = useState("");
@@ -73,12 +75,24 @@ export function Visits() {
   );
   const professionals =
     selectedItem?.assignments.filter((a) => !a.removed_at) ?? [];
+
+  const visitStats = {
+    total: items.length,
+    scheduled: items.filter((item) => item.status === "AGENDADA").length,
+    inProgress: items.filter((item) => item.status === "EM_ATENDIMENTO").length,
+    completed: items.filter((item) => item.status === "REALIZADA").length,
+  };
   const refreshList = useCallback(
     () =>
-      listVisits({ patient: patientFilter, status: statusFilter })
+      listVisits({
+        patient: patientFilter,
+        status: statusFilter,
+        from: fromDate,
+        to: toDate,
+      })
         .then((data) => setItems(data.results))
         .catch((err) => setError(err.message)),
-    [patientFilter, statusFilter],
+    [patientFilter, statusFilter, fromDate, toDate],
   );
   useEffect(() => {
     if (id)
@@ -456,7 +470,9 @@ export function Visits() {
                             disabled={attendanceBusy || !careDescription.trim()}
                             className="rounded bg-primary px-3 py-2 text-white"
                           >
-                            {attendanceBusy ? "SalvandoÔÇª" : "Salvar altera├º├Áes"}
+                            {attendanceBusy
+                              ? "SalvandoÔÇª"
+                              : "Salvar altera├º├Áes"}
                           </button>
                         </form>
                       ) : (
@@ -495,7 +511,9 @@ export function Visits() {
                             className="rounded bg-primary px-3 py-2 text-white"
                             onClick={() => void completeVisit()}
                           >
-                            {attendanceBusy ? "ConcluindoÔÇª" : "Concluir visita"}
+                            {attendanceBusy
+                              ? "ConcluindoÔÇª"
+                              : "Concluir visita"}
                           </button>
                         )}
                     </>
@@ -526,7 +544,9 @@ export function Visits() {
                         disabled={attendanceBusy || !careDescription.trim()}
                         className="rounded bg-primary px-3 py-2 text-white"
                       >
-                        {attendanceBusy ? "SalvandoÔÇª" : "Registrar Atendimento"}
+                        {attendanceBusy
+                          ? "SalvandoÔÇª"
+                          : "Registrar Atendimento"}
                       </button>
                     </form>
                   ) : (
@@ -562,10 +582,38 @@ export function Visits() {
             className="rounded bg-primary px-3 py-2 text-white"
             onClick={() => setCreating((v) => !v)}
           >
-            {creating ? "Fechar formul├írio" : "Nova visita"}
+            {creating ? "Fechar formulário" : "Nova visita"}
           </button>
         )}
       </div>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="rounded-xl border border-line bg-surface p-4 shadow-sm">
+          <p className="text-sm text-muted">Visitas na listagem</p>
+          <p className="mt-2 text-2xl font-bold text-ink">{visitStats.total}</p>
+        </div>
+
+        <div className="rounded-xl border border-line bg-surface p-4 shadow-sm">
+          <p className="text-sm text-muted">Agendadas</p>
+          <p className="mt-2 text-2xl font-bold text-primary">
+            {visitStats.scheduled}
+          </p>
+        </div>
+
+        <div className="rounded-xl border border-line bg-surface p-4 shadow-sm">
+          <p className="text-sm text-muted">Em atendimento</p>
+          <p className="mt-2 text-2xl font-bold text-ink">
+            {visitStats.inProgress}
+          </p>
+        </div>
+
+        <div className="rounded-xl border border-line bg-surface p-4 shadow-sm">
+          <p className="text-sm text-muted">Realizadas</p>
+          <p className="mt-2 text-2xl font-bold text-primary">
+            {visitStats.completed}
+          </p>
+        </div>
+      </div>
+
       {error && (
         <p role="alert" className="whitespace-pre-wrap text-red-700">
           {error}
@@ -611,11 +659,11 @@ export function Visits() {
             <section className="space-y-4">
               <div>
                 <h4 className="text-sm font-semibold text-ink">
-                  Informa├º├Áes do atendimento
+                  Informações do atendimento
                 </h4>
                 <p className="mt-1 text-sm text-muted">
                   Selecione a escala, a necessidade e o profissional
-                  respons├ível.
+                  responsável.
                 </p>
               </div>
 
@@ -631,7 +679,7 @@ export function Visits() {
                     Agendamento recorrente
                   </span>
                   <span className="block text-xs text-muted">
-                    Cadastrar v├írias visitas informando as datas manualmente.
+                    Cadastrar várias visitas informando as datas manualmente.
                   </span>
                 </span>
               </label>
@@ -678,8 +726,8 @@ export function Visits() {
                       .filter((i) => !i.removed_at)
                       .map((i) => (
                         <option value={i.id} key={i.id}>
-                          {i.description} ┬À frequ├¬ncia {i.frequency_quantity} /{" "}
-                          {i.frequency_period === "WEEK" ? "semana" : "m├¬s"}
+                          {i.description} ┬À frequ├¬ncia {i.frequency_quantity}{" "}
+                          / {i.frequency_period === "WEEK" ? "semana" : "m├¬s"}
                         </option>
                       ))}
                   </select>
@@ -729,10 +777,10 @@ export function Visits() {
             <section className="space-y-4">
               <div>
                 <h4 className="text-sm font-semibold text-ink">
-                  Data e hor├írio
+                  Data e horário
                 </h4>
                 <p className="mt-1 text-sm text-muted">
-                  Defina quando a visita dever├í acontecer.
+                  Defina quando a visita deverá acontecer.
                 </p>
               </div>
 
@@ -771,7 +819,7 @@ export function Visits() {
               <div className="grid gap-4 sm:grid-cols-2">
                 <label className="block space-y-1.5">
                   <span className="text-sm font-medium text-ink">
-                    Hor├írio de in├¡cio *
+                    Horário de início *
                   </span>
                   <input
                     className={`${inputClass} w-full bg-background focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/15`}
@@ -802,17 +850,17 @@ export function Visits() {
             <section className="space-y-3">
               <div>
                 <h4 className="text-sm font-semibold text-ink">
-                  Observa├º├Áes adicionais
+                  Observações adicionais
                 </h4>
                 <p className="mt-1 text-sm text-muted">
-                  Informa├º├Áes importantes sobre a visita.
+                  Informações importantes sobre a visita.
                 </p>
               </div>
 
               <textarea
                 className={`${inputClass} w-full bg-background focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/15`}
                 rows={3}
-                placeholder="Adicione observa├º├Áes sobre o agendamento..."
+                placeholder="Adicione observações sobre o agendamento..."
                 value={observation}
                 onChange={(e) => setObservation(e.target.value)}
               />
@@ -942,7 +990,21 @@ export function Visits() {
           value={patientFilter}
           onChange={(e) => setPatientFilter(e.target.value)}
         />
+        <input
+          type="date"
+          className={inputClass}
+          aria-label="Data inicial"
+          value={fromDate}
+          onChange={(e) => setFromDate(e.target.value)}
+        />
 
+        <input
+          type="date"
+          className={inputClass}
+          aria-label="Data final"
+          value={toDate}
+          onChange={(e) => setToDate(e.target.value)}
+        />
         <select
           className={inputClass}
           value={statusFilter}
@@ -981,13 +1043,13 @@ export function Visits() {
         ) : (
           <div className="rounded-2xl border border-dashed border-line bg-surface p-10 text-center">
             <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
-              <span className="text-2xl">Ôûª</span>
+              <span className="text-2xl">+</span>
             </div>
-            <h3 className="font-semibold text-heading">
+            <h3 className="font-semibold text-ink">
               Nenhum agendamento encontrado
             </h3>
             <p className="mt-1 text-sm text-muted">
-              N├úo h├í agendamentos correspondentes aos filtros selecionados.
+              Não existem visitas para os filtros selecionados.
             </p>
           </div>
         )}

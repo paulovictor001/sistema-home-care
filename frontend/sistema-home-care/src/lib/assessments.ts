@@ -121,7 +121,10 @@ function inGroups(groups: string[] | undefined, ...names: string[]): boolean {
   return groups?.some((g) => names.includes(g)) ?? false;
 }
 
-function hasPerm(user: SessionUser | null | undefined, codename: string): boolean {
+function hasPerm(
+  user: SessionUser | null | undefined,
+  codename: string,
+): boolean {
   return user?.permissions?.includes(codename) ?? false;
 }
 
@@ -133,46 +136,85 @@ export function isCareTeam(groups: string[] | undefined): boolean {
   return inGroups(groups, "GERENTE", "MEDICO", "ENFERMEIRO");
 }
 
-export function canManageNeedTypes(user: SessionUser | null | undefined): boolean {
-  return !!user && isCareTeam(user.groups) && hasPerm(user, "tipos_necessidade.manage");
+export function canManageNeedTypes(
+  user: SessionUser | null | undefined,
+): boolean {
+  return (
+    !!user &&
+    isCareTeam(user.groups) &&
+    hasPerm(user, "tipos_necessidade.manage")
+  );
 }
 
 export function canCreateNeed(user: SessionUser | null | undefined): boolean {
-  return !!user && isClinical(user.groups) && hasPerm(user, "necessidades.create") && hasPerm(user, "avaliacoes.add_need");
+  return (
+    !!user &&
+    isCareTeam(user.groups) &&
+    hasPerm(user, "necessidades.create") &&
+    hasPerm(user, "avaliacoes.add_need")
+  );
 }
 
 export function canUpdateNeed(user: SessionUser | null | undefined): boolean {
-  return !!user && isClinical(user.groups) && hasPerm(user, "necessidades.update");
+  return (
+    !!user && isClinical(user.groups) && hasPerm(user, "necessidades.update")
+  );
 }
 
 export function canDeleteNeed(user: SessionUser | null | undefined): boolean {
-  return !!user && isClinical(user.groups) && hasPerm(user, "necessidades.delete");
+  return (
+    !!user && isClinical(user.groups) && hasPerm(user, "necessidades.delete")
+  );
 }
 
-export function canChangeNeedStatus(user: SessionUser | null | undefined, active: boolean): boolean {
-  return !!user && isCareTeam(user.groups) && hasPerm(user, active ? "necessidades.reactivate" : "necessidades.inactivate");
+export function canChangeNeedStatus(
+  user: SessionUser | null | undefined,
+  active: boolean,
+): boolean {
+  return (
+    !!user &&
+    isCareTeam(user.groups) &&
+    hasPerm(
+      user,
+      active ? "necessidades.reactivate" : "necessidades.inactivate",
+    )
+  );
 }
 
-export function canViewNeedHistory(user: SessionUser | null | undefined): boolean {
-  return !!user && isClinical(user.groups) && hasPerm(user, "necessidades.view");
+export function canViewNeedHistory(
+  user: SessionUser | null | undefined,
+): boolean {
+  return (
+    !!user && isClinical(user.groups) && hasPerm(user, "necessidades.view")
+  );
 }
 
 /** Criação: só Médico/Enfermeiro (RN-AVL-002). Checa grupo OU granular. */
-export function canCreateAssessment(user: SessionUser | null | undefined): boolean {
-  return !!user && isClinical(user.groups) && hasPerm(user, "avaliacoes.create");
+export function canCreateAssessment(
+  user: SessionUser | null | undefined,
+): boolean {
+  return (
+    !!user && isCareTeam(user.groups) && hasPerm(user, "avaliacoes.create")
+  );
 }
 
 /** Edição clínica: Médico/Enfermeiro (RN-AVL-007). Gerente edita só responsável. */
-export function canEditAssessment(user: SessionUser | null | undefined): boolean {
+export function canEditAssessment(
+  user: SessionUser | null | undefined,
+): boolean {
   if (!user) return false;
   return (
     (isClinical(user.groups) && hasPerm(user, "avaliacoes.update")) ||
-    (inGroups(user.groups, "GERENTE") && hasPerm(user, "avaliacoes.update") && hasPerm(user, "avaliacoes.change_professional"))
+    (inGroups(user.groups, "GERENTE") &&
+      hasPerm(user, "avaliacoes.update") &&
+      hasPerm(user, "avaliacoes.change_professional"))
   );
 }
 
 /** Visualização: Gerente+Médico+Enfermeiro (RN-AVL-009). */
-export function canViewAssessments(user: SessionUser | null | undefined): boolean {
+export function canViewAssessments(
+  user: SessionUser | null | undefined,
+): boolean {
   if (!user) return false;
   return isCareTeam(user.groups) && hasPerm(user, "avaliacoes.view");
 }
@@ -182,12 +224,19 @@ export function canChangeProfessional(
 ): boolean {
   if (!user) return false;
   return (
-    (inGroups(user.groups, "GERENTE") && hasPerm(user, "avaliacoes.change_professional"))
+    inGroups(user.groups, "GERENTE") &&
+    hasPerm(user, "avaliacoes.change_professional")
   );
 }
 
-export function canAddAssessmentResource(user: SessionUser | null | undefined): boolean {
-  return !!user && isClinical(user.groups) && hasPerm(user, "avaliacoes.add_resource");
+export function canAddAssessmentResource(
+  user: SessionUser | null | undefined,
+): boolean {
+  return (
+    !!user &&
+    isClinical(user.groups) &&
+    hasPerm(user, "avaliacoes.add_resource")
+  );
 }
 
 /* ------------------------------- API calls ------------------------------- */
@@ -204,7 +253,9 @@ export function listAssessmentsByPatient(
 }
 
 /** Lista global de avaliações (filtro `patient` é opcional no backend). */
-export function listAssessments(page = 1): Promise<Paginated<PatientAssessment>> {
+export function listAssessments(
+  page = 1,
+): Promise<Paginated<PatientAssessment>> {
   const search = new URLSearchParams();
   if (page > 1) search.set("page", String(page));
   const query = search.toString();
@@ -266,7 +317,10 @@ export interface NeedCreateInput {
   priority: string;
 }
 
-export function updateNeed(id: number, input: NeedCreateInput): Promise<CareNeed> {
+export function updateNeed(
+  id: number,
+  input: NeedCreateInput,
+): Promise<CareNeed> {
   return apiJson(`/api/necessidades/${id}/`, { method: "PATCH", json: input });
 }
 
@@ -288,11 +342,15 @@ export function addNeed(
   });
 }
 
-export function inactivateNeed(id: number): Promise<{ id: number; is_active: boolean; inactivated_at: string | null }> {
+export function inactivateNeed(
+  id: number,
+): Promise<{ id: number; is_active: boolean; inactivated_at: string | null }> {
   return apiJson(`/api/necessidades/${id}/inativar/`, { method: "POST" });
 }
 
-export function reactivateNeed(id: number): Promise<{ id: number; is_active: boolean; inactivated_at: string | null }> {
+export function reactivateNeed(
+  id: number,
+): Promise<{ id: number; is_active: boolean; inactivated_at: string | null }> {
   return apiJson(`/api/necessidades/${id}/reativar/`, { method: "POST" });
 }
 
@@ -330,16 +388,30 @@ export function listNeedTypes(): Promise<NeedType[]> {
 }
 
 export function createNeedType(input: NeedTypeInput): Promise<NeedType> {
-  return apiJson<NeedType>("/api/tipos-necessidade/", { method: "POST", json: input });
+  return apiJson<NeedType>("/api/tipos-necessidade/", {
+    method: "POST",
+    json: input,
+  });
 }
 
-export function updateNeedType(id: number, input: NeedTypeInput): Promise<NeedType> {
-  return apiJson<NeedType>(`/api/tipos-necessidade/${id}/`, { method: "PATCH", json: input });
+export function updateNeedType(
+  id: number,
+  input: NeedTypeInput,
+): Promise<NeedType> {
+  return apiJson<NeedType>(`/api/tipos-necessidade/${id}/`, {
+    method: "PATCH",
+    json: input,
+  });
 }
 
-export function changeNeedTypeStatus(id: number, active: boolean): Promise<NeedType> {
+export function changeNeedTypeStatus(
+  id: number,
+  active: boolean,
+): Promise<NeedType> {
   const action = active ? "reativar" : "inativar";
-  return apiJson<NeedType>(`/api/tipos-necessidade/${id}/${action}/`, { method: "POST" });
+  return apiJson<NeedType>(`/api/tipos-necessidade/${id}/${action}/`, {
+    method: "POST",
+  });
 }
 
 /** Catálogo p/ o select de recursos (TA-63). Sem paginação. */
@@ -348,11 +420,20 @@ export function listResources(): Promise<ResourceCatalog[]> {
 }
 
 export function createResource(name: string): Promise<ResourceCatalog> {
-  return apiJson<ResourceCatalog>("/api/recursos/", { method: "POST", json: { name } });
+  return apiJson<ResourceCatalog>("/api/recursos/", {
+    method: "POST",
+    json: { name },
+  });
 }
 
-export function updateResource(id: number, name: string): Promise<ResourceCatalog> {
-  return apiJson<ResourceCatalog>(`/api/recursos/${id}/`, { method: "PATCH", json: { name } });
+export function updateResource(
+  id: number,
+  name: string,
+): Promise<ResourceCatalog> {
+  return apiJson<ResourceCatalog>(`/api/recursos/${id}/`, {
+    method: "PATCH",
+    json: { name },
+  });
 }
 
 /** Equipe clínica ativa p/ o select de responsável (completa TA-62/UX). */

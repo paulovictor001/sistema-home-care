@@ -14,7 +14,7 @@ class DenyUnknownAction(BasePermission):
 
 
 NEED_ACTIONS = {
-    'create': ('create', False),
+    'create': ('create', True),
     'list': ('view', False),
     'retrieve': ('view', False),
     'historico': ('view', False),

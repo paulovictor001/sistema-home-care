@@ -135,7 +135,7 @@ class AssessmentViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         if self.action == "create":
             permission_classes = [
-                IsClinicalStaff,
+                IsGerente | IsClinicalStaff,
                 RequirePermission("avaliacoes.create"),
             ]
         elif self.action in ("update", "partial_update"):
@@ -144,7 +144,9 @@ class AssessmentViewSet(viewsets.ModelViewSet):
                 RequirePermission("avaliacoes.update"),
             ]
         elif self.action == "criar_necessidade":
-            return need_permissions("create") + [RequirePermission("avaliacoes.add_need")()]
+            return need_permissions("create") + [
+                RequirePermission("avaliacoes.add_need")()
+            ]
         elif self.action == "associar_recurso":
             permission_classes = [
                 IsClinicalStaff,
@@ -155,7 +157,8 @@ class AssessmentViewSet(viewsets.ModelViewSet):
                 IsCareTeam,
                 RequirePermission("avaliacoes.view"),
             ]
-        return [permission() for permission in permission_classes]
+
+        return [permission() for permission in permission_classes]        
 
     def filter_queryset(self, queryset):
         queryset = super().filter_queryset(queryset)

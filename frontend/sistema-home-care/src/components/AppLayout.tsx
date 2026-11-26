@@ -8,7 +8,7 @@ import { canManageNeedTypes } from "../lib/assessments";
 import { canVisit } from "../lib/visits";
 
 function navClasses({ isActive }: { isActive: boolean }): string {
-  return `group flex min-h-11 items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-care-action ${
+  return `group flex min-h-9 items-center gap-3 rounded-xl px-3 py-1.5 text-sm font-medium transition-all duration-200 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-care-action ${
     isActive
       ? "bg-primary text-white shadow-md shadow-black/10 ring-1 ring-white/10"
       : "text-white/75 hover:bg-white/10 hover:text-white"
@@ -17,7 +17,7 @@ function navClasses({ isActive }: { isActive: boolean }): string {
 
 function sectionLabel(text: string) {
   return (
-    <div className="flex items-center gap-3 px-2.5 pt-4 pb-1">
+    <div className="flex items-center gap-3 px-2.5 pt-3 pb-1">
       <span className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/45">
         {text}
       </span>
@@ -151,7 +151,11 @@ const PAGE_TITLES: { prefix: string; title: string; crumb: string }[] = [
   { prefix: "/usuarios", title: "Usuários", crumb: "Painel / Usuários" },
   { prefix: "/categorias", title: "Categorias", crumb: "Painel / Categorias" },
   { prefix: "/profissoes", title: "Profissões", crumb: "Painel / Profissões" },
-  { prefix: "/equipes", title: "Equipes", crumb: "Painel / Administração / Equipes" },
+  {
+    prefix: "/equipes",
+    title: "Equipes",
+    crumb: "Painel / Administração / Equipes",
+  },
   {
     prefix: "/tipos",
     title: "Tipos de necessidade",
@@ -246,7 +250,7 @@ export function AppLayout() {
 
           {/* Navegação */}
           <nav
-            className="mt-1 flex-1 min-h-0 space-y-1 pb-2"
+            className="mt-1 flex-1 min-h-0 space-y-1 pb-1 overflow-hidden"
             aria-label="Navegação principal"
           >
             {sectionLabel("Principal")}

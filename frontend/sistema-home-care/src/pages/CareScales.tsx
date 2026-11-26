@@ -1,3 +1,4 @@
+import { listVisits, statusLabels, type Visit } from "../lib/visits";
 import { useEffect, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 import {
@@ -144,6 +145,53 @@ export function CareScales() {
   const [end, setEnd] = useState("");
   const [observation, setObservation] = useState("");
 
+  const [calendarDate, setCalendarDate] = useState(() => new Date());
+  const [calendarVisits, setCalendarVisits] = useState<Visit[]>([]);
+  const [calendarLoading, setCalendarLoading] = useState(true);
+
+  const year = calendarDate.getFullYear();
+  const month = calendarDate.getMonth();
+
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+
+  const calendarStart = new Date(
+    year,
+    month,
+    1 - ((firstDay.getDay() + 6) % 7),
+  );
+  const calendarEnd = new Date(
+    year,
+    month + 1,
+    7 - ((lastDay.getDay() + 6) % 7),
+  );
+
+  const toISODate = (date: Date) => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, "0");
+    const d = String(date.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  };
+
+  const monthLabel = calendarDate.toLocaleDateString("pt-BR", {
+    month: "long",
+    year: "numeric",
+  });
+
+  const calendarDays = Array.from(
+    {
+      length:
+        Math.round(
+          (calendarEnd.getTime() - calendarStart.getTime()) / 86400000,
+        ) + 1,
+    },
+    (_, index) => {
+      const date = new Date(calendarStart);
+      date.setDate(calendarStart.getDate() + index);
+      return date;
+    },
+  );
+
   useEffect(() => {
     let cancelled = false;
 
@@ -164,7 +212,10 @@ export function CareScales() {
       })
       .catch((err) => {
         if (!cancelled) {
-          const message = err instanceof Error ? err.message : "Falha ao carregar escalas."; setError(message); toast.error(message);
+          const message =
+            err instanceof Error ? err.message : "Falha ao carregar escalas.";
+          setError(message);
+          toast.error(message);
         }
       })
       .finally(() => {
@@ -195,7 +246,10 @@ export function CareScales() {
       setObservation("");
       setCreating(true);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Falha ao carregar planos."; setError(message); toast.error(message);
+      const message =
+        err instanceof Error ? err.message : "Falha ao carregar planos.";
+      setError(message);
+      toast.error(message);
     } finally {
       setBusy(false);
     }
@@ -223,7 +277,10 @@ export function CareScales() {
       toast.success("Escala criada com sucesso.");
       navigate(`/escalas/${scale.id}`);
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Falha ao criar escala."; setError(message); toast.error(message);
+      const message =
+        err instanceof Error ? err.message : "Falha ao criar escala.";
+      setError(message);
+      toast.error(message);
     } finally {
       setBusy(false);
     }
@@ -236,6 +293,35 @@ export function CareScales() {
       return updated;
     });
   }
+  useEffect(() => {
+    let cancelled = false;
+
+    setCalendarLoading(true);
+
+    listVisits({
+      from: toISODate(calendarStart),
+      to: toISODate(calendarEnd),
+    })
+      .then((data) => {
+        if (!cancelled) setCalendarVisits(data.results);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          toast.error(
+            err instanceof Error
+              ? err.message
+              : "Não foi possível carregar o calendário.",
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setCalendarLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [calendarDate]);
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -412,6 +498,126 @@ export function CareScales() {
           </form>
         </section>
       )}
+      {/* Calendário de atendimentos */}
+      <section className="space-y-4 rounded-2xl border border-line bg-surface p-4 shadow-sm sm:p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-primary">
+              Planejamento
+            </p>
+            <h2 className="mt-1 text-lg font-semibold capitalize text-ink">
+              {monthLabel}
+            </h2>
+            <p className="text-sm text-muted">
+              Visualização dos atendimentos programados.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setCalendarDate(new Date())}
+              className="rounded-lg border border-line px-3 py-2 text-sm font-medium text-ink hover:bg-background"
+            >
+              Hoje
+            </button>
+            <button
+              type="button"
+              aria-label="Mês anterior"
+              onClick={() => setCalendarDate(new Date(year, month - 1, 1))}
+              className="rounded-lg border border-line px-3 py-2 text-ink hover:bg-background"
+            >
+              ←
+            </button>
+            <button
+              type="button"
+              aria-label="Próximo mês"
+              onClick={() => setCalendarDate(new Date(year, month + 1, 1))}
+              className="rounded-lg border border-line px-3 py-2 text-ink hover:bg-background"
+            >
+              →
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-7 border-b border-line pb-2 text-center">
+          {["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"].map((day) => (
+            <span key={day} className="text-xs font-semibold text-muted">
+              {day}
+            </span>
+          ))}
+        </div>
+
+        {calendarLoading ? (
+          <div className="py-10 text-center text-sm text-muted">
+            Carregando atendimentos...
+          </div>
+        ) : (
+          <div className="grid grid-cols-7 gap-px overflow-hidden rounded-lg border border-line bg-line">
+            {calendarDays.map((day) => {
+              const dateKey = toISODate(day);
+              const dayVisits = calendarVisits
+                .filter((visit) => visit.visit_date === dateKey)
+                .sort((a, b) => a.start_time.localeCompare(b.start_time));
+
+              const isCurrentMonth = day.getMonth() === month;
+              const isToday = dateKey === toISODate(new Date());
+
+              return (
+                <div
+                  key={dateKey}
+                  className={`min-h-24 min-w-0 bg-surface p-1.5 sm:min-h-32 sm:p-2 ${
+                    !isCurrentMonth ? "opacity-40" : ""
+                  }`}
+                >
+                  <span
+                    className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold ${
+                      isToday ? "bg-primary text-white" : "text-ink"
+                    }`}
+                  >
+                    {day.getDate()}
+                  </span>
+
+                  <div className="mt-1 space-y-1">
+                    {dayVisits.slice(0, 3).map((visit) => (
+                      <Link
+                        key={visit.id}
+                        to={`/agendamentos/${visit.id}`}
+                        title={`${visit.patient_name} · ${visit.professional_name} · ${statusLabels[visit.status]}`}
+                        className="block truncate rounded-md border-l-2 border-primary bg-primary-light px-1 py-1 text-[10px] leading-tight text-primary transition hover:opacity-75 sm:text-xs"
+                      >
+                        <span className="block font-bold">
+                          {visit.start_time.slice(0, 5)}
+                        </span>
+                        <span className="block truncate">
+                          {visit.patient_name}
+                        </span>
+                        <span className="hidden truncate sm:block">
+                          {visit.professional_name}
+                        </span>
+                      </Link>
+                    ))}
+
+                    {dayVisits.length > 3 && (
+                      <p className="px-1 text-[10px] font-medium text-muted">
+                        +{dayVisits.length - 3} atendimentos
+                      </p>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        <div className="flex flex-wrap items-center gap-4 text-xs text-muted">
+          <span className="flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full bg-primary" />
+            Atendimento programado
+          </span>
+          <span>{calendarVisits.length} atendimento(s) no período exibido</span>
+        </div>
+      </section>
 
       {/* Listagem */}
       <section className="space-y-4">

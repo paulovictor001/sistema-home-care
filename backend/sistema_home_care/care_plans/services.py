@@ -71,7 +71,7 @@ def attach_need(*, actor, plan, need):
 def change_status(*, actor, plan, target):
     plan = lock_plan(plan)
     transitions = {
-        (CarePlanStatus.DRAFT, CarePlanStatus.ACTIVE): ('MEDICO',),
+        (CarePlanStatus.DRAFT, CarePlanStatus.ACTIVE): ('MEDICO', 'GERENTE'),
         (CarePlanStatus.ACTIVE, CarePlanStatus.CLOSED): ('MEDICO', 'ENFERMEIRO'),
         (CarePlanStatus.CLOSED, CarePlanStatus.ACTIVE): ('MEDICO', 'ENFERMEIRO'),
     }
@@ -129,7 +129,7 @@ def remove_need(*, actor, link, reason):
 
 @transaction.atomic
 def update_plan(*, actor, plan, data):
-    require_role(actor, 'MEDICO')
+    require_role(actor, 'MEDICO', 'GERENTE')
     if set(data) - {'start_date', 'end_date', 'objective'}:
         raise ValidationError('Campos não editáveis nesta operação.')
     plan = lock_plan(plan)
@@ -145,7 +145,7 @@ def update_plan(*, actor, plan, data):
 
 @transaction.atomic
 def configure_need(*, actor, link, data):
-    require_role(actor, 'MEDICO', 'ENFERMEIRO')
+    require_role(actor, 'MEDICO', 'ENFERMEIRO', 'GERENTE')
     from .serializers import NeedConfigurationSerializer
     # Revalida dentro da transação também para chamadas diretas do serviço.
     payload = dict(data)
